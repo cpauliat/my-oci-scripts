@@ -44,7 +44,7 @@ TENANCYOCID=`egrep "^\[|ocid1.tenancy" $OCI_CONFIG_FILE|sed -n -e "/\[$PROFILE\]
 # -- list instances in the root compartment
 echo
 echo "Compartment root, OCID=$TENANCYOCID"
-oci --profile $PROFILE compute instance list -c $TENANCYOCID --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id}"
+oci --profile $PROFILE compute instance list -c $TENANCYOCID --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Status:\"lifecycle-state\"}"
 
 # -- list instances compartment by compartment (excluding root compartment)
 oci --profile $PROFILE iam compartment list -c $TENANCYOCID --all 2>/dev/null|egrep "name|ocid1.compartment"|awk -F'"' '{ print $4 }'|while read compid
