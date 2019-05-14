@@ -37,7 +37,7 @@ EOF
 
 list_compute_instances()
 {
-  oci --profile $PROFILE compute instance list -c $COMPID --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id}"
+  oci --profile $PROFILE compute instance list -c $COMPID --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Status:\"lifecycle-state\"}"
 }
 
 # ---------------- main
@@ -46,7 +46,7 @@ OCI_CONFIG_FILE=~/.oci/config
 TMP_COMPID_LIST=tmp_compid_list_$$
 
 # -- Check usage
-if [ $# -ne 1 ]; then usage; fi
+if [ $# -ne 2 ]; then usage; fi
 
 PROFILE=$1
 COMPID=$2
@@ -65,6 +65,7 @@ oci --profile $PROFILE iam compartment list -c $TENANCYOCID --all 2>/dev/null|eg
 # -- Check if provided compartment OCID exists
 grep "^$COMPID$" $TMP_COMPID_LIST > /dev/null 2>&1
 if [ $? -ne 0 ]; then echo "ERROR: compartement OCID $COMPID does not exist in this tenancy !"; exit 3; fi
+rm -f $TMP_COMPID_LIST
 
 # -- list instances the compartment
 list_compute_instances

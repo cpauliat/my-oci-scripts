@@ -53,5 +53,5 @@ do
   echo
   echo "Compartment $compname, OCID=$compid"
   #oci --profile $PROFILE compute instance list -c $compid --output table --query "data [*].{CompartmentOCID:\"compartment-id\",InstanceName:\"display-name\", InstanceOCID:id}"
-  oci --profile $PROFILE compute instance list -c $compid --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id}"
+  oci --profile $PROFILE compute instance list -c $compid --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Status:\"lifecycle-state\"}"
 done
