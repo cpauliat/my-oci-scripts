@@ -23,6 +23,9 @@ usage()
 cat << EOF
 Usage: $0 OCI_PROFILE compartment_ocid
 
+For example:
+    $0 EMEAOSCf ocid1.compartment.oc1..aaaaaaaakqmkvukdc2k7rmrhudttz2tpztari36v6mkaikl7wnu2wpkw2iwq
+
 note: OCI_PROFILE must exist in ~/.oci/config file (see example below)
 
 [EMEAOSCf]
@@ -37,7 +40,78 @@ EOF
 
 list_compute_instances()
 {
-  oci --profile $PROFILE compute instance list -c $COMPID --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Status:\"lifecycle-state\"}"
+  echo
+  echo -e "\033[32m========== Compute Instances\033[39m"
+  echo
+  oci --profile $PROFILE compute instance list -c $COMPID --output table --all --query "data [*].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}"
+}
+
+list_custom_images()
+{
+  echo
+  echo -e "\033[32m========== Custom Images\033[39m"
+  echo
+  oci --profile $PROFILE compute image list -c $COMPID --output table --all --query "data [*].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}"
+}
+
+list_boot_volumes()
+{
+  echo
+  echo -e "\033[32m========== Boot volumes\033[39m"
+  echo
+  for ad in $ADS
+  do
+    echo "Availability-domain $ad"
+    oci --profile $PROFILE bv boot-volume list -c $COMPID --output table --all --availability-domain $ad --query "data [*].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}"
+  done
+}
+
+list_boot_volume_backups()
+{
+  echo
+  echo -e "\033[32m========== Boot volume backups\033[39m"
+  echo
+  oci --profile $PROFILE bv boot-volume-backup list -c $COMPID --output table --all --query "data [*].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}"
+}
+
+list_block_volumes()
+{
+  echo
+  echo -e "\033[32m========== Block volumes\033[39m"
+  echo
+  for ad in $ADS
+  do
+    echo "Availability-domain $ad"
+    oci --profile $PROFILE bv volume list -c $COMPID --output table --all --availability-domain $ad --query "data [*].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}"
+  done
+}
+
+list_block_volume_backups()
+{
+  echo
+  echo -e "\033[32m========== Block volume backups\033[39m"
+  echo
+  oci --profile $PROFILE bv backup list -c $COMPID --output table --all --query "data [*].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}"
+}
+
+list_volume_groups()
+{
+  echo
+  echo -e "\033[32m========== Volumes groups\033[39m"
+  echo
+  for ad in $ADS
+  do
+    echo "Availability-domain $ad"
+    oci --profile $PROFILE bv volume-group list -c $COMPID --output table --all --availability-domain $ad --query "data [*].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}"
+  done
+}
+
+list_volume_group_backups()
+{
+  echo
+  echo -e "\033[32m========== Volumes group backups\033[39m"
+  echo
+  oci --profile $PROFILE bv volume-group-backup list -c $COMPID --output table --all --query "data [*].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}"
 }
 
 # ---------------- main
@@ -67,5 +141,15 @@ grep "^$COMPID$" $TMP_COMPID_LIST > /dev/null 2>&1
 if [ $? -ne 0 ]; then echo "ERROR: compartement OCID $COMPID does not exist in this tenancy !"; exit 3; fi
 rm -f $TMP_COMPID_LIST
 
-# -- list instances the compartment
+# -- Get list of availability domains
+ADS=`oci --profile $PROFILE iam availability-domain list|grep name|awk -F'"' '{ print $4 }'`
+
+# -- list objects in compartment
 list_compute_instances
+list_custom_images
+list_boot_volumes
+list_boot_volume_backups
+list_block_volumes
+list_block_volume_backups
+list_volume_groups
+list_volume_group_backups
