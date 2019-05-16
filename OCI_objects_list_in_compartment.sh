@@ -24,7 +24,7 @@ cat << EOF
 Usage: $0 OCI_PROFILE compartment_ocid
 
 For example:
-    $0 EMEAOSCf ocid1.compartment.oc1..aaaaaaaakqmkvukdc2k7rmrhudttz2tpztari36v6mkaikl7wnu2wpkw2iwq
+    $0 EMEAOSCf ocid1.compartment.oc1..aaaaaaaakqmkvukdc2k7rmrhudttz2tpztari36v6mkaikl7wnu2wpkw2iqw
 
 note: OCI_PROFILE must exist in ~/.oci/config file (see example below)
 
@@ -114,6 +114,80 @@ list_volume_group_backups()
   oci --profile $PROFILE bv volume-group-backup list -c $COMPID --output table --all --query "data [*].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}"
 }
 
+list_filesystems()
+{
+  echo
+  echo -e "\033[32m========== File Storage - Filesystems \033[39m"
+  echo
+  for ad in $ADS
+  do
+    echo "Availability-domain $ad"
+    oci --profile $PROFILE fs file-system list -c $COMPID --output table --all --availability-domain $ad --query "data [*].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}"
+  done
+}
+
+list_mount_targets()
+{
+  echo
+  echo -e "\033[32m========== File Storage - Mount targets \033[39m"
+  echo
+  for ad in $ADS
+  do
+    echo "Availability-domain $ad"
+    oci --profile $PROFILE fs mount-target list -c $COMPID --output table --all --availability-domain $ad --query "data [*].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}"
+  done
+}
+
+list_vcns()
+{
+  echo
+  echo -e "\033[32m========== Virtal Cloud Networks (VCNs)\033[39m"
+  echo
+  oci --profile $PROFILE network vcn list -c $COMPID --output table --all --query "data [*].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}"
+}
+
+list_drgs()
+{
+  echo
+  echo -e "\033[32m========== Dynamic Routing Gateways (DRGs)\033[39m"
+  echo
+  oci --profile $PROFILE network drg list -c $COMPID --output table --all --query "data [*].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}"
+}
+
+list_cpes()
+{
+  echo
+  echo -e "\033[32m========== Customer Premises Equipments (CPEs)\033[39m"
+  echo
+  oci --profile $PROFILE network cpe list -c $COMPID --output table --all --query "data [*].{Name:\"display-name\", OCID:id}"
+}
+
+# - networking    : VCN, DRG, CPE, IPsec connection, LB, public IPs
+
+list_ipsecs()
+{
+  echo
+  echo -e "\033[32m========== IPsec connections\033[39m"
+  echo
+  oci --profile $PROFILE network ip-sec-connection list -c $COMPID --output table --all --query "data [*].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}"
+}
+
+list_lbs()
+{
+  echo
+  echo -e "\033[32m========== Load balancers\033[39m"
+  echo
+  oci --profile $PROFILE lb load-balancer list -c $COMPID --output table --all --query "data [*].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}"
+}
+
+list_public_ips()
+{
+  echo
+  echo -e "\033[32m========== Reserved Public IPs\033[39m"
+  echo
+  oci --profile $PROFILE network public-ip list -c $COMPID --scope region --output table --all --query "data [*].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}"
+}
+
 # ---------------- main
 
 OCI_CONFIG_FILE=~/.oci/config
@@ -145,11 +219,21 @@ rm -f $TMP_COMPID_LIST
 ADS=`oci --profile $PROFILE iam availability-domain list|grep name|awk -F'"' '{ print $4 }'`
 
 # -- list objects in compartment
-list_compute_instances
-list_custom_images
-list_boot_volumes
-list_boot_volume_backups
-list_block_volumes
-list_block_volume_backups
-list_volume_groups
-list_volume_group_backups
+
+#list_compute_instances
+#list_custom_images
+#list_boot_volumes
+#list_boot_volume_backups
+#list_block_volumes
+#list_block_volume_backups
+#list_volume_groups
+#list_volume_group_backups
+#list_filesystems
+#list_mount_targets
+
+list_vcns
+list_drgs
+list_cpes
+list_ipsecs
+list_lbs
+list_public_ips
