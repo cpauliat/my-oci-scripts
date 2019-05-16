@@ -220,17 +220,16 @@ ADS=`oci --profile $PROFILE iam availability-domain list|grep name|awk -F'"' '{ 
 
 # -- list objects in compartment
 
-#list_compute_instances
-#list_custom_images
-#list_boot_volumes
-#list_boot_volume_backups
-#list_block_volumes
-#list_block_volume_backups
-#list_volume_groups
-#list_volume_group_backups
-#list_filesystems
-#list_mount_targets
-
+list_compute_instances
+list_custom_images
+list_boot_volumes
+list_boot_volume_backups
+list_block_volumes
+list_block_volume_backups
+list_volume_groups
+list_volume_group_backups
+list_filesystems
+list_mount_targets
 list_vcns
 list_drgs
 list_cpes
