@@ -1,12 +1,12 @@
 # my-oci-scripts
 Scripts I wrote for OCI (Oracle Cloud Infrastructure)
 
-**OCI_instances_list.sh**
+**__OCI_instances_list.sh__**
 
 Bash script to list the instance names and IDs in all compartments in a OCI tenant in a region using OCI CLI
 prerequisites : OCI CLI installed and OCI config file configured with profiles
 
-**OCI_objects_list_in_compartment.sh**
+**__OCI_objects_list_in_compartment.sh__**
 
 Bash script to list OCI objects in a compartment in a region using OCI CLI
 
