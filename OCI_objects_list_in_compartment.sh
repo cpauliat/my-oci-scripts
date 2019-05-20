@@ -51,7 +51,8 @@ list_custom_images()
   echo
   echo -e "\033[32m========== Custom Images\033[39m"
   echo
-  oci --profile $PROFILE compute image list -c $COMPID --output table --all --query "data [*].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}"
+  #oci --profile $PROFILE compute image list -c $COMPID --output table --all --query "data [*].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}"
+  oci --profile $PROFILE compute image list -c $COMPID --output table --all --query "data [?\"compartment-id\"!=null].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}"
 }
 
 list_boot_volumes()
