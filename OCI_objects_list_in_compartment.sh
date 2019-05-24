@@ -3,6 +3,8 @@
 # --------------------------------------------------------------------------------------------------------------
 # This script lists all objects (detailed list below) in a given compartment in a region using OCI CLI
 #
+# Note: it does not list objects in the subcompartments of the given compartment
+#
 # Supported objects:
 # - Compute       : compute instances, custom images, boot volumes, boot volumes backups
 # - Block Storage : block volumes, block volumes backups, volume groups, volume groups backups

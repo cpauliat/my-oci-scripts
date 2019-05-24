@@ -2,9 +2,10 @@
 
 # --------------------------------------------------------------------------------------------------------------
 # This script will list the compartment names and IDs in a OCI tenant using OCI CLI
+# It will also list all subcompartments
 # Note: OCI tenant given by an OCI CLI PROFILE
 # Author        : Christophe Pauliat
-# Last update   : May 16, 2019
+# Last update   : May 24, 2019
 # Platforms     : MacOS / Linux
 # prerequisites : OCI CLI installed and OCI config file configured with profiles
 # --------------------------------------------------------------------------------------------------------------
@@ -38,8 +39,5 @@ PROFILE=$1
 grep "\[$PROFILE\]" $OCI_CONFIG_FILE > /dev/null 2>&1
 if [ $? -ne 0 ]; then echo "ERROR: PROFILE $PROFILE does not exist in file $OCI_CONFIG_FILE !"; exit 2; fi
 
-# -- get tenancy OCID from OCI PROFILE
-TENANCYOCID=`egrep "^\[|ocid1.tenancy" $OCI_CONFIG_FILE|sed -n -e "/\[$PROFILE\]/,/tenancy/p"|tail -1| awk -F'=' '{ print $2 }' | sed 's/ //g'`
-
-# -- list compartments (excluding root compartment)
-oci --profile $PROFILE iam compartment list -c $TENANCYOCID --all --output table --query "data [*].{Name:name, OCID:id, Status:\"lifecycle-state\"}"
+# -- list compartments and all sub-compartments (excluding root compartment)
+oci --profile $PROFILE iam compartment list --compartment-id-in-subtree true --all --output table --query "data [*].{Name:name, OCID:id, Status:\"lifecycle-state\"}"

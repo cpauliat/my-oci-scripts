@@ -46,8 +46,8 @@ echo
 echo "Compartment root, OCID=$TENANCYOCID"
 oci --profile $PROFILE compute instance list -c $TENANCYOCID --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Status:\"lifecycle-state\"}"
 
-# -- list instances compartment by compartment (excluding root compartment)
-oci --profile $PROFILE iam compartment list -c $TENANCYOCID --all 2>/dev/null|egrep "name|ocid1.compartment"|awk -F'"' '{ print $4 }'|while read compid
+# -- list instances compartment by compartment (excluding root compartment but including all subcompartments)
+oci --profile $PROFILE iam compartment list -c $TENANCYOCID --compartment-id-in-subtree true --all 2>/dev/null| egrep "^ *\"name|^ *\"id"|awk -F'"' '{ print $4 }'|while read compid
 do
   read compname
   echo
