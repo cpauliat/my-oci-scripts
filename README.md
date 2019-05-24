@@ -7,6 +7,11 @@ Scripts I created for OCI (Oracle Cloud Infrastructure)
 >
 > prerequisites : OCI CLI installed and OCI config file configured with profiles
 
+### OCI_compartments_list_formatted.sh
+
+> Similar to OCI_compartments_list.sh with formatted output
+> (color and indent to easily identify parents of subcompartments)
+
 ### OCI_instances_list.sh
 
 > Bash script to list the instance names and IDs in all compartments and subcompartments in a OCI tenant in a region using OCI CLI
