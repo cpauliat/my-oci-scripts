@@ -30,5 +30,6 @@ Scripts I created for OCI (Oracle Cloud Infrastructure)
 > - Object Storage: buckets
 > - File Storage  : filesystems, mount targets
 > - Network       : VCNs, DRGs, CPEs, IPsec connections, Public IPs
+> - IAM           : Policies
 >
-> prerequisites : OCI CLI installed and OCI config file configured with profiles
+> prerequisites : jq installed, OCI CLI installed and OCI config file configured with profiles
