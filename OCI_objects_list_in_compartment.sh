@@ -282,6 +282,7 @@ list_all_objects()
   if [ "$lregion" != "$CURRENT_REGION" ]
   then
     cp -p ${OCI_CONFIG_FILE_BACKUP} $OCI_CONFIG_FILE
+    rm -f ${OCI_CONFIG_FILE_BACKUP}
   fi
 }
 
