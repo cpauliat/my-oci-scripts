@@ -5,7 +5,9 @@ Scripts I created for OCI (Oracle Cloud Infrastructure)
 
 > Bash script to display the names and IDs of all compartments and subcompartments in a OCI tenant using OCI CLI
 >
-> prerequisites : OCI CLI installed and OCI config file configured with profiles
+> prerequisites :
+> - OCI CLI installed and OCI config file configured with profiles
+> - OCI user needs enough privileges to read the compartments list
 
 ### OCI_compartments_list_formatted.sh
 
@@ -16,7 +18,9 @@ Scripts I created for OCI (Oracle Cloud Infrastructure)
 
 > Bash script to list the instance names and IDs in all compartments and subcompartments in a OCI tenant in a region using OCI CLI
 >
-> prerequisites : OCI CLI installed and OCI config file configured with profiles
+> Prerequisites :
+> - OCI CLI installed and OCI config file configured with profiles
+> - OCI user needs enough privileges to read all compute instances in all compartments
 
 ### OCI_objects_list_in_compartment.sh
 
@@ -32,4 +36,23 @@ Scripts I created for OCI (Oracle Cloud Infrastructure)
 > - Network       : VCNs, DRGs, CPEs, IPsec connections, Public IPs
 > - IAM           : Policies
 >
-> prerequisites : jq installed, OCI CLI installed and OCI config file configured with profiles
+> Prerequisites :
+- jq installed, OCI CLI installed and OCI config file configured with profiles
+> - OCI user needs enough privileges to read all objects in the compartment
+
+### OCI_objects_list_in_tenancy.sh
+
+> Bash script to list OCI objects in a tenancy (all compartments) in a region or in all active regions using OCI CLI
+>
+> Supported objects:
+> - Compute       : compute instances, custom images, boot volumes, boot volumes backups
+> - Block Storage : block volumes, block volumes backups, volume groups, volume groups backups
+> - Object Storage: buckets
+> - File Storage  : filesystems, mount targets
+> - Network       : VCNs, DRGs, CPEs, IPsec connections, Public IPs
+> - IAM           : Policies
+>
+> Prerequisites :
+> - jq installed, OCI CLI installed and OCI config file configured with profiles
+> - script OCI_objects_list_in_compartment.sh present and accessible (update PATH)
+> - OCI user needs enough privileges to read all objects in all compartments
