@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # --------------------------------------------------------------------------------------------------------------
-# This script lists all objects (detailed list below) in a given compartment in a region using OCI CLI
+# This script lists all objects (detailed list below) in a given compartment in a region or all active regions using OCI CLI
 #
 # Note: this script does not list objects in the subcompartments of the given compartment
 #
@@ -11,10 +11,11 @@
 # - Object Storage: buckets
 # - File Storage  : file systems, mount targets
 # - networking    : VCN, DRG, CPE, IPsec connection, LB, public IPs
+# - IAM           : Policies
 #
 # Note: OCI tenant and region given by an OCI CLI PROFILE
 # Author        : Christophe Pauliat
-# Last update   : May 27, 2019
+# Last update   : May 29, 2019
 # Platforms     : MacOS / Linux
 #
 # prerequisites : jq (JSON parser) installed, OCI CLI installed and OCI config file configured with profiles
@@ -22,6 +23,7 @@
 # Versions
 #    2019-05-14: Initial Version
 #    2019-05-27: Add policies + support for compartment name
+#    2019-05-29: Add -a to list in all active regions
 # --------------------------------------------------------------------------------------------------------------
 
 usage()
