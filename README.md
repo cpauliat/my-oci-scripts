@@ -37,7 +37,7 @@ Scripts I created for OCI (Oracle Cloud Infrastructure)
 > - IAM           : Policies
 >
 > Prerequisites :
-- jq installed, OCI CLI installed and OCI config file configured with profiles
+> - jq installed, OCI CLI installed and OCI config file configured with profiles
 > - OCI user needs enough privileges to read all objects in the compartment
 
 ### OCI_objects_list_in_tenancy.sh
