@@ -20,7 +20,7 @@ Scripts I created for OCI (Oracle Cloud Infrastructure)
 
 ### OCI_objects_list_in_compartment.sh
 
-> Bash script to list OCI objects in a compartment in a region using OCI CLI
+> Bash script to list OCI objects in a compartment in a region or all active regions using OCI CLI
 >
 > Note: it does not list the objects in subcompartments
 >
