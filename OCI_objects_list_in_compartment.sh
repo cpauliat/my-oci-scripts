@@ -29,8 +29,8 @@
 usage()
 {
 cat << EOF
-Usage: $0 OCI_PROFILE [-a] compartment_name
-    or $0 OCI_PROFILE [-a] compartment_ocid
+Usage: $0 [-a] OCI_PROFILE compartment_name
+    or $0 [-a] OCI_PROFILE compartment_ocid
 
     By default, only the objects in the region provided in the profile are listed
     If -a is provided, the objects from all active regions are listed
@@ -53,7 +53,7 @@ EOF
   exit 1
 }
 
-# ---- Colored output or not 
+# ---- Colored output or not
 COLORED_OUTPUT=true
 if [ "$COLORED_OUTPUT" == true ]
 then
