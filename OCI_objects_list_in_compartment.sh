@@ -15,7 +15,6 @@
 #
 # Note: OCI tenant and region given by an OCI CLI PROFILE
 # Author        : Christophe Pauliat
-# Last update   : May 29, 2019
 # Platforms     : MacOS / Linux
 #
 # prerequisites : jq (JSON parser) installed, OCI CLI installed and OCI config file configured with profiles
@@ -24,6 +23,7 @@
 #    2019-05-14: Initial Version
 #    2019-05-27: Add policies + support for compartment name
 #    2019-05-29: Add -a to list in all active regions
+#    2019-05-31: if -h or --help provided, display the usage message
 # --------------------------------------------------------------------------------------------------------------
 
 usage()
@@ -339,6 +339,10 @@ TMP_PROFILE=tmp$$
 
 # -- Check usage
 if [ $# -ne 2 ] && [ $# -ne 3 ]; then usage; fi
+
+if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then usage; fi
+if [ "$2" == "-h" ] || [ "$2" == "--help" ]; then usage; fi
+if [ "$3" == "-h" ] || [ "$3" == "--help" ]; then usage; fi
 
 case $# in
   2) PROFILE=$1;  COMP=$2;  ALL_REGIONS=false
