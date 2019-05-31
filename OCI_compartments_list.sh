@@ -5,9 +5,12 @@
 # It will also list all subcompartments
 # Note: OCI tenant given by an OCI CLI PROFILE
 # Author        : Christophe Pauliat
-# Last update   : May 24, 2019
 # Platforms     : MacOS / Linux
 # prerequisites : OCI CLI installed and OCI config file configured with profiles
+#
+# Versions
+#    2019-05-24: Initial Version
+#    2019-05-31: if -h or --help provided, display the usage message
 # --------------------------------------------------------------------------------------------------------------
 
 usage()
@@ -32,6 +35,7 @@ EOF
 OCI_CONFIG_FILE=~/.oci/config
 
 if [ $# -ne 1 ]; then usage; fi
+if [ "$1"  == "-h" ] || [ "$1"  == "--help" ]; then usage; fi
 
 PROFILE=$1
 
