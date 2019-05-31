@@ -336,6 +336,7 @@ OCI_CONFIG_FILE_BACKUP=~/.oci/config_backup.$$
 TMP_COMPID_LIST=tmp_compid_list_$$
 TMP_COMPNAME_LIST=tmp_compname_list_$$
 TMP_PROFILE=tmp$$
+TMP_FILE=tmp.$$
 
 # -- Check usage
 if [ $# -ne 2 ] && [ $# -ne 3 ]; then usage; fi
@@ -363,13 +364,13 @@ if [ $? -ne 0 ]; then echo "ERROR: profile $PROFILE does not exist in file $OCI_
 # -- get tenancy OCID from OCI PROFILE
 TENANCYOCID=`egrep "^\[|ocid1.tenancy" $OCI_CONFIG_FILE|sed -n -e "/\[$PROFILE\]/,/tenancy/p"|tail -1| awk -F'=' '{ print $2 }' | sed 's/ //g'`
 
-# -- Get the list of compartment OCIDs
+# -- Get the list of compartment OCIDs and names
 echo $TENANCYOCID > $TMP_COMPID_LIST            # root compartment
-oci --profile $PROFILE iam compartment list -c $TENANCYOCID --all |jq '.data[].id' | sed 's#"##g' >> $TMP_COMPID_LIST
-
-# -- Get the list of compartment names
-echo "root" > $TMP_COMPNAME_LIST                # root compartment
-oci --profile $PROFILE iam compartment list -c $TENANCYOCID --all |jq '.data[].name' | sed 's#"##g' >> $TMP_COMPNAME_LIST
+echo "root"       > $TMP_COMPNAME_LIST          # root compartment
+oci --profile $PROFILE iam compartment list -c $TENANCYOCID --all > $TMP_FILE
+jq '.data[].id'   < $TMP_FILE | sed 's#"##g' >> $TMP_COMPID_LIST
+jq '.data[].name' < $TMP_FILE | sed 's#"##g' >> $TMP_COMPNAME_LIST
+rm -f $TMP_FILE
 
 # -- Check if provided compartment is an existing compartment name
 grep "^$COMP" $TMP_COMPNAME_LIST > /dev/null 2>&1
