@@ -76,7 +76,7 @@ which $REQUIRED_SCRIPT > /dev/null 2>&1
 if [ $? -ne 0 ]; then echo "ERROR: required script $REQUIRED_SCRIPT not found ! If present, make sure to update PATH !"; exit 4; fi
 
 # -- Get the names of active compartments
-COMP_LIST=`echo root;oci --profile $PROFILE iam compartment list --all --query "data [?\"lifecycle-state\" == 'ACTIVE']" |jq '.data[].name' | sed 's#"##g'`
+COMP_LIST=`echo root;oci --profile $PROFILE iam compartment list --compartment-id-in-subtree true --all --query "data [?\"lifecycle-state\" == 'ACTIVE']" |jq '.[].name' | sed 's#"##g'`
 
 # -- for all compartements, list all objects
 for comp in $COMP_LIST
