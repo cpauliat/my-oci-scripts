@@ -53,10 +53,18 @@ EOF
   exit 1
 }
 
-# ---- Colored output (modify to "" if you don't want colored output)
-COLOR_TITLE="\033[32m"              # green
-COLOR_COMP="\033[93m"               # light yellow
-COLOR_NORMAL="\033[39m"
+# ---- Colored output or not 
+COLORED_OUTPUT=true
+if [ "$COLORED_OUTPUT" == true ]
+then
+  COLOR_TITLE="\033[32m"              # green
+  COLOR_COMP="\033[93m"               # light yellow
+  COLOR_NORMAL="\033[39m"
+else
+  COLOR_TITLE=""
+  COLOR_COMP=""
+  COLOR_NORMAL=""
+fi
 
 # ---------------- functions to list objects
 list_compute_instances()
