@@ -24,7 +24,7 @@
 #    2019-05-27: Add policies + support for compartment name
 #    2019-05-29: Add -a to list in all active regions
 #    2019-05-31: if -h or --help provided, display the usage message
-#    2019-06-03: fix bug for sub-compartments
+#    2019-06-03: fix bug for sub-compartments + add ctrl-C handler
 # --------------------------------------------------------------------------------------------------------------
 
 usage()
@@ -37,8 +37,8 @@ Usage: $0 [-a] OCI_PROFILE compartment_name
     If -a is provided, the objects from all active regions are listed
 
 Examples:
-    $0 EMEAOSCf -a root
-    $0 EMEAOSCf osci152506_cpauliat
+    $0 -a EMEAOSCf root
+    $0 EMEAOSCf osci157078_cpauliat
     $0 EMEAOSCf ocid1.compartment.oc1..aaaaaaaakqmkvukdc2k7rmrhudttz2tpztari36v6mkaikl7wnu2wpkw2iqw      (non-root compartment OCID)
     $0 EMEAOSCf ocid1.tenancy.oc1..aaaaaaaaw7e6nkszrry6d5h7l6ypedgnj3lfd2eeku6fq4lq34v3r3qqmmqx          (root compartment OCID)
 
@@ -60,10 +60,12 @@ if [ "$COLORED_OUTPUT" == true ]
 then
   COLOR_TITLE="\033[32m"              # green
   COLOR_COMP="\033[93m"               # light yellow
+  COLOR_BREAK="\033[91m"              # light red
   COLOR_NORMAL="\033[39m"
 else
   COLOR_TITLE=""
   COLOR_COMP=""
+  COLOR_BREAK=""
   COLOR_NORMAL=""
 fi
 
@@ -325,14 +327,33 @@ get_all_active_regions()
   oci --profile $PROFILE iam region-subscription list --query "data [].{Region:\"region-name\"}" |jq -r '.[].Region'
 }
 
+trap_ctrl_c()
+{
+  echo
+  echo -e "${COLOR_BREAK}SCRIPT INTERRUPTED BY USER ! ${COLOR_NORMAL}"
+  echo
+
+  rm -f $TMP_COMPID_LIST
+  rm -f $TMP_COMPNAME_LIST
+  rm -f $TMP_FILE
+
+  if [ -f ${OCI_CONFIG_FILE_BACKUP} ]
+  then
+    cp -p ${OCI_CONFIG_FILE_BACKUP} $OCI_CONFIG_FILE
+    rm -f ${OCI_CONFIG_FILE_BACKUP}
+  fi
+
+  exit 99
+}
+
 # ---------------- main
 
 OCI_CONFIG_FILE=~/.oci/config
 OCI_CONFIG_FILE_BACKUP=~/.oci/config_backup.$$
 TMP_COMPID_LIST=tmp_compid_list_$$
 TMP_COMPNAME_LIST=tmp_compname_list_$$
-TMP_PROFILE=tmp$$
 TMP_FILE=tmp.$$
+TMP_PROFILE=tmp$$
 
 # -- Check usage
 if [ $# -ne 2 ] && [ $# -ne 3 ]; then usage; fi
@@ -348,6 +369,9 @@ case $# in
      PROFILE=$2;  COMP=$3;  ALL_REGIONS=true
      ;;
 esac
+
+# -- trap ctrl-c and call ctrl_c()
+trap trap_ctrl_c INT
 
 # -- Check if jq is installed
 which jq > /dev/null 2>&1
