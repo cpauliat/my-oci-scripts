@@ -303,7 +303,7 @@ get_comp_id_from_comp_name()
   then
     echo $TENANCYOCID
   else
-    oci --profile $PROFILE iam compartment list --all --query "data [?\"name\" == '$name'].{id:id}" |jq -r '.[].id'
+    oci --profile $PROFILE iam compartment list --compartment-id-in-subtree true --all --query "data [?\"name\" == '$name'].{id:id}" |jq -r '.[].id'
   fi
 }
 
@@ -315,7 +315,7 @@ get_comp_name_from_comp_id()
   then
     echo root
   else
-    oci --profile $PROFILE iam compartment list --all --query "data [?\"id\" == '$id'].{name:name}" |jq -r '.[].name'
+    oci --profile $PROFILE iam compartment list --compartment-id-in-subtree true --all --query "data [?\"id\" == '$id'].{name:name}" |jq -r '.[].name'
   fi
 }
 
@@ -362,7 +362,7 @@ TENANCYOCID=`egrep "^\[|ocid1.tenancy" $OCI_CONFIG_FILE|sed -n -e "/\[$PROFILE\]
 # -- Get the list of compartment OCIDs and names
 echo $TENANCYOCID > $TMP_COMPID_LIST            # root compartment
 echo "root"       > $TMP_COMPNAME_LIST          # root compartment
-oci --profile $PROFILE iam compartment list -c $TENANCYOCID --all > $TMP_FILE
+oci --profile $PROFILE iam compartment list -c $TENANCYOCID --compartment-id-in-subtree true --all > $TMP_FILE
 jq '.data[].id'   < $TMP_FILE | sed 's#"##g' >> $TMP_COMPID_LIST
 jq '.data[].name' < $TMP_FILE | sed 's#"##g' >> $TMP_COMPNAME_LIST
 rm -f $TMP_FILE
