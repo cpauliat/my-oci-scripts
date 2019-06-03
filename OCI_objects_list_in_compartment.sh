@@ -388,7 +388,7 @@ rm -f $TMP_COMPID_LIST
 rm -f $TMP_COMPNAME_LIST
 
 # -- Get the current region from the profile
-egrep "^[|^region" ${OCI_CONFIG_FILE} | fgrep -A 1 "[${PROFILE}]" |grep "^region" > $TMP_FILE 2>&1
+egrep "^\[|^region" ${OCI_CONFIG_FILE} | fgrep -A 1 "[${PROFILE}]" |grep "^region" > $TMP_FILE 2>&1
 if [ $? -ne 0 ]; then echo "ERROR: region not found in OCI config file $OCI_CONFIG_FILE for profile $PROFILE !"; exit 5; fi
 CURRENT_REGION=`awk -F'=' '{ print $2 }' $TMP_FILE | sed 's# ##g'``
 rm -f $TMP_FILE
