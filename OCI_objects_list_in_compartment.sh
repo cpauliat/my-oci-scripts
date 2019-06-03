@@ -24,7 +24,7 @@
 #    2019-05-27: Add policies + support for compartment name
 #    2019-05-29: Add -a to list in all active regions
 #    2019-05-31: if -h or --help provided, display the usage message
-#    2019-06-03: add support for sub-compartments
+#    2019-06-03: fix bug for sub-compartments
 # --------------------------------------------------------------------------------------------------------------
 
 usage()
