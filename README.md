@@ -1,5 +1,5 @@
 # my-oci-scripts
-Scripts I created for OCI (Oracle Cloud Infrastructure)
+Scripts I developed for OCI (Oracle Cloud Infrastructure)
 
 ### OCI_compartments_list.sh
 
