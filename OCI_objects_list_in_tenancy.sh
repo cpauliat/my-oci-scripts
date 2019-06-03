@@ -13,26 +13,26 @@
 #
 # Note: OCI tenant and region given by an OCI CLI PROFILE
 # Author        : Christophe Pauliat
-# Last update   : May 29, 2019
 # Platforms     : MacOS / Linux
 #
 # prerequisites : jq (JSON parser) installed, OCI CLI installed and OCI config file configured with profiles
 #                 script OCI_objects_list_in_compartment.sh available in PATH
 # Versions
 #    2019-05-29: Initial Version
+#    2019-06-03: Fix error in usage message about -a
 # --------------------------------------------------------------------------------------------------------------
 
 usage()
 {
 cat << EOF
-Usage: $0 OCI_PROFILE [-a]
-    or $0 OCI_PROFILE [-a]
+Usage: $0 [-a] OCI_PROFILE
+    or $0 [-a] OCI_PROFILE
 
     By default, only the objects in the region provided in the profile are listed
     If -a is provided, the objects from all active regions are listed
 
 Examples:
-    $0 EMEAOSCf -a
+    $0 -a EMEAOSCf
     $0 EMEAOSCf
 
 note: OCI_PROFILE must exist in ~/.oci/config file (see example below)
