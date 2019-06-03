@@ -319,11 +319,6 @@ get_comp_name_from_comp_id()
   fi
 }
 
-get_current_region()
-{
-  fgrep -A 5 "[${PROFILE}]" ${OCI_CONFIG_FILE} |grep "^region" | awk -F'=' '{ print $2 }' | sed 's# ##g'
-}
-
 get_all_active_regions()
 {
   oci --profile $PROFILE iam region-subscription list --query "data [].{Region:\"region-name\"}" |jq -r '.[].Region'
@@ -393,7 +388,10 @@ rm -f $TMP_COMPID_LIST
 rm -f $TMP_COMPNAME_LIST
 
 # -- Get the current region from the profile
-CURRENT_REGION=`get_current_region`
+egrep "^[|^region" ${OCI_CONFIG_FILE} | fgrep -A 1 "[${PROFILE}]" |grep "^region" > $TMP_FILE 2>&1
+if [ $? -ne 0 ]; then echo "ERROR: region not found in OCI config file $OCI_CONFIG_FILE for profile $PROFILE !"; exit 5; fi
+CURRENT_REGION=`awk -F'=' '{ print $2 }' $TMP_FILE | sed 's# ##g'``
+rm -f $TMP_FILE
 
 # -- list objects in compartment
 if [ $ALL_REGIONS == false ]
