@@ -352,7 +352,7 @@ OCI_CONFIG_FILE=~/.oci/config
 OCI_CONFIG_FILE_BACKUP=~/.oci/config_backup.$$
 TMP_COMPID_LIST=tmp_compid_list_$$
 TMP_COMPNAME_LIST=tmp_compname_list_$$
-TMP_FILE=tmp.$$
+TMP_FILE=tmp_$$
 TMP_PROFILE=tmp$$
 
 # -- Check usage
