@@ -30,7 +30,7 @@
 #    2019-05-31: if -h or --help provided, display the usage message
 #    2019-06-03: fix bug for sub-compartments + add ctrl-C handler
 #    2019-06-06: list more objects (DATABASE, OBJECT STORAGE, RESOURCE MANAGER, EDGE SERVICES, DEVELOPER SERVICES)
-#    2019-06-06: do not list objects in status TERMINATED
+#    2019-06-06: do not list objects with status TERMINATED
 # --------------------------------------------------------------------------------------------------------------------------
 
 usage()
