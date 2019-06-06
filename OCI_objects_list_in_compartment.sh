@@ -381,6 +381,8 @@ list_all_objects()
     cp -p ${OCI_CONFIG_FILE_BACKUP} $OCI_CONFIG_FILE
     rm -f ${OCI_CONFIG_FILE_BACKUP}
   fi
+
+  echo -e "${COLOR_TITLE}==================== End of OBJECTS LIST in region ${COLOR_COMP}${lregion}${COLOR_NORMAL}"
 }
 
 # ---------------- misc
@@ -415,8 +417,8 @@ get_all_active_regions()
 
 cleanup()
 {
-  rm -f $TMP_COMPID_LIST
-  rm -f $TMP_COMPNAME_LIST
+  rm -f $TMP_FILE_COMPID_LIST
+  rm -f $TMP_FILE_COMPNAME_LIST
   rm -f $TMP_FILE
 }
 
@@ -440,9 +442,9 @@ trap_ctrl_c()
 
 OCI_CONFIG_FILE=~/.oci/config
 OCI_CONFIG_FILE_BACKUP=~/.oci/config_backup.$$
-TMP_COMPID_LIST=tmp_compid_list_$$
-TMP_COMPNAME_LIST=tmp_compname_list_$$
 TMP_FILE=tmp_$$
+TMP_FILE_COMPID_LIST=${TMP_FILE}_compid_list
+TMP_FILE_COMPNAME_LIST=${TMP_FILE}_compname_list
 TMP_PROFILE=tmp$$
 
 # -- Check usage
@@ -475,21 +477,21 @@ if [ $? -ne 0 ]; then echo "ERROR: profile $PROFILE does not exist in file $OCI_
 TENANCYOCID=`egrep "^\[|ocid1.tenancy" $OCI_CONFIG_FILE|sed -n -e "/\[$PROFILE\]/,/tenancy/p"|tail -1| awk -F'=' '{ print $2 }' | sed 's/ //g'`
 
 # -- Get the list of compartment OCIDs and names
-echo $TENANCYOCID > $TMP_COMPID_LIST            # root compartment
-echo "root"       > $TMP_COMPNAME_LIST          # root compartment
+echo $TENANCYOCID > $TMP_FILE_COMPID_LIST            # root compartment
+echo "root"       > $TMP_FILE_COMPNAME_LIST          # root compartment
 oci --profile $PROFILE iam compartment list -c $TENANCYOCID --compartment-id-in-subtree true --all > $TMP_FILE
-jq '.data[].id'   < $TMP_FILE | sed 's#"##g' >> $TMP_COMPID_LIST
-jq '.data[].name' < $TMP_FILE | sed 's#"##g' >> $TMP_COMPNAME_LIST
+jq '.data[].id'   < $TMP_FILE | sed 's#"##g' >> $TMP_FILE_COMPID_LIST
+jq '.data[].name' < $TMP_FILE | sed 's#"##g' >> $TMP_FILE_COMPNAME_LIST
 rm -f $TMP_FILE
 
 # -- Check if provided compartment is an existing compartment name
-grep "^${COMP}$" $TMP_COMPNAME_LIST > /dev/null 2>&1
+grep "^${COMP}$" $TMP_FILE_COMPNAME_LIST > /dev/null 2>&1
 if [ $? -eq 0 ]
 then
   COMPNAME=$COMP; COMPID=`get_comp_id_from_comp_name $COMPNAME`
 else
   # -- if not, check if it is an existing compartment OCID
-  grep "^$COMP" $TMP_COMPID_LIST > /dev/null 2>&1
+  grep "^$COMP" $TMP_FILE_COMPID_LIST > /dev/null 2>&1
   if [ $? -eq 0 ]
   then
     COMPID=$COMP; COMPNAME=`get_comp_name_from_comp_id $COMPID`
