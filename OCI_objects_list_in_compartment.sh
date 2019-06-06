@@ -93,8 +93,8 @@ list_compute_custom_images()
   echo
   echo -e "${COLOR_TITLE}========== COMPUTE: Custom Images${COLOR_NORMAL}"
   echo
-  #oci --profile $PROFILE compute image list -c $COMPID --output table --all --query "data [*].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}"
-  oci --profile $lp compute image list -c $COMPID --output table --all --query "data [?\"compartment-id\"!=null].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}"
+  oci --profile $lp compute image list -c $COMPID --output table --all --query "data [?\"compartment-id\"!=null].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}" 2>/dev/null
+  # 2>/dev/null needed to remove message "Query returned empty result, no output to show."
 }
 
 list_compute_boot_volumes()
@@ -303,7 +303,8 @@ list_edge_services_dns_zones()
   echo
   echo -e "${COLOR_TITLE}========== EDGE SERVICES: DNS zones${COLOR_NORMAL}"
   echo
-  oci --profile $lp dns zone list -c $COMPID --output table --all --query "data [*].{Name:\"name\", OCID:id, Status:\"lifecycle-state\"}"
+  oci --profile $lp dns zone list -c $COMPID --output table --all --query "data [*].{Name:\"name\", OCID:id, Status:\"lifecycle-state\"}" 2>/dev/null
+  # 2>/dev/null needed to remove message "Query returned empty result, no output to show."
 }
 
 list_developer_services_oke()
