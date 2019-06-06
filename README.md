@@ -29,12 +29,16 @@ Scripts I developed for OCI (Oracle Cloud Infrastructure)
 > Note: it does not list the objects in subcompartments
 >
 > Supported objects:
-> - Compute       : compute instances, custom images, boot volumes, boot volumes backups
-> - Block Storage : block volumes, block volumes backups, volume groups, volume groups backups
-> - Object Storage: buckets
-> - File Storage  : filesystems, mount targets
-> - Network       : VCNs, DRGs, CPEs, IPsec connections, Public IPs
-> - IAM           : Policies
+> - COMPUTE            : compute instances, custom images, boot volumes, boot volumes backups
+> - BLOCK STORAGE      : block volumes, block volumes backups, volume groups, volume groups backups
+> - OBJECT STORAGE     : buckets
+> - FILE STORAGE       : file systems, mount targets
+> - NETWORKING         : VCN, DRG, CPE, IPsec connection, LB, public IPs
+> - DATABASE           : DB Systems, DB Systems backups, Autonomous DB, Autonomous DB backups
+> - RESOURCE MANAGER   : Stacks
+> - EDGE SERVICES      : DNS zones
+> - DEVELOPER SERVICES : Container clusters (OKE)
+> - IDENTITY           : Policies
 >
 > Prerequisites :
 > - jq installed, OCI CLI installed and OCI config file configured with profiles
