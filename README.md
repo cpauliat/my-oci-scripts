@@ -48,13 +48,7 @@ Scripts I developed for OCI (Oracle Cloud Infrastructure)
 
 > Bash script to list OCI objects in a tenancy (all compartments) in a region or in all active regions using OCI CLI
 >
-> Supported objects:
-> - Compute       : compute instances, custom images, boot volumes, boot volumes backups
-> - Block Storage : block volumes, block volumes backups, volume groups, volume groups backups
-> - Object Storage: buckets
-> - File Storage  : filesystems, mount targets
-> - Network       : VCNs, DRGs, CPEs, IPsec connections, Public IPs
-> - IAM           : Policies
+> Supported objects: same as OCI_objects_list_in_compartment.sh
 >
 > Prerequisites :
 > - jq installed, OCI CLI installed and OCI config file configured with profiles
