@@ -54,11 +54,13 @@ Prerequisites :
 
 ### OCI_objects_list_in_tenancy.sh
 
-> Bash script to list OCI objects in a tenancy (all compartments) in a region or in all active regions using OCI CLI
->
-> Supported objects: same as OCI_objects_list_in_compartment.sh
->
-> Prerequisites :
-> - jq installed, OCI CLI installed and OCI config file configured with profiles
-> - script OCI_objects_list_in_compartment.sh present and accessible (update PATH)
-> - OCI user needs enough privileges to read all objects in all compartments
+```
+Bash script to list OCI objects in a tenancy (all compartments) in a region or in all active regions using OCI CLI
+
+Supported objects: same as OCI_objects_list_in_compartment.sh
+
+Prerequisites :
+- jq installed, OCI CLI installed and OCI config file configured with profiles
+- script OCI_objects_list_in_compartment.sh present and accessible (update PATH)
+- OCI user needs enough privileges to read all objects in all compartments
+```
