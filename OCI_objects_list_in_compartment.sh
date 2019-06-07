@@ -83,6 +83,35 @@ fi
 
 # ---------------- functions to list objects
 
+# -- list objects common to all regions
+list_identity_policies()
+{
+  echo -e "${COLOR_TITLE2}========== IDENTITY: Policies${COLOR_NORMAL}"
+  oci --profile $PROFILE iam policy list -c $COMPID --output table --all --query 'data[].{Name:name, OCID:id, Status:"lifecycle-state"}'
+}
+
+list_edge_services_dns_zones()
+{
+  echo -e "${COLOR_TITLE2}========== EDGE SERVICES: DNS zones${COLOR_NORMAL}"
+  oci --profile $PROFILE dns zone list -c $COMPID --output table --all --query 'data[].{Name:name, OCID:id, Status:"lifecycle-state"}' 2>/dev/null
+  # 2>/dev/null needed to remove message "Query returned empty result, no output to show."
+}
+
+list_objects_common_to_all_regions()
+{
+  local lcptname=$1
+  local lcptid=$2
+
+  echo
+  echo -e "${COLOR_TITLE1}==================== compartment ${COLOR_COMP}${lcptname}${COLOR_TITLE1} (${COLOR_COMP}${lcptid}${COLOR_TITLE1})"
+  echo -e "${COLOR_TITLE1}==================== BEGIN: objects common to all regions${COLOR_NORMAL}"
+
+  list_edge_services_dns_zones
+  list_identity_policies
+
+  echo -e "${COLOR_TITLE1}==================== END: objects common to all regions${COLOR_NORMAL}"
+}
+
 # -- objects specifics to a region
 list_compute_instances()
 {
@@ -277,8 +306,6 @@ list_developer_services_oke()
 list_region_specific_objects()
 {
   local lregion=$1
-  local lcptname=$2
-  local lcptid=$3
 
   # Get list of availability domains
   ADS=`oci --profile $PROFILE --region $lregion iam availability-domain list|jq '.data[].name'|sed 's#"##g'`
@@ -310,35 +337,6 @@ list_region_specific_objects()
   list_developer_services_oke $lregion
 
   echo -e "${COLOR_TITLE1}==================== END: objects specifics to region ${COLOR_COMP}${lregion}${COLOR_NORMAL}"
-}
-
-# -- list objects common to all regions
-list_identity_policies()
-{
-  echo -e "${COLOR_TITLE2}========== IDENTITY: Policies${COLOR_NORMAL}"
-  oci --profile $PROFILE iam policy list -c $COMPID --output table --all --query 'data[].{Name:name, OCID:id, Status:"lifecycle-state"}'
-}
-
-list_edge_services_dns_zones()
-{
-  echo -e "${COLOR_TITLE2}========== EDGE SERVICES: DNS zones${COLOR_NORMAL}"
-  oci --profile $PROFILE dns zone list -c $COMPID --output table --all --query 'data[].{Name:name, OCID:id, Status:"lifecycle-state"}' 2>/dev/null
-  # 2>/dev/null needed to remove message "Query returned empty result, no output to show."
-}
-
-list_objects_common_to_all_regions()
-{
-  local lcptname=$1
-  local lcptid=$2
-
-  echo
-  echo -e "${COLOR_TITLE1}==================== compartment ${COLOR_COMP}${lcptname}${COLOR_TITLE1} (${COLOR_COMP}${lcptid}${COLOR_TITLE1})"
-  echo -e "${COLOR_TITLE1}==================== BEGIN: objects common to all regions${COLOR_NORMAL}"
-
-  list_edge_services_dns_zones
-  list_identity_policies
-
-  echo -e "${COLOR_TITLE1}==================== END: objects common to all regions${COLOR_NORMAL}"
 }
 
 # ---------------- misc
@@ -450,14 +448,14 @@ else
   fi
 fi
 
-# -- Get the current region from the profile
-egrep "^\[|^region" ${OCI_CONFIG_FILE} | fgrep -A 1 "[${PROFILE}]" |grep "^region" > $TMP_FILE 2>&1
-if [ $? -ne 0 ]; then echo "ERROR: region not found in OCI config file $OCI_CONFIG_FILE for profile $PROFILE !"; cleanup; exit 5; fi
-CURRENT_REGION=`awk -F'=' '{ print $2 }' $TMP_FILE | sed 's# ##g'`
-
 # -- list objects in compartment
 if [ $ALL_REGIONS == false ]
 then
+  # Get the current region from the profile
+  egrep "^\[|^region" ${OCI_CONFIG_FILE} | fgrep -A 1 "[${PROFILE}]" |grep "^region" > $TMP_FILE 2>&1
+  if [ $? -ne 0 ]; then echo "ERROR: region not found in OCI config file $OCI_CONFIG_FILE for profile $PROFILE !"; cleanup; exit 5; fi
+  CURRENT_REGION=`awk -F'=' '{ print $2 }' $TMP_FILE | sed 's# ##g'`
+
   list_objects_common_to_all_regions $COMPNAME $COMPID
   list_region_specific_objects $CURRENT_REGION $COMPNAME $COMPID
 else
@@ -470,7 +468,7 @@ else
 
   for region in $REGIONS_LIST
   do
-    list_region_specific_objects $region $COMPNAME $COMPID
+    list_region_specific_objects $region
   done
 fi
 
