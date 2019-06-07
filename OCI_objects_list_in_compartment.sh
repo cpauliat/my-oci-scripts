@@ -13,9 +13,9 @@
 # - NETWORKING         : VCN, DRG, CPE, IPsec connection, LB, public IPs
 # - DATABASE           : DB Systems, DB Systems backups, Autonomous DB, Autonomous DB backups
 # - RESOURCE MANAGER   : Stacks
-# - EDGE SERVICES      : DNS zones
+# - EDGE SERVICES      : DNS zones (common to all regions)
 # - DEVELOPER SERVICES : Container clusters (OKE)
-# - IDENTITY           : Policies
+# - IDENTITY           : Policies (common to all regions)
 #
 # Note: OCI tenant and region given by an OCI CLI PROFILE
 # Author        : Christophe Pauliat with some help from Matthieu Bordonne
@@ -31,6 +31,7 @@
 #    2019-06-03: fix bug for sub-compartments + add ctrl-C handler
 #    2019-06-06: list more objects (DATABASE, OBJECT STORAGE, RESOURCE MANAGER, EDGE SERVICES, DEVELOPER SERVICES)
 #    2019-06-06: do not list objects with status TERMINATED
+#    2019-06-07: separate objects specific to a region and objects common to all regions
 # --------------------------------------------------------------------------------------------------------------------------
 
 usage()
@@ -81,6 +82,8 @@ else
 fi
 
 # ---------------- functions to list objects
+
+# -- objects specifics to a region
 list_compute_instances()
 {
   local lr=$1
@@ -263,14 +266,6 @@ list_resource_manager_stacks()
   oci --profile $PROFILE resource-manager stack list -c $COMPID --region $lr --output table --all --query 'data[].{Name:"display-name", OCID:id, Status:"lifecycle-state"}'
 }
 
-list_edge_services_dns_zones()
-{
-  local lr=$1
-  echo -e "${COLOR_TITLE2}========== EDGE SERVICES: DNS zones${COLOR_NORMAL}"
-  oci --profile $PROFILE dns zone list -c $COMPID --region $lr --output table --all --query 'data[].{Name:name, OCID:id, Status:"lifecycle-state"}' 2>/dev/null
-  # 2>/dev/null needed to remove message "Query returned empty result, no output to show."
-}
-
 list_developer_services_oke()
 {
   local lr=$1
@@ -278,26 +273,17 @@ list_developer_services_oke()
   oci --profile $PROFILE ce cluster list -c $COMPID --region $lr --output table --all --query 'data[].{Name:name, OCID:id, Status:"lifecycle-state"}'
 }
 
-list_identity_policies()
-{
-  local lr=$1
-  echo -e "${COLOR_TITLE2}========== IDENTITY: Policies${COLOR_NORMAL}"
-  oci --profile $PROFILE iam policy list -c $COMPID --region $lr --output table --all --query 'data[].{Name:name, OCID:id, Status:"lifecycle-state"}'
-}
-
-list_all_objects()
+# -- list region specific objects
+list_region_specific_objects()
 {
   local lregion=$1
   local lcptname=$2
   local lcptid=$3
 
-  # -- Get list of availability domains
+  # Get list of availability domains
   ADS=`oci --profile $PROFILE --region $lregion iam availability-domain list|jq '.data[].name'|sed 's#"##g'`
 
-  echo
-  echo -e "${COLOR_TITLE1}==================== OCI Objects list for compartment ${COLOR_COMP}${lcptname}"
-  echo -e "${COLOR_TITLE1}====================     (${COLOR_COMP}${lcptid}${COLOR_TITLE1})"
-  echo -e "${COLOR_TITLE1}==================== in region ${COLOR_COMP}${lregion}${COLOR_NORMAL}"
+  echo -e "${COLOR_TITLE1}==================== BEGIN: objects specifics to region ${COLOR_COMP}${lregion}${COLOR_NORMAL}"
 
   list_compute_instances $lregion
   list_compute_custom_images $lregion
@@ -321,11 +307,38 @@ list_all_objects()
   list_database_autonomous_db $lregion
   list_database_autonomous_backups $lregion
   list_resource_manager_stacks $lregion
-  list_edge_services_dns_zones $lregion
   list_developer_services_oke $lregion
-  list_identity_policies $lregion
 
-  echo -e "${COLOR_TITLE1}==================== End of OBJECTS LIST in region ${COLOR_COMP}${lregion}${COLOR_NORMAL}"
+  echo -e "${COLOR_TITLE1}==================== END: objects specifics to region ${COLOR_COMP}${lregion}${COLOR_NORMAL}"
+}
+
+# -- list objects common to all regions
+list_identity_policies()
+{
+  echo -e "${COLOR_TITLE2}========== IDENTITY: Policies${COLOR_NORMAL}"
+  oci --profile $PROFILE iam policy list -c $COMPID --output table --all --query 'data[].{Name:name, OCID:id, Status:"lifecycle-state"}'
+}
+
+list_edge_services_dns_zones()
+{
+  echo -e "${COLOR_TITLE2}========== EDGE SERVICES: DNS zones${COLOR_NORMAL}"
+  oci --profile $PROFILE dns zone list -c $COMPID --output table --all --query 'data[].{Name:name, OCID:id, Status:"lifecycle-state"}' 2>/dev/null
+  # 2>/dev/null needed to remove message "Query returned empty result, no output to show."
+}
+
+list_objects_common_to_all_regions()
+{
+  local lcptname=$1
+  local lcptid=$2
+
+  echo
+  echo -e "${COLOR_TITLE1}==================== compartment ${COLOR_COMP}${lcptname}${COLOR_TITLE1} (${COLOR_COMP}${lcptid}${COLOR_TITLE1})"
+  echo -e "${COLOR_TITLE1}==================== BEGIN: objects common to all regions${COLOR_NORMAL}"
+
+  list_edge_services_dns_zones
+  list_identity_policies
+
+  echo -e "${COLOR_TITLE1}==================== END: objects common to all regions${COLOR_NORMAL}"
 }
 
 # ---------------- misc
@@ -445,15 +458,19 @@ CURRENT_REGION=`awk -F'=' '{ print $2 }' $TMP_FILE | sed 's# ##g'`
 # -- list objects in compartment
 if [ $ALL_REGIONS == false ]
 then
-  list_all_objects $CURRENT_REGION $COMPNAME $COMPID
+  list_objects_common_to_all_regions $COMPNAME $COMPID
+  list_region_specific_objects $CURRENT_REGION $COMPNAME $COMPID
 else
   REGIONS_LIST=`get_all_active_regions`
+
   echo -e "${COLOR_TITLE1}==================== List of active regions in tenancy${COLOR_NORMAL}"
   for region in $REGIONS_LIST; do echo $region; done
 
+  list_objects_common_to_all_regions $COMPNAME $COMPID
+
   for region in $REGIONS_LIST
   do
-    list_all_objects $region $COMPNAME $COMPID
+    list_region_specific_objects $region $COMPNAME $COMPID
   done
 fi
 
