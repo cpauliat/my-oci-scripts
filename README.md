@@ -24,25 +24,27 @@ Scripts I developed for OCI (Oracle Cloud Infrastructure) with precious help fro
 
 ### OCI_objects_list_in_compartment.sh
 
-> Bash script to list OCI objects in a compartment in a region or in all active regions using OCI CLI
->
-> Note: it does not list the objects in subcompartments
->
-> Supported objects:
-> - COMPUTE            : compute instances, custom images, boot volumes, boot volumes backups
-> - BLOCK STORAGE      : block volumes, block volumes backups, volume groups, volume groups backups
-> - OBJECT STORAGE     : buckets
-> - FILE STORAGE       : file systems, mount targets
-> - NETWORKING         : VCN, DRG, CPE, IPsec connection, LB, public IPs
-> - DATABASE           : DB Systems, DB Systems backups, Autonomous DB, Autonomous DB backups
-> - RESOURCE MANAGER   : Stacks
-> - EDGE SERVICES      : DNS zones
-> - DEVELOPER SERVICES : Container clusters (OKE)
-> - IDENTITY           : Policies
->
-> Prerequisites :
-> - jq installed, OCI CLI installed and OCI config file configured with profiles
-> - OCI user needs enough privileges to read all objects in the compartment
+```
+Bash script to list OCI objects in a compartment in a region or in all active regions using OCI CLI
+
+Note: it does not list the objects in subcompartments
+
+Supported objects:
+- COMPUTE            : compute instances, custom images, boot volumes, boot volumes backups
+- BLOCK STORAGE      : block volumes, block volumes backups, volume groups, volume groups backups
+- OBJECT STORAGE     : buckets
+- FILE STORAGE       : file systems, mount targets
+- NETWORKING         : VCN, DRG, CPE, IPsec connection, LB, public IPs
+- DATABASE           : DB Systems, DB Systems backups, Autonomous DB, Autonomous DB backups
+- RESOURCE MANAGER   : Stacks
+- EDGE SERVICES      : DNS zones
+- DEVELOPER SERVICES : Container clusters (OKE)
+- IDENTITY           : Policies
+
+Prerequisites :
+- jq installed, OCI CLI installed and OCI config file configured with profiles
+- OCI user needs enough privileges to read all objects in the compartment
+```
 
 ### OCI_objects_list_in_tenancy.sh
 
