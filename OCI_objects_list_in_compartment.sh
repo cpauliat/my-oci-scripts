@@ -461,7 +461,7 @@ then
 else
   REGIONS_LIST=`get_all_active_regions`
 
-  echo -e "${COLOR_TITLE1}==================== List of active  regions in tenancy${COLOR_NORMAL}"
+  echo -e "${COLOR_TITLE1}==================== List of active regions in tenancy${COLOR_NORMAL}"
   for region in $REGIONS_LIST; do echo $region; done
 
   list_objects_common_to_all_regions $COMPNAME $COMPID
