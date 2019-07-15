@@ -16,6 +16,7 @@
 # - EDGE SERVICES      : DNS zones (common to all regions)
 # - DEVELOPER SERVICES : Container clusters (OKE)
 # - IDENTITY           : Policies (common to all regions)
+# - GOVERNANCE         : Tags namespaces
 #
 # Note: OCI tenant and region given by an OCI CLI PROFILE
 # Author        : Christophe Pauliat with some help from Matthieu Bordonne
@@ -32,6 +33,7 @@
 #    2019-06-06: list more objects (DATABASE, OBJECT STORAGE, RESOURCE MANAGER, EDGE SERVICES, DEVELOPER SERVICES)
 #    2019-06-06: do not list objects with status TERMINATED
 #    2019-06-07: separate objects specific to a region and objects common to all regions
+#    2019-07-15: add tag namespaces
 # --------------------------------------------------------------------------------------------------------------------------
 
 usage()
@@ -97,6 +99,13 @@ list_edge_services_dns_zones()
   # 2>/dev/null needed to remove message "Query returned empty result, no output to show."
 }
 
+list_governance_tag_namespaces()
+{
+  echo -e "${COLOR_TITLE2}========== GOVERNANCE: Tag Namespaces${COLOR_NORMAL}"
+  oci --profile $PROFILE iam tag-namespace list -c $COMPID --output table --all --query 'data[].{Name:name, OCID:id, Status:"lifecycle-state"}' 2>/dev/null
+  # 2>/dev/null needed to remove message "Query returned empty result, no output to show."
+}
+
 list_objects_common_to_all_regions()
 {
   local lcptname=$1
@@ -108,6 +117,7 @@ list_objects_common_to_all_regions()
 
   list_edge_services_dns_zones
   list_identity_policies
+  list_governance_tag_namespaces
 
   echo -e "${COLOR_TITLE1}==================== END: objects common to all regions${COLOR_NORMAL}"
 }
