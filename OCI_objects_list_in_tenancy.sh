@@ -20,6 +20,7 @@
 # Versions
 #    2019-05-29: Initial Version
 #    2019-06-03: Fix error in usage message about -a
+#    2019-07-15: Use dirname $0 to find required script
 # --------------------------------------------------------------------------------------------------------------
 
 usage()
@@ -50,7 +51,8 @@ EOF
 # ---------------- main
 
 OCI_CONFIG_FILE=~/.oci/config
-REQUIRED_SCRIPT=OCI_objects_list_in_compartment.sh
+DIR=`dirname $0`
+REQUIRED_SCRIPT=$DIR/OCI_objects_list_in_compartment.sh
 
 # -- Check usage
 if [ $# -ne 1 ] && [ $# -ne 2 ]; then usage; fi
