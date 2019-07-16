@@ -10,13 +10,12 @@
 # - BLOCK STORAGE      : block volumes, block volumes backups, volume groups, volume groups backups
 # - OBJECT STORAGE     : buckets
 # - FILE STORAGE       : file systems, mount targets
-# - NETWORKING         : VCN, DRG, CPE, IPsec connection, LB, public IPs
+# - NETWORKING         : VCN, DRG, CPE, IPsec connection, LB, public IPs, DNS zones (common to all regions)
 # - DATABASE           : DB Systems, DB Systems backups, Autonomous DB, Autonomous DB backups
 # - RESOURCE MANAGER   : Stacks
-# - EDGE SERVICES      : DNS zones (common to all regions)
 # - DEVELOPER SERVICES : Container clusters (OKE)
 # - IDENTITY           : Policies (common to all regions)
-# - GOVERNANCE         : Tags namespaces
+# - GOVERNANCE         : Tags namespaces (common to all regions)
 #
 # Note: OCI tenant and region given by an OCI CLI PROFILE
 # Author        : Christophe Pauliat with some help from Matthieu Bordonne
@@ -34,6 +33,7 @@
 #    2019-06-06: do not list objects with status TERMINATED
 #    2019-06-07: separate objects specific to a region and objects common to all regions
 #    2019-07-15: add tag namespaces
+#    2019-07-16: change title for DNS zone as now in Networking instead of Edge Services
 # --------------------------------------------------------------------------------------------------------------------------
 
 usage()
@@ -92,9 +92,9 @@ list_identity_policies()
   oci --profile $PROFILE iam policy list -c $COMPID --output table --all --query 'data[].{Name:name, OCID:id, Status:"lifecycle-state"}'
 }
 
-list_edge_services_dns_zones()
+list_networking_dns_zones()
 {
-  echo -e "${COLOR_TITLE2}========== EDGE SERVICES: DNS zones${COLOR_NORMAL}"
+  echo -e "${COLOR_TITLE2}========== NETWORKING: DNS zones${COLOR_NORMAL}"
   oci --profile $PROFILE dns zone list -c $COMPID --output table --all --query 'data[].{Name:name, OCID:id, Status:"lifecycle-state"}' 2>/dev/null
   # 2>/dev/null needed to remove message "Query returned empty result, no output to show."
 }
@@ -115,7 +115,7 @@ list_objects_common_to_all_regions()
   echo -e "${COLOR_TITLE1}==================== compartment ${COLOR_COMP}${lcptname}${COLOR_TITLE1} (${COLOR_COMP}${lcptid}${COLOR_TITLE1})"
   echo -e "${COLOR_TITLE1}==================== BEGIN: objects common to all regions${COLOR_NORMAL}"
 
-  list_edge_services_dns_zones
+  list_networking_dns_zones
   list_identity_policies
   list_governance_tag_namespaces
 
