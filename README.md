@@ -28,6 +28,16 @@ Prerequisites :
 - OCI user needs enough privileges to read all compute instances in all compartments
 ```
 
+### OCI_limits_compute.sh
+
+```
+Bash script to display the limits for compute in a OCI tenant using OCI CLI for one region or all subscribed region
+
+prerequisites :
+- OCI CLI 2.6.2 or later installed and OCI config file configured with profiles
+- OCI user needs enough privileges to read the compartments list
+```
+
 ### OCI_objects_list_in_compartment.sh
 
 ```
