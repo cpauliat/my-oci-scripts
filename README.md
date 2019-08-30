@@ -31,7 +31,8 @@ Prerequisites :
 ### OCI_limits_compute.sh
 
 ```
-Bash script to display the limits for compute in a OCI tenant using OCI CLI for one region or all subscribed region
+Bash script to display the limits for compute in a OCI tenant using OCI CLI
+for one region or all subscribed region
 
 prerequisites :
 - OCI CLI 2.6.2 or later installed and OCI config file configured with profiles
