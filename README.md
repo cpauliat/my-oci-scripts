@@ -4,7 +4,8 @@ Scripts I developed for OCI (Oracle Cloud Infrastructure) with precious help fro
 ### OCI_compartments_list.sh
 
 ```
-Bash script to display the names and IDs of all compartments and subcompartments in a OCI tenant using OCI CLI
+Bash script to display the names and IDs of all compartments and subcompartments
+in a OCI tenant using OCI CLI
 
 prerequisites :
 - OCI CLI installed and OCI config file configured with profiles
@@ -21,7 +22,8 @@ Similar to OCI_compartments_list.sh with formatted output
 ### OCI_instances_list.sh
 
 ```
-Bash script to list the instance names and IDs in all compartments and subcompartments in a OCI tenant in a region using OCI CLI
+Bash script to list the instance names and IDs in all compartments and subcompartments
+in a OCI tenant in a region using OCI CLI
 
 Prerequisites :
 - OCI CLI installed and OCI config file configured with profiles
@@ -32,7 +34,7 @@ Prerequisites :
 
 ```
 Bash script to display the limits for compute in a OCI tenant using OCI CLI
-for one region or all subscribed region
+in a region or in all active regions using OCI CLI
 
 prerequisites :
 - OCI CLI 2.6.2 or later installed and OCI config file configured with profiles
@@ -66,7 +68,8 @@ Prerequisites :
 ### OCI_objects_list_in_tenancy.sh
 
 ```
-Bash script to list OCI objects in a tenancy (all compartments) in a region or in all active regions using OCI CLI
+ash script to list OCI objects in a tenancy (all compartments) in a region 
+or in all active regions using OCI CLI
 
 Supported objects: same as OCI_objects_list_in_compartment.sh
 
