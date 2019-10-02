@@ -34,19 +34,25 @@
 #    2019-06-07: separate objects specific to a region and objects common to all regions
 #    2019-07-15: add tag namespaces
 #    2019-07-16: change title for DNS zone as now in Networking instead of Edge Services
+#    2019-10-02: add support for sub-compartments (-r option) + print full compartment name
 # --------------------------------------------------------------------------------------------------------------------------
 
 usage()
 {
 cat << EOF
-Usage: $0 [-a] OCI_PROFILE compartment_name
-    or $0 [-a] OCI_PROFILE compartment_ocid
+Usage: $0 [-a] [-r] OCI_PROFILE compartment_name
+    or $0 [-a] [-r] OCI_PROFILE compartment_ocid
 
     By default, only the objects in the region provided in the profile are listed
     If -a is provided, the objects from all active regions are listed
 
+    If -r is provided (recursive option), objects in active sub-compartments will also be listed.
+
+    Note: if both -a and -r are provided, -a must be first argument and -r second argument
+
 Examples:
     $0 -a EMEAOSCf root
+    $0 -r EMEAOSCf oscinternal
     $0 EMEAOSCf osci157078_cpauliat
     $0 EMEAOSCf ocid1.compartment.oc1..aaaaaaaakqmkvukdc2k7rmrhudttz2tpztari36v6mkaikl7wnu2wpkw2iqw      (non-root compartment OCID)
     $0 EMEAOSCf ocid1.tenancy.oc1..aaaaaaaaw7e6nkszrry6d5h7l6ypedgnj3lfd2eeku6fq4lq34v3r3qqmmqx          (root compartment OCID)
@@ -68,13 +74,15 @@ EOF
 COLORED_OUTPUT=true
 if [ "$COLORED_OUTPUT" == true ]
 then
-  COLOR_TITLE1="\033[91m"             # green
+  COLOR_TITLE0="\033[95m"             # light magenta
+  COLOR_TITLE1="\033[91m"             # light red
   COLOR_TITLE2="\033[32m"             # green
   COLOR_AD="\033[94m"                 # light blue
   COLOR_COMP="\033[93m"               # light yellow
   COLOR_BREAK="\033[91m"              # light red
   COLOR_NORMAL="\033[39m"
 else
+  COLOR_TITLE0=""
   COLOR_TITLE1=""
   COLOR_TITLE2=""
   COLOR_AD=""
@@ -112,7 +120,7 @@ list_objects_common_to_all_regions()
   local lcptid=$2
 
   echo
-  echo -e "${COLOR_TITLE1}==================== compartment ${COLOR_COMP}${lcptname}${COLOR_TITLE1} (${COLOR_COMP}${lcptid}${COLOR_TITLE1})"
+  echo -e "${COLOR_TITLE0}============================ COMPARTMENT ${COLOR_COMP}${lcptname}${COLOR_TITLE0} (${COLOR_COMP}${lcptid}${COLOR_TITLE1})"
   echo -e "${COLOR_TITLE1}==================== BEGIN: objects common to all regions${COLOR_NORMAL}"
 
   list_networking_dns_zones
@@ -122,7 +130,7 @@ list_objects_common_to_all_regions()
   echo -e "${COLOR_TITLE1}==================== END: objects common to all regions${COLOR_NORMAL}"
 }
 
-# -- objects specifics to a region
+# -- objects specific to a region
 list_compute_instances()
 {
   local lr=$1
@@ -320,7 +328,7 @@ list_region_specific_objects()
   # Get list of availability domains
   ADS=`oci --profile $PROFILE --region $lregion iam availability-domain list|jq '.data[].name'|sed 's#"##g'`
 
-  echo -e "${COLOR_TITLE1}==================== BEGIN: objects specifics to region ${COLOR_COMP}${lregion}${COLOR_NORMAL}"
+  echo -e "${COLOR_TITLE1}==================== BEGIN: objects specific to region ${COLOR_COMP}${lregion}${COLOR_NORMAL}"
 
   list_compute_instances $lregion
   list_compute_custom_images $lregion
@@ -346,7 +354,7 @@ list_region_specific_objects()
   list_resource_manager_stacks $lregion
   list_developer_services_oke $lregion
 
-  echo -e "${COLOR_TITLE1}==================== END: objects specifics to region ${COLOR_COMP}${lregion}${COLOR_NORMAL}"
+  echo -e "${COLOR_TITLE1}==================== END: objects specific to region ${COLOR_COMP}${lregion}${COLOR_NORMAL}"
 }
 
 # ---------------- misc
@@ -374,6 +382,21 @@ get_comp_name_from_comp_id()
   fi
 }
 
+get_comp_full_name_from_comp_id()
+{
+  local id=$1
+  echo $id | grep "ocid1.tenancy.oc1" > /dev/null 2>&1
+  if [ $? -eq 0 ]
+  then
+    echo root
+  else
+    short_name=`oci --profile $PROFILE iam compartment list --compartment-id-in-subtree true --all --query "data [?\"id\" == '$id'].{name:name}" |jq -r '.[].name'`
+    parent_id=`oci --profile $PROFILE iam compartment list --compartment-id-in-subtree true --all --query "data [?\"id\" == '$id'].{parentid:\"compartment-id\"}" |jq -r '.[].parentid'`
+    parent_full_name=`get_comp_full_name_from_comp_id $parent_id`
+    echo "${parent_full_name}/${short_name}"
+  fi
+}
+
 get_all_active_regions()
 {
   oci --profile $PROFILE iam region-subscription list --query "data [].{Region:\"region-name\"}" |jq -r '.[].Region'
@@ -396,6 +419,28 @@ trap_ctrl_c()
   exit 99
 }
 
+do_it_in_sub_compt()
+{
+  local lregion_list=$1
+  local lcompid=$2
+  
+  # get the list of ACTIVE direct sub-compartments.
+  cptid_list=`oci --profile $PROFILE iam compartment list -c $lcompid --all --query "data [?\"lifecycle-state\" == 'ACTIVE'].{id:id}" |jq -r '.[].id'`
+  if [ "$cptid_list" == "" ]; then return; fi
+
+  for cptid in $cptid_list
+  do 
+    cptname=`get_comp_full_name_from_comp_id $cptid`
+    echo
+    list_objects_common_to_all_regions $cptname $cptid
+    for lregion in $lregion_list
+    do
+      list_region_specific_objects $lregion $cptname $cptid
+    done 
+    do_it_in_sub_compt "$lregion_list" $cptid
+  done
+}  
+
 # ---------------- main
 
 OCI_CONFIG_FILE=~/.oci/config
@@ -405,17 +450,28 @@ TMP_FILE_COMPNAME_LIST=${TMP_FILE}_compname_list
 TMP_PROFILE=tmp$$
 
 # -- Check usage
-if [ $# -ne 2 ] && [ $# -ne 3 ]; then usage; fi
+
+ALL_REGIONS=false
+INCLUDE_SUB_CPT=false
+
+if [ $# -ne 2 ] && [ $# -ne 3 ] && [ $# -ne 4 ]; then usage; fi
 
 if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then usage; fi
 if [ "$2" == "-h" ] || [ "$2" == "--help" ]; then usage; fi
 if [ "$3" == "-h" ] || [ "$3" == "--help" ]; then usage; fi
+if [ "$4" == "-h" ] || [ "$4" == "--help" ]; then usage; fi
 
 case $# in
-  2) PROFILE=$1;  COMP=$2;  ALL_REGIONS=false
+  2) PROFILE=$1;  COMP=$2;  
      ;;
-  3) if [ "$1" != "-a" ]; then usage; fi
-     PROFILE=$2;  COMP=$3;  ALL_REGIONS=true
+  3) PROFILE=$2;  COMP=$3;  
+     if [ "$1" == "-a" ]; then ALL_REGIONS=true;
+       elif [ "$1" == "-r" ]; then INCLUDE_SUB_CPT=true; 
+       else usage; fi
+     ;;
+  4) PROFILE=$3;  COMP=$4;  
+     if [ "$1" == "-a" ]; then ALL_REGIONS=true; else usage; fi
+     if [ "$2" == "-r" ]; then INCLUDE_SUB_CPT=true; else usage; fi
      ;;
 esac
 
@@ -445,13 +501,15 @@ rm -f $TMP_FILE
 grep "^${COMP}$" $TMP_FILE_COMPNAME_LIST > /dev/null 2>&1
 if [ $? -eq 0 ]
 then
-  COMPNAME=$COMP; COMPID=`get_comp_id_from_comp_name $COMPNAME`
+  COMPID=`get_comp_id_from_comp_name $COMP`
+  COMPNAME=`get_comp_full_name_from_comp_id $COMPID`
 else
   # -- if not, check if it is an existing compartment OCID
   grep "^$COMP" $TMP_FILE_COMPID_LIST > /dev/null 2>&1
   if [ $? -eq 0 ]
   then
-    COMPID=$COMP; COMPNAME=`get_comp_name_from_comp_id $COMPID`
+    COMPID=$COMP
+    COMPNAME=`get_comp_full_name_from_comp_id $COMPID`
   else
     echo "ERROR: $COMP is not an existing compartment name or compartment id in this tenancy !"
     cleanup; exit 4
@@ -468,6 +526,8 @@ then
 
   list_objects_common_to_all_regions $COMPNAME $COMPID
   list_region_specific_objects $CURRENT_REGION $COMPNAME $COMPID
+
+  if [ $INCLUDE_SUB_CPT == true ]; then do_it_in_sub_compt $CURRENT_REGION $COMPID; fi
 else
   REGIONS_LIST=`get_all_active_regions`
 
@@ -480,6 +540,8 @@ else
   do
     list_region_specific_objects $region
   done
+
+  if [ $INCLUDE_SUB_CPT == true ]; then do_it_in_sub_compt "$REGIONS_LIST" $COMPID; fi
 fi
 
 # -- Normal completion of script without errors

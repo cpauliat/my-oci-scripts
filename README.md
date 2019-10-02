@@ -46,7 +46,7 @@ prerequisites :
 ```
 Bash script to list OCI objects in a compartment in a region or in all active regions using OCI CLI
 
-Note: it does not list the objects in subcompartments
+Note: optionally (-r) it can list the objects in sub-compartments
 
 Supported objects:
 - COMPUTE            : compute instances, custom images, boot volumes, boot volumes backups
