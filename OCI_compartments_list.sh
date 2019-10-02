@@ -11,14 +11,20 @@
 # Versions
 #    2019-05-24: Initial Version
 #    2019-05-31: if -h or --help provided, display the usage message
+#    2019-10-02: change default behaviour (does not display deleted compartment)
+#                and add option -d to list deleted compartments
 # --------------------------------------------------------------------------------------------------------------
 
 usage()
 {
 cat << EOF
-Usage: $0 OCI_PROFILE
+Usage: $0 [-d] OCI_PROFILE
+
+    If -d is provided, deleted compartments are also listed.
+    If not, only active compartments are listed.
 
 note: OCI_PROFILE must exist in ~/.oci/config file (see example below)
+
 
 [EMEAOSCf]
 tenancy     = ocid1.tenancy.oc1..aaaaaaaaw7e6nkszrry6d5hxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
@@ -33,15 +39,29 @@ EOF
 # -------- main
 
 OCI_CONFIG_FILE=~/.oci/config
+LIST_DELETED=false
 
-if [ $# -ne 1 ]; then usage; fi
+if [ $# -ne 1 ] && [ $# -ne 2 ]; then usage; fi
+
 if [ "$1"  == "-h" ] || [ "$1"  == "--help" ]; then usage; fi
+if [ "$2"  == "-h" ] || [ "$2"  == "--help" ]; then usage; fi
 
-PROFILE=$1
+case $# in 
+1) PROFILE=$1
+   ;;
+2) PROFILE=$2
+   if [ "$1" == "-d" ]; then LIST_DELETED=true; else usage; fi
+   ;;
+esac
 
 # -- Check if the PROFILE exists
 grep "\[$PROFILE\]" $OCI_CONFIG_FILE > /dev/null 2>&1
 if [ $? -ne 0 ]; then echo "ERROR: PROFILE $PROFILE does not exist in file $OCI_CONFIG_FILE !"; exit 2; fi
 
 # -- list compartments and all sub-compartments (excluding root compartment)
-oci --profile $PROFILE iam compartment list --compartment-id-in-subtree true --all --output table --query "data [*].{Name:name, OCID:id, Status:\"lifecycle-state\"}"
+if [ $LIST_DELETED == true ]
+then
+  oci --profile $PROFILE iam compartment list --compartment-id-in-subtree true --all --output table --query "data [*].{Name:name, OCID:id, Status:\"lifecycle-state\"}"
+else
+  oci --profile $PROFILE iam compartment list --compartment-id-in-subtree true --all --output table --query "data [?\"lifecycle-state\" == 'ACTIVE'].{Name:name, OCID:id}"
+fi
