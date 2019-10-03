@@ -68,7 +68,7 @@ Prerequisites :
 ### OCI_objects_list_in_tenancy.sh
 
 ```
-ash script to list OCI objects in a tenancy (all compartments) in a region 
+Bash script to list OCI objects in a tenancy (all compartments) in a region 
 or in all active regions using OCI CLI
 
 Supported objects: same as OCI_objects_list_in_compartment.sh

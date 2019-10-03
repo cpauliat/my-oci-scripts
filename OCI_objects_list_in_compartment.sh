@@ -96,21 +96,24 @@ fi
 # -- list objects common to all regions
 list_identity_policies()
 {
+  local lcpid=$1
   echo -e "${COLOR_TITLE2}========== IDENTITY: Policies${COLOR_NORMAL}"
-  oci --profile $PROFILE iam policy list -c $COMPID --output table --all --query 'data[].{Name:name, OCID:id, Status:"lifecycle-state"}'
+  oci --profile $PROFILE iam policy list -c $lcpid --output table --all --query 'data[].{Name:name, OCID:id, Status:"lifecycle-state"}'
 }
 
 list_networking_dns_zones()
 {
+  local lcpid=$1
   echo -e "${COLOR_TITLE2}========== NETWORKING: DNS zones${COLOR_NORMAL}"
-  oci --profile $PROFILE dns zone list -c $COMPID --output table --all --query 'data[].{Name:name, OCID:id, Status:"lifecycle-state"}' 2>/dev/null
+  oci --profile $PROFILE dns zone list -c $lcpid --output table --all --query 'data[].{Name:name, OCID:id, Status:"lifecycle-state"}' 2>/dev/null
   # 2>/dev/null needed to remove message "Query returned empty result, no output to show."
 }
 
 list_governance_tag_namespaces()
 {
+  local lcpid=$1
   echo -e "${COLOR_TITLE2}========== GOVERNANCE: Tag Namespaces${COLOR_NORMAL}"
-  oci --profile $PROFILE iam tag-namespace list -c $COMPID --output table --all --query 'data[].{Name:name, OCID:id, Status:"lifecycle-state"}' 2>/dev/null
+  oci --profile $PROFILE iam tag-namespace list -c $lcpid --output table --all --query 'data[].{Name:name, OCID:id, Status:"lifecycle-state"}' 2>/dev/null
   # 2>/dev/null needed to remove message "Query returned empty result, no output to show."
 }
 
@@ -123,9 +126,9 @@ list_objects_common_to_all_regions()
   echo -e "${COLOR_TITLE0}============================ COMPARTMENT ${COLOR_COMP}${lcptname}${COLOR_TITLE0} (${COLOR_COMP}${lcptid}${COLOR_TITLE1})"
   echo -e "${COLOR_TITLE1}==================== BEGIN: objects common to all regions${COLOR_NORMAL}"
 
-  list_networking_dns_zones
-  list_identity_policies
-  list_governance_tag_namespaces
+  list_networking_dns_zones $lcptid
+  list_identity_policies $lcptid
+  list_governance_tag_namespaces $lcptid
 
   echo -e "${COLOR_TITLE1}==================== END: objects common to all regions${COLOR_NORMAL}"
 }
@@ -134,27 +137,30 @@ list_objects_common_to_all_regions()
 list_compute_instances()
 {
   local lr=$1
+  local lcpid=$2
   echo -e "${COLOR_TITLE2}========== COMPUTE: Instances${COLOR_NORMAL}"
-  oci --profile $PROFILE compute instance list -c $COMPID --region $lr --output table --all --query "data[?\"lifecycle-state\"!='TERMINATED'].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}" 2>/dev/null
+  oci --profile $PROFILE compute instance list -c $lcpid --region $lr --output table --all --query "data[?\"lifecycle-state\"!='TERMINATED'].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}" 2>/dev/null
   # 2>/dev/null needed to remove message "Query returned empty result, no output to show." when only TERMINATED objects are returned
 }
 
 list_compute_custom_images()
 {
   local lr=$1
+  local lcpid=$2
   echo -e "${COLOR_TITLE2}========== COMPUTE: Custom Images${COLOR_NORMAL}"
-  oci --profile $PROFILE compute image list -c $COMPID --region $lr --output table --all --query 'data[?"compartment-id"!=null].{Name:"display-name", OCID:id, Status:"lifecycle-state"}' 2>/dev/null
+  oci --profile $PROFILE compute image list -c $lcpid --region $lr --output table --all --query 'data[?"compartment-id"!=null].{Name:"display-name", OCID:id, Status:"lifecycle-state"}' 2>/dev/null
   # 2>/dev/null needed to remove message "Query returned empty result, no output to show."
 }
 
 list_compute_boot_volumes()
 {
   local lr=$1
+  local lcpid=$2
   echo -e "${COLOR_TITLE2}========== COMPUTE: Boot volumes${COLOR_NORMAL}"
   for ad in $ADS
   do
     echo -e "${COLOR_AD}== Availability-domain $ad${COLOR_NORMAL}"
-    oci --profile $PROFILE bv boot-volume list -c $COMPID --region $lr --output table --all --availability-domain $ad --query "data[?\"lifecycle-state\"!='TERMINATED'].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}" 2>/dev/null
+    oci --profile $PROFILE bv boot-volume list -c $lcpid --region $lr --output table --all --availability-domain $ad --query "data[?\"lifecycle-state\"!='TERMINATED'].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}" 2>/dev/null
     # 2>/dev/null needed to remove message "Query returned empty result, no output to show." when only TERMINATED objects are returned
   done
 }
@@ -162,19 +168,21 @@ list_compute_boot_volumes()
 list_compute_boot_volume_backups()
 {
   local lr=$1
+  local lcpid=$2
   echo -e "${COLOR_TITLE2}========== COMPUTE: Boot volume backups${COLOR_NORMAL}"
-  oci --profile $PROFILE bv boot-volume-backup list -c $COMPID --region $lr --output table --all --query "data[?\"lifecycle-state\"!='TERMINATED'].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}" 2>/dev/null
+  oci --profile $PROFILE bv boot-volume-backup list -c $lcpid --region $lr --output table --all --query "data[?\"lifecycle-state\"!='TERMINATED'].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}" 2>/dev/null
   # 2>/dev/null needed to remove message "Query returned empty result, no output to show." when only TERMINATED objects are returned
 }
 
 list_block_storage_volumes()
 {
   local lr=$1
+  local lcpid=$2
   echo -e "${COLOR_TITLE2}========== BLOCK STORAGE: Block volumes${COLOR_NORMAL}"
   for ad in $ADS
   do
     echo -e "${COLOR_AD}== Availability-domain $ad${COLOR_NORMAL}"
-    oci --profile $PROFILE bv volume list -c $COMPID --region $lr --output table --all --availability-domain $ad --query "data[?\"lifecycle-state\"!='TERMINATED'].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}" 2>/dev/null
+    oci --profile $PROFILE bv volume list -c $lcpid --region $lr --output table --all --availability-domain $ad --query "data[?\"lifecycle-state\"!='TERMINATED'].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}" 2>/dev/null
     # 2>/dev/null needed to remove message "Query returned empty result, no output to show." when only TERMINATED objects are returned
   done
 }
@@ -182,19 +190,21 @@ list_block_storage_volumes()
 list_block_storage_volume_backups()
 {
   local lr=$1
+  local lcpid=$2
   echo -e "${COLOR_TITLE2}========== BLOCK STORAGE: Block volume backups${COLOR_NORMAL}"
-  oci --profile $PROFILE bv backup list -c $COMPID --region $lr --output table --all --query "data[?\"lifecycle-state\"!='TERMINATED'].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}" 2>/dev/null
+  oci --profile $PROFILE bv backup list -c $lcpid --region $lr --output table --all --query "data[?\"lifecycle-state\"!='TERMINATED'].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}" 2>/dev/null
   # 2>/dev/null needed to remove message "Query returned empty result, no output to show." when only TERMINATED objects are returned
 }
 
 list_block_storage_volume_groups()
 {
   local lr=$1
+  local lcpid=$2
   echo -e "${COLOR_TITLE2}========== BLOCK STORAGE: Volumes groups${COLOR_NORMAL}"
   for ad in $ADS
   do
     echo -e "${COLOR_AD}== Availability-domain $ad${COLOR_NORMAL}"
-    oci --profile $PROFILE bv volume-group list -c $COMPID --region $lr --output table --all --availability-domain $ad --query "data[?\"lifecycle-state\"!='TERMINATED'].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}" 2>/dev/null
+    oci --profile $PROFILE bv volume-group list -c $lcpid --region $lr --output table --all --availability-domain $ad --query "data[?\"lifecycle-state\"!='TERMINATED'].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}" 2>/dev/null
     # 2>/dev/null needed to remove message "Query returned empty result, no output to show." when only TERMINATED objects are returned
   done
 }
@@ -202,157 +212,174 @@ list_block_storage_volume_groups()
 list_block_storage_volume_group_backups()
 {
   local lr=$1
+  local lcpid=$2
   echo -e "${COLOR_TITLE2}========== BLOCK STORAGE: Volumes group backups${COLOR_NORMAL}"
-  oci --profile $PROFILE bv volume-group-backup list -c $COMPID --region $lr --output table --all --query "data[?\"lifecycle-state\"!='TERMINATED'].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}" 2>/dev/null
+  oci --profile $PROFILE bv volume-group-backup list -c $lcpid --region $lr --output table --all --query "data[?\"lifecycle-state\"!='TERMINATED'].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}" 2>/dev/null
   # 2>/dev/null needed to remove message "Query returned empty result, no output to show." when only TERMINATED objects are returned
 }
 
 list_object_storage_buckets()
 {
   local lr=$1
+  local lcpid=$2
   echo -e "${COLOR_TITLE2}========== OBJECT STORAGE: Buckets${COLOR_NORMAL}"
-  oci --profile $PROFILE os bucket list -c $COMPID --region $lr --output table --all --query 'data[].{Name:name}'
+  oci --profile $PROFILE os bucket list -c $lcpid --region $lr --output table --all --query 'data[].{Name:name}'
 }
 
 list_file_storage_filesystems()
 {
   local lr=$1
+  local lcpid=$2
   echo -e "${COLOR_TITLE2}========== FILE STORAGE: Filesystems ${COLOR_NORMAL}"
   for ad in $ADS
   do
     echo -e "${COLOR_AD}== Availability-domain $ad${COLOR_NORMAL}"
-    oci --profile $PROFILE fs file-system list -c $COMPID --region $lr --output table --all --availability-domain $ad --query 'data[].{Name:"display-name", OCID:id, Status:"lifecycle-state"}'
+    oci --profile $PROFILE fs file-system list -c $lcpid --region $lr --output table --all --availability-domain $ad --query 'data[].{Name:"display-name", OCID:id, Status:"lifecycle-state"}'
   done
 }
 
 list_file_storage_mount_targets()
 {
   local lr=$1
+  local lcpid=$2
   echo -e "${COLOR_TITLE2}========== FILE STORAGE: Mount targets ${COLOR_NORMAL}"
   for ad in $ADS
   do
     echo -e "${COLOR_AD}== Availability-domain $ad${COLOR_NORMAL}"
-    oci --profile $PROFILE fs mount-target list -c $COMPID --region $lr --output table --all --availability-domain $ad --query 'data[].{Name:"display-name", OCID:id, Status:"lifecycle-state"}'
+    oci --profile $PROFILE fs mount-target list -c $lcpid --region $lr --output table --all --availability-domain $ad --query 'data[].{Name:"display-name", OCID:id, Status:"lifecycle-state"}'
   done
 }
 
 list_networking_vcns()
 {
   local lr=$1
+  local lcpid=$2
   echo -e "${COLOR_TITLE2}========== NETWORKING: Virtal Cloud Networks (VCNs)${COLOR_NORMAL}"
-  oci --profile $PROFILE network vcn list -c $COMPID --region $lr --output table --all --query 'data[].{Name:"display-name", OCID:id, Status:"lifecycle-state"}'
+  oci --profile $PROFILE network vcn list -c $lcpid --region $lr --output table --all --query 'data[].{Name:"display-name", OCID:id, Status:"lifecycle-state"}'
 }
 
 list_networking_drgs()
 {
   local lr=$1
+  local lcpid=$2
   echo -e "${COLOR_TITLE2}========== NETWORKING: Dynamic Routing Gateways (DRGs)${COLOR_NORMAL}"
-  oci --profile $PROFILE network drg list -c $COMPID --region $lr --output table --all --query 'data[].{Name:"display-name", OCID:id, Status:"lifecycle-state"}'
+  oci --profile $PROFILE network drg list -c $lcpid --region $lr --output table --all --query 'data[].{Name:"display-name", OCID:id, Status:"lifecycle-state"}'
 }
 
 list_networking_cpes()
 {
   local lr=$1
+  local lcpid=$2
   echo -e "${COLOR_TITLE2}========== NETWORKING: Customer Premises Equipments (CPEs)${COLOR_NORMAL}"
-  oci --profile $PROFILE network cpe list -c $COMPID --region $lr --output table --all --query 'data[].{Name:"display-name", OCID:id}'
+  oci --profile $PROFILE network cpe list -c $lcpid --region $lr --output table --all --query 'data[].{Name:"display-name", OCID:id}'
 }
 
 list_networking_ipsecs()
 {
   local lr=$1
+  local lcpid=$2
   echo -e "${COLOR_TITLE2}========== NETWORKING: IPsec connections${COLOR_NORMAL}"
-  oci --profile $PROFILE network ip-sec-connection list -c $COMPID --region $lr --output table --all --query 'data[].{Name:"display-name", OCID:id, Status:"lifecycle-state"}'
+  oci --profile $PROFILE network ip-sec-connection list -c $lcpid --region $lr --output table --all --query 'data[].{Name:"display-name", OCID:id, Status:"lifecycle-state"}'
 }
 
 list_networking_lbs()
 {
   local lr=$1
+  local lcpid=$2
   echo -e "${COLOR_TITLE2}========== NETWORKING: Load balancers${COLOR_NORMAL}"
-  oci --profile $PROFILE lb load-balancer list -c $COMPID --region $lr --output table --all --query 'data[].{Name:"display-name", OCID:id, Status:"lifecycle-state"}'
+  oci --profile $PROFILE lb load-balancer list -c $lcpid --region $lr --output table --all --query 'data[].{Name:"display-name", OCID:id, Status:"lifecycle-state"}'
 }
 
 list_networking_public_ips()
 {
   local lr=$1
+  local lcpid=$2
   echo -e "${COLOR_TITLE2}========== NETWORKING: Public IPs${COLOR_NORMAL}"
-  oci --profile $PROFILE network public-ip list -c $COMPID --region $lr --scope region --output table --all --query 'data[].{Name:"display-name", OCID:id, Status:"lifecycle-state"}'
+  oci --profile $PROFILE network public-ip list -c $lcpid --region $lr --scope region --output table --all --query 'data[].{Name:"display-name", OCID:id, Status:"lifecycle-state"}'
 }
 
 list_database_db_systems()
 {
   local lr=$1
+  local lcpid=$2
   echo -e "${COLOR_TITLE2}========== DATABASE: DB Systems${COLOR_NORMAL}"
-  oci --profile $PROFILE db system list -c $COMPID --region $lr --output table --all --query 'data[].{Name:"display-name", OCID:id, Status:"lifecycle-state"}'
+  oci --profile $PROFILE db system list -c $lcpid --region $lr --output table --all --query 'data[].{Name:"display-name", OCID:id, Status:"lifecycle-state"}'
 }
 
 list_database_db_systems_backups()
 {
   local lr=$1
+  local lcpid=$2
   echo -e "${COLOR_TITLE2}========== DATABASE: DB Systems backups${COLOR_NORMAL}"
-  oci --profile $PROFILE db backup list -c $COMPID --region $lr --output table --all --query 'data[].{Name:"display-name", OCID:id, Status:"lifecycle-state"}'
+  oci --profile $PROFILE db backup list -c $lcpid --region $lr --output table --all --query 'data[].{Name:"display-name", OCID:id, Status:"lifecycle-state"}'
 }
 
 list_database_autonomous_db()
 {
   local lr=$1
+  local lcpid=$2
   echo -e "${COLOR_TITLE2}========== DATABASE: Autonomous databases (ATP/ADW)${COLOR_NORMAL}"
-  oci --profile $PROFILE db autonomous-database list -c $COMPID --region $lr --output table --all --query 'data[].{Name:"display-name", OCID:id, Status:"lifecycle-state"}'
+  oci --profile $PROFILE db autonomous-database list -c $lcpid --region $lr --output table --all --query 'data[].{Name:"display-name", OCID:id, Status:"lifecycle-state"}'
 }
 
 list_database_autonomous_backups()
 {
   local lr=$1
+  local lcpid=$2
   echo -e "${COLOR_TITLE2}========== DATABASE: Autonomous databases backups${COLOR_NORMAL}"
-  oci --profile $PROFILE db autonomous-database-backup list -c $COMPID --region $lr --output table --all --query 'data[].{Name:"display-name", OCID:id, Status:"lifecycle-state"}'
+  oci --profile $PROFILE db autonomous-database-backup list -c $lcpid --region $lr --output table --all --query 'data[].{Name:"display-name", OCID:id, Status:"lifecycle-state"}'
 }
 
 list_resource_manager_stacks()
 {
   local lr=$1
+  local lcpid=$2
   echo -e "${COLOR_TITLE2}========== RESOURCE MANAGER: Stacks${COLOR_NORMAL}"
-  oci --profile $PROFILE resource-manager stack list -c $COMPID --region $lr --output table --all --query 'data[].{Name:"display-name", OCID:id, Status:"lifecycle-state"}'
+  oci --profile $PROFILE resource-manager stack list -c $lcpid --region $lr --output table --all --query 'data[].{Name:"display-name", OCID:id, Status:"lifecycle-state"}'
 }
 
 list_developer_services_oke()
 {
   local lr=$1
+  local lcpid=$2
   echo -e "${COLOR_TITLE2}========== DEVELOPER SERVICES: Container clusters (OKE)${COLOR_NORMAL}"
-  oci --profile $PROFILE ce cluster list -c $COMPID --region $lr --output table --all --query 'data[].{Name:name, OCID:id, Status:"lifecycle-state"}'
+  oci --profile $PROFILE ce cluster list -c $lcpid --region $lr --output table --all --query 'data[].{Name:name, OCID:id, Status:"lifecycle-state"}'
 }
 
 # -- list region specific objects
 list_region_specific_objects()
 {
   local lregion=$1
+  local lcompid=$2
 
   # Get list of availability domains
   ADS=`oci --profile $PROFILE --region $lregion iam availability-domain list|jq '.data[].name'|sed 's#"##g'`
 
   echo -e "${COLOR_TITLE1}==================== BEGIN: objects specific to region ${COLOR_COMP}${lregion}${COLOR_NORMAL}"
 
-  list_compute_instances $lregion
-  list_compute_custom_images $lregion
-  list_compute_boot_volumes $lregion
-  list_compute_boot_volume_backups $lregion
-  list_block_storage_volumes $lregion
-  list_block_storage_volume_backups $lregion
-  list_block_storage_volume_groups $lregion
-  list_block_storage_volume_group_backups $lregion
-  list_object_storage_buckets $lregion
-  list_file_storage_filesystems $lregion
-  list_file_storage_mount_targets $lregion
-  list_networking_vcns $lregion
-  list_networking_drgs $lregion
-  list_networking_cpes $lregion
-  list_networking_ipsecs $lregion
-  list_networking_lbs $lregion
-  list_networking_public_ips $lregion
-  list_database_db_systems $lregion
-  list_database_db_systems_backups $lregion
-  list_database_autonomous_db $lregion
-  list_database_autonomous_backups $lregion
-  list_resource_manager_stacks $lregion
-  list_developer_services_oke $lregion
+  #DEBUG list_compute_instances $lregion $lcompid
+  #DEBUG list_compute_custom_images $lregion $lcompid
+  #DEBUG list_compute_boot_volumes $lregion $lcompid
+  #DEBUG list_compute_boot_volume_backups $lregion $lcompid
+  #DEBUG list_block_storage_volumes $lregion $lcompid
+  #DEBUG list_block_storage_volume_backups $lregion $lcompid
+  #DEBUG list_block_storage_volume_groups $lregion $lcompid
+  #DEBUG list_block_storage_volume_group_backups $lregion $lcompid
+  #DEBUG list_object_storage_buckets $lregion $lcompid
+  #DEBUG list_file_storage_filesystems $lregion $lcompid
+  #DEBUG list_file_storage_mount_targets $lregion $lcompid
+  list_networking_vcns $lregion $lcompid
+  #DEBUG list_networking_drgs $lregion $lcompid
+  #DEBUG list_networking_cpes $lregion $lcompid
+  #DEBUG list_networking_ipsecs $lregion $lcompid
+  #DEBUG list_networking_lbs $lregion $lcompid
+  #DEBUG list_networking_public_ips $lregion $lcompid
+  #DEBUG list_database_db_systems $lregion $lcompid
+  #DEBUG list_database_db_systems_backups $lregion $lcompid
+  #DEBUG list_database_autonomous_db $lregion $lcompid
+  #DEBUG list_database_autonomous_backups $lregion $lcompid
+  #DEBUG list_resource_manager_stacks $lregion $lcompid
+  #DEBUG list_developer_services_oke $lregion $lcompid
 
   echo -e "${COLOR_TITLE1}==================== END: objects specific to region ${COLOR_COMP}${lregion}${COLOR_NORMAL}"
 }
@@ -423,21 +450,29 @@ do_it_in_sub_compt()
 {
   local lregion_list=$1
   local lcompid=$2
-  
-  # get the list of ACTIVE direct sub-compartments.
-  cptid_list=`oci --profile $PROFILE iam compartment list -c $lcompid --all --query "data [?\"lifecycle-state\" == 'ACTIVE'].{id:id}" |jq -r '.[].id'`
-  if [ "$cptid_list" == "" ]; then return; fi
+  local lcptid
+  local lcptid_list
+  local lcptname
+  local lregion
 
-  for cptid in $cptid_list
+  # DEBUG
+  echo "lregion_list=|$lregion_list|"
+  echo "lcompid=|$lcompid|"
+
+  # get the list of ACTIVE direct sub-compartments.
+  lcptid_list=`oci --profile $PROFILE iam compartment list -c $lcompid --all --query "data [?\"lifecycle-state\" == 'ACTIVE'].{id:id}" |jq -r '.[].id'`
+  if [ "$lcptid_list" == "" ]; then return; fi
+
+  for lcptid in $lcptid_list
   do 
-    cptname=`get_comp_full_name_from_comp_id $cptid`
+    lcptname=`get_comp_full_name_from_comp_id $lcptid`
     echo
-    list_objects_common_to_all_regions $cptname $cptid
+    list_objects_common_to_all_regions $lcptname $lcptid
     for lregion in $lregion_list
     do
-      list_region_specific_objects $lregion $cptname $cptid
+      list_region_specific_objects $lregion $lcptid
     done 
-    do_it_in_sub_compt "$lregion_list" $cptid
+    do_it_in_sub_compt "$lregion_list" $lcptid
   done
 }  
 
@@ -525,7 +560,7 @@ then
   CURRENT_REGION=`awk -F'=' '{ print $2 }' $TMP_FILE | sed 's# ##g'`
 
   list_objects_common_to_all_regions $COMPNAME $COMPID
-  list_region_specific_objects $CURRENT_REGION $COMPNAME $COMPID
+  list_region_specific_objects $CURRENT_REGION $COMPID
 
   if [ $INCLUDE_SUB_CPT == true ]; then do_it_in_sub_compt $CURRENT_REGION $COMPID; fi
 else
@@ -538,7 +573,7 @@ else
 
   for region in $REGIONS_LIST
   do
-    list_region_specific_objects $region
+    list_region_specific_objects $region $COMPID
   done
 
   if [ $INCLUDE_SUB_CPT == true ]; then do_it_in_sub_compt "$REGIONS_LIST" $COMPID; fi
