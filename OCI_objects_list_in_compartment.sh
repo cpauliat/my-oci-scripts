@@ -357,29 +357,29 @@ list_region_specific_objects()
 
   echo -e "${COLOR_TITLE1}==================== BEGIN: objects specific to region ${COLOR_COMP}${lregion}${COLOR_NORMAL}"
 
-  #DEBUG list_compute_instances $lregion $lcompid
-  #DEBUG list_compute_custom_images $lregion $lcompid
-  #DEBUG list_compute_boot_volumes $lregion $lcompid
-  #DEBUG list_compute_boot_volume_backups $lregion $lcompid
-  #DEBUG list_block_storage_volumes $lregion $lcompid
-  #DEBUG list_block_storage_volume_backups $lregion $lcompid
-  #DEBUG list_block_storage_volume_groups $lregion $lcompid
-  #DEBUG list_block_storage_volume_group_backups $lregion $lcompid
-  #DEBUG list_object_storage_buckets $lregion $lcompid
-  #DEBUG list_file_storage_filesystems $lregion $lcompid
-  #DEBUG list_file_storage_mount_targets $lregion $lcompid
+  list_compute_instances $lregion $lcompid
+  list_compute_custom_images $lregion $lcompid
+  list_compute_boot_volumes $lregion $lcompid
+  list_compute_boot_volume_backups $lregion $lcompid
+  list_block_storage_volumes $lregion $lcompid
+  list_block_storage_volume_backups $lregion $lcompid
+  list_block_storage_volume_groups $lregion $lcompid
+  list_block_storage_volume_group_backups $lregion $lcompid
+  list_object_storage_buckets $lregion $lcompid
+  list_file_storage_filesystems $lregion $lcompid
+  list_file_storage_mount_targets $lregion $lcompid
   list_networking_vcns $lregion $lcompid
-  #DEBUG list_networking_drgs $lregion $lcompid
-  #DEBUG list_networking_cpes $lregion $lcompid
-  #DEBUG list_networking_ipsecs $lregion $lcompid
-  #DEBUG list_networking_lbs $lregion $lcompid
-  #DEBUG list_networking_public_ips $lregion $lcompid
-  #DEBUG list_database_db_systems $lregion $lcompid
-  #DEBUG list_database_db_systems_backups $lregion $lcompid
-  #DEBUG list_database_autonomous_db $lregion $lcompid
-  #DEBUG list_database_autonomous_backups $lregion $lcompid
-  #DEBUG list_resource_manager_stacks $lregion $lcompid
-  #DEBUG list_developer_services_oke $lregion $lcompid
+  list_networking_drgs $lregion $lcompid
+  list_networking_cpes $lregion $lcompid
+  list_networking_ipsecs $lregion $lcompid
+  list_networking_lbs $lregion $lcompid
+  list_networking_public_ips $lregion $lcompid
+  list_database_db_systems $lregion $lcompid
+  list_database_db_systems_backups $lregion $lcompid
+  list_database_autonomous_db $lregion $lcompid
+  list_database_autonomous_backups $lregion $lcompid
+  list_resource_manager_stacks $lregion $lcompid
+  list_developer_services_oke $lregion $lcompid
 
   echo -e "${COLOR_TITLE1}==================== END: objects specific to region ${COLOR_COMP}${lregion}${COLOR_NORMAL}"
 }
@@ -454,10 +454,6 @@ do_it_in_sub_compt()
   local lcptid_list
   local lcptname
   local lregion
-
-  # DEBUG
-  echo "lregion_list=|$lregion_list|"
-  echo "lcompid=|$lcompid|"
 
   # get the list of ACTIVE direct sub-compartments.
   lcptid_list=`oci --profile $PROFILE iam compartment list -c $lcompid --all --query "data [?\"lifecycle-state\" == 'ACTIVE'].{id:id}" |jq -r '.[].id'`
