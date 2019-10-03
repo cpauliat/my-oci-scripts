@@ -10,12 +10,21 @@
 # Last update   : May 24, 2019
 # Platforms     : MacOS / Linux
 # prerequisites : OCI CLI installed and OCI config file configured with profiles
+#
+# Versions
+#    2019-05-24: Initial Version
+#    2019-05-31: if -h or --help provided, display the usage message
+#    2019-10-02: change default behaviour (does not display deleted compartment)
+#                and add option -d to list deleted compartments
 # --------------------------------------------------------------------------------------------------------------
 
 usage()
 {
 cat << EOF
-Usage: $0 OCI_PROFILE
+Usage: $0 [-d] OCI_PROFILE
+
+    If -d is provided, deleted compartments are also listed.
+    If not, only active compartments are listed.
 
 note: OCI_PROFILE must exist in ~/.oci/config file (see example below)
 
@@ -73,6 +82,13 @@ list_compartments()
   fi
 
   cptid_list=`oci --profile $PROFILE iam compartment list -c $parent_id --all| grep "^ *\"id" |awk -F'"' '{ print $4 }'`
+  if [ $LIST_DELETED == true ]
+  then
+    cptid_list=`oci --profile $PROFILE iam compartment list -c $parent_id --all| grep "^ *\"id" |awk -F'"' '{ print $4 }'`
+  else
+    cptid_list=`oci --profile $PROFILE iam compartment list -c $parent_id --all --query "data [?\"lifecycle-state\" == 'ACTIVE'].{id:id}"| grep "^ *\"id" |awk -F'"' '{ print $4 }'`
+  fi
+
   if [ "$cptid_list" != "" ]; then
     nb_cpts=`echo $cptid_list | wc -w`
     i=1
@@ -90,10 +106,20 @@ list_compartments()
 
 OCI_CONFIG_FILE=~/.oci/config
 TMP_FILE=tmp_all_cpts_$$
+LIST_DELETED=false
 
-if [ $# -ne 1 ]; then usage; fi
+if [ $# -ne 1 ] && [ $# -ne 2 ]; then usage; fi
 
-PROFILE=$1
+if [ "$1"  == "-h" ] || [ "$1"  == "--help" ]; then usage; fi
+if [ "$2"  == "-h" ] || [ "$2"  == "--help" ]; then usage; fi
+
+case $# in 
+1) PROFILE=$1
+   ;;
+2) PROFILE=$2
+   if [ "$1" == "-d" ]; then LIST_DELETED=true; else usage; fi
+   ;;
+esac
 
 COLOR_YELLOW="\e[93m"
 COLOR_RED="\e[91m"
