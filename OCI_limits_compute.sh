@@ -11,15 +11,18 @@
 #
 # Versions
 #    2019-08-30: Initial Version 
+#    2019-10-04: Change defaut behavior (does not display limits with quota set to 0). 
 # --------------------------------------------------------------------------------------------------------------
 
 usage()
 {
 cat << EOF
-Usage: $0 [-a] OCI_PROFILE 
+Usage: $0 [-a] [-z] OCI_PROFILE 
  
     By default, only the objects in the region provided in the profile are listed
     If -a is provided, the objects from all active regions are listed
+    If -z is provided, limits with quota set to 0 are also listed
+    Note: if both -a and -z are provided, -a must be provided first
 
 note: OCI_PROFILE must exist in ~/.oci/config file (see example below)
 
@@ -38,7 +41,7 @@ EOF
 COLORED_OUTPUT=true
 if [ "$COLORED_OUTPUT" == true ]
 then
-  COLOR_TITLE1="\033[91m"             # green
+  COLOR_TITLE1="\033[91m"             # light red
   COLOR_TITLE2="\033[32m"             # green
   COLOR_AD="\033[94m"                 # light blue
   COLOR_COMP="\033[93m"               # light yellow
@@ -73,7 +76,7 @@ list_limits()
       if [ "$value" != 0 ]; then 
         printf "${COLOR_COMP}%-40s${COLOR_NORMAL}\n" "$myline"
       else
-        printf "${COLOR_NORMAL}%-40s${COLOR_NORMAL}\n" "$myline"
+        if [ $LIST_ZEROS == true ]; then printf "${COLOR_NORMAL}%-40s${COLOR_NORMAL}\n" "$myline"; fi
       fi
     done >> ${TMP_FILE}_AD_$ad
   done
@@ -112,17 +115,25 @@ OCI_CONFIG_FILE=~/.oci/config
 TMP_FILE=tmp_$$
 TMP_PROFILE=tmp$$
 
+ALL_REGIONS=false
+LIST_ZEROS=false
+
 # -- Check usage
-if [ $# -ne 1 ] && [ $# -ne 2 ]; then usage; fi
+if [ $# -ne 1 ] && [ $# -ne 2 ] && [ $# -ne 3 ]; then usage; fi
 
 if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then usage; fi
 if [ "$2" == "-h" ] || [ "$2" == "--help" ]; then usage; fi
 
 case $# in
-  1) PROFILE=$1;  ALL_REGIONS=false
+  1) PROFILE=$1
      ;;
-  2) if [ "$1" != "-a" ]; then usage; fi
-     PROFILE=$2;  ALL_REGIONS=true
+  2) PROFILE=$2;
+     if [ "$1" == "-a" ]; then ALL_REGIONS=true;
+     elif [ "$1" == "-z" ]; then LIST_ZEROS=true; else usage; fi
+     ;;
+  3) PROFILE=$3;
+     if [ "$1" == "-a" ]; then ALL_REGIONS=true; else usage; fi
+     if [ "$2" == "-z" ]; then LIST_ZEROS=true; else usage; fi
      ;;
 esac
 
