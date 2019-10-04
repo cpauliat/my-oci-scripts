@@ -7,6 +7,9 @@ Scripts I developed for OCI (Oracle Cloud Infrastructure) with precious help fro
 Bash script to display the names and IDs of all compartments and subcompartments
 in a OCI tenant using OCI CLI
 
+Note: by default, only active compartments are listed. 
+      optionally (-d) deleted compartments can also be listed
+
 prerequisites :
 - OCI CLI installed and OCI config file configured with profiles
 - OCI user needs enough privileges to read the compartments list
