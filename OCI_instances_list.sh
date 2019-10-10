@@ -4,15 +4,23 @@
 # This script will list the instance names and IDs in all compartments in a OCI tenant in a region using OCI CLI
 # Note: OCI tenant and region given by an OCI CLI PROFILE
 # Author        : Christophe Pauliat
-# Last update   : May 14, 2019
 # Platforms     : MacOS / Linux
-# prerequisites : OCI CLI installed and OCI config file configured with profiles
+# prerequisites : jq (JSON parser) installed, OCI CLI installed and OCI config file configured with profiles
+#
+# Versions
+#    2019-05-14: Initial Version
+#    2019-10-10: change default behaviour (do not look for instances in deleted compartment)
 # --------------------------------------------------------------------------------------------------------------
+
+# -------- functions
 
 usage()
 {
 cat << EOF
-Usage: $0 OCI_PROFILE
+Usage: $0 [-a] OCI_PROFILE
+
+    By default, only the compute instances in the region provided in the profile are listed
+    If -a is provided, the compute instances from all active regions are listed
 
 note: OCI_PROFILE must exist in ~/.oci/config file (see example below)
 
@@ -26,13 +34,69 @@ EOF
   exit 1
 }
 
+get_all_active_regions()
+{
+  oci --profile $PROFILE iam region-subscription list --query "data [].{Region:\"region-name\"}" |jq -r '.[].Region'
+}
+
+cleanup()
+{
+  rm -f $TMP_FILE
+}
+
+trap_ctrl_c()
+{
+  echo
+  echo -e "${COLOR_BREAK}SCRIPT INTERRUPTED BY USER ! ${COLOR_NORMAL}"
+  echo
+
+  cleanup
+  exit 99
+}
+
+# ---- Colored output or not
+# see https://misc.flogisoft.com/bash/tip_colors_and_formatting to customize
+COLORED_OUTPUT=true
+if [ "$COLORED_OUTPUT" == true ]
+then
+  COLOR_TITLE0="\033[95m"             # light magenta
+  COLOR_TITLE1="\033[91m"             # light red
+  COLOR_TITLE2="\033[32m"             # green
+  COLOR_COMP="\033[93m"               # light yellow
+  COLOR_BREAK="\033[91m"              # light red
+  COLOR_NORMAL="\033[39m"
+else
+  COLOR_TITLE0=""
+  COLOR_TITLE1=""
+  COLOR_TITLE2=""
+  COLOR_COMP=""
+  COLOR_BREAK=""
+  COLOR_NORMAL=""
+fi
+
 # -------- main
 
 OCI_CONFIG_FILE=~/.oci/config
+TMP_FILE=tmp_$$
 
-if [ $# -ne 1 ]; then usage; fi
+ALL_REGIONS=false
 
-PROFILE=$1
+if [ $# -ne 1 ] && [ $# -ne 2 ]; then usage; fi
+
+if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then usage; fi
+if [ "$2" == "-h" ] || [ "$2" == "--help" ]; then usage; fi
+
+case $# in
+  1) PROFILE=$1;  
+     ;;
+  2) PROFILE=$2;  
+     if [ "$1" == "-a" ]; then ALL_REGIONS=true; else usage; fi
+     ;;
+esac
+
+# -- Check if jq is installed
+which jq > /dev/null 2>&1
+if [ $? -ne 0 ]; then echo "ERROR: jq not found !"; exit 2; fi
 
 # -- Check if the PROFILE exists
 grep "\[$PROFILE\]" $OCI_CONFIG_FILE > /dev/null 2>&1
@@ -41,17 +105,35 @@ if [ $? -ne 0 ]; then echo "ERROR: PROFILE $PROFILE does not exist in file $OCI_
 # -- get tenancy OCID from OCI PROFILE
 TENANCYOCID=`egrep "^\[|ocid1.tenancy" $OCI_CONFIG_FILE|sed -n -e "/\[$PROFILE\]/,/tenancy/p"|tail -1| awk -F'=' '{ print $2 }' | sed 's/ //g'`
 
-# -- list instances in the root compartment
-echo
-echo "Compartment root, OCID=$TENANCYOCID"
-oci --profile $PROFILE compute instance list -c $TENANCYOCID --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Status:\"lifecycle-state\"}"
+# -- Get the current region from the profile
+egrep "^\[|^region" ${OCI_CONFIG_FILE} | fgrep -A 1 "[${PROFILE}]" |grep "^region" > $TMP_FILE 2>&1
+if [ $? -ne 0 ]; then echo "ERROR: region not found in OCI config file $OCI_CONFIG_FILE for profile $PROFILE !"; cleanup; exit 5; fi
+CURRENT_REGION=`awk -F'=' '{ print $2 }' $TMP_FILE | sed 's# ##g'`
 
-# -- list instances compartment by compartment (excluding root compartment but including all subcompartments)
-oci --profile $PROFILE iam compartment list -c $TENANCYOCID --compartment-id-in-subtree true --all 2>/dev/null| egrep "^ *\"name|^ *\"id"|awk -F'"' '{ print $4 }'|while read compid
+# -- set the list of regions
+if [ $ALL_REGIONS == false ]
+then
+  REGIONS_LIST=$CURRENT_REGION
+else
+  REGIONS_LIST=`get_all_active_regions`
+fi
+
+for region in $REGIONS_LIST
 do
-  read compname
+  echo -e "${COLOR_TITLE1}==================== REGION ${COLOR_COMP}${region}${COLOR_NORMAL}"
+
+  # -- list instances in the root compartment
   echo
-  echo "Compartment $compname, OCID=$compid"
-  #oci --profile $PROFILE compute instance list -c $compid --output table --query "data [*].{CompartmentOCID:\"compartment-id\",InstanceName:\"display-name\", InstanceOCID:id}"
-  oci --profile $PROFILE compute instance list -c $compid --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Status:\"lifecycle-state\"}"
-done
+  echo -e "${COLOR_TITLE0}========== COMPARTMENT ${COLOR_COMP}root${COLOR_TITLE0} (${COLOR_COMP}${TENANCYOCID}${COLOR_TITLE0}) ${COLOR_NORMAL}"
+  oci --profile $PROFILE compute instance list -c $TENANCYOCID --region $region --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Status:\"lifecycle-state\"}"
+
+  # -- list instances compartment by compartment (excluding root compartment but including all subcompartments)
+  oci --profile $PROFILE iam compartment list --compartment-id-in-subtree true --all --query "data [?\"lifecycle-state\" == 'ACTIVE']" 2>/dev/null| egrep "^ *\"name|^ *\"id"|awk -F'"' '{ print $4 }'|while read compid
+  do
+    read compname
+    echo
+    echo -e "${COLOR_TITLE0}========== COMPARTMENT ${COLOR_COMP}${compname}${COLOR_TITLE0} (${COLOR_COMP}${compid}${COLOR_TITLE0}) ${COLOR_NORMAL}"
+    #oci --profile $PROFILE compute instance list -c $compid --output table --query "data [*].{CompartmentOCID:\"compartment-id\",InstanceName:\"display-name\", InstanceOCID:id}"
+    oci --profile $PROFILE compute instance list -c $compid --region $region --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Status:\"lifecycle-state\"}"
+  done
+done 
