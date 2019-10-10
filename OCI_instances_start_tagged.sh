@@ -41,6 +41,10 @@ EOF
 process_compartment()
 {
   local lcompid=$1
+
+  CHANGED_FLAG=${TMPFILE}_changed 
+  rm -f $CHANGED_FLAG
+
   oci --profile $PROFILE compute instance list -c $lcompid --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Status:\"lifecycle-state\"}" > $TMPFILE
   cat $TMPFILE
 
@@ -59,12 +63,20 @@ process_compartment()
         then
           echo "--> STARTING instance $inst_name ($inst_id) because of TAG VALUE"
           oci --profile $PROFILE compute instance action --instance-id $inst_id --action START >/dev/null 2>&1
+          touch $CHANGED_FLAG
         else
           echo "--> Instance $inst_name ($inst_id) SHOULD BE STARTED because of TAG VALUE --> re-run script with --confirm to actually start instances"
         fi
       fi
     fi
   done
+
+  if [ -f $CHANGED_FLAG ]
+  then
+    oci --profile $PROFILE compute instance list -c $lcompid --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Status:\"lifecycle-state\"}" 
+    rm -f $CHANGED_FLAG
+  fi
+  
   rm -f $TMPFILE
 }
 
@@ -85,6 +97,8 @@ case $# in
   *) usage 
      ;;
 esac
+
+TMPFILE=tmp_$$
 
 # -- Check if jq is installed
 which jq > /dev/null 2>&1
