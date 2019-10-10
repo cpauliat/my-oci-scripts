@@ -81,3 +81,14 @@ Prerequisites :
 - script OCI_objects_list_in_compartment.sh present and accessible (update PATH)
 - OCI user needs enough privileges to read all objects in all compartments
 ```
+
+### OCI_instances_stop_start_tagged.sh
+
+```
+Bash script to start or stop OCI compute instances tagged with a specific value 
+in a region or in all active regions using OCI CLI (all compartments)
+
+Prerequisites :
+- jq installed, OCI CLI installed and OCI config file configured with profiles
+- OCI user needs enough privileges to read all compute instances in all compartments
+```
