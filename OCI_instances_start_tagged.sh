@@ -23,10 +23,10 @@ TAG_VALUE="on"
 usage()
 {
 cat << EOF
-Usage: $0 [--dryrun] OCI_PROFILE
+Usage: $0 OCI_PROFILE [--confirm]
 
 note: OCI_PROFILE must exist in ~/.oci/config file (see example below)
-      If --dryrun provided, the instances to stop are listed but not actually stopped
+      If --confirm is not provided, the instances to stop are listed but not actually stopped
 
 [EMEAOSCf]
 tenancy     = ocid1.tenancy.oc1..aaaaaaaaw7e6nkszrry6d5hxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
@@ -55,12 +55,12 @@ process_compartment()
       ltag_value=`oci --profile $PROFILE compute instance get --instance-id $inst_id | jq -r '.[]."defined-tags"."tag_ns1"."stop_non_working_hours"' 2>/dev/null`
       if [ "$ltag_value" == "$TAG_VALUE" ]
       then 
-        if [ $DRY_RUN == true ]
+        if [ $CONFIRM == true ]
         then
-          echo "--> STARTING instance $inst_name ($inst_id) because of TAG VALUE --> NOT DONE because of DRY RUN mode !"
-        else
           echo "--> STARTING instance $inst_name ($inst_id) because of TAG VALUE"
           oci --profile $PROFILE compute instance action --instance-id $inst_id --action START >/dev/null 2>&1
+        else
+          echo "--> Instance $inst_name ($inst_id) SHOULD BE STARTED because of TAG VALUE --> re-run script with --confirm to actually start instances"
         fi
       fi
     fi
@@ -72,10 +72,18 @@ process_compartment()
 
 OCI_CONFIG_FILE=~/.oci/config
 
-if [ $# -ne 1 ]; then usage; fi
+CONFIRM=false
 
-PROFILE=$1
-TMPFILE=tmp_$$
+case $# in 
+  1) PROFILE=$1
+     ;;
+  2) PROFILE=$1
+     if [ "$2" != "--confirm" ]; then usage; fi
+     CONFIRM=true
+     ;;
+  *) usage 
+     ;;
+esac
 
 # -- Check if jq is installed
 which jq > /dev/null 2>&1
