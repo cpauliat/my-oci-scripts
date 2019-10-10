@@ -62,7 +62,7 @@ process_compartment()
         if [ $CONFIRM == true ]
         then
           echo "--> STOPPING instance $inst_name ($inst_id) because of TAG VALUE"
-          oci --profile $PROFILE compute instance action --instance-id $inst_id --action STOP >/dev/null 2>&1
+          oci --profile $PROFILE compute instance action --instance-id $inst_id --action SOFTSTOP >/dev/null 2>&1
           touch $CHANGED_FLAG
         else
           echo "--> Instance $inst_name ($inst_id) SHOULD BE STOPPED because of TAG VALUE --> re-run script with --confirm to actually stop instances"
