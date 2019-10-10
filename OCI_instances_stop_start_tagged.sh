@@ -20,7 +20,7 @@
 # Instances tagged using this will be stopped/started.
 # Update these to match your tags.
 # IMPORTANT: also update command (look for WORKAROUND)
-TAG_NS="tag_ns1"
+TAG_NS="osc"
 TAG_KEY="stop_non_working_hours"
 TAG_VALUE="on"
 
@@ -62,7 +62,7 @@ process_compartment()
     if ( [ "$inst_status" == "STOPPED" ] && [ "$ACTION" == "start" ] ) || ( [ "$inst_status" == "RUNNING" ] && [ "$ACTION" == "stop" ] )
     then 
       # WORKAROUND: cannot use variable, hardcode TAG_NS and TAG_KEY
-      ltag_value=`oci --profile $PROFILE compute instance get --instance-id $inst_id | jq -r '.[]."defined-tags"."tag_ns1"."stop_non_working_hours"' 2>/dev/null`
+      ltag_value=`oci --profile $PROFILE compute instance get --instance-id $inst_id | jq -r '.[]."defined-tags"."osc"."stop_non_working_hours"' 2>/dev/null`
       if [ "$ltag_value" == "$TAG_VALUE" ]
       then 
         if [ $CONFIRM == true ]
