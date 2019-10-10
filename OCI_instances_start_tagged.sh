@@ -75,7 +75,8 @@ OCI_CONFIG_FILE=~/.oci/config
 CONFIRM=false
 
 case $# in 
-  1) PROFILE=$1
+  1) if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then usage; fi
+     PROFILE=$1
      ;;
   2) PROFILE=$1
      if [ "$2" != "--confirm" ]; then usage; fi
