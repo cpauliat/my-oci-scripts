@@ -90,5 +90,16 @@ in a region or in all active regions using OCI CLI (all compartments)
 
 Prerequisites :
 - jq installed, OCI CLI installed and OCI config file configured with profiles
-- OCI user needs enough privileges to read all compute instances in all compartments
+- OCI user needs enough privileges
+```
+
+### OCI_autonomous_dbs_stop_start_tagged.sh
+
+```
+Bash script to start or stop OCI compute instances tagged with a specific value 
+in a region or in all active regions using OCI CLI (all compartments)
+
+Prerequisites :
+- jq installed, OCI CLI installed and OCI config file configured with profiles
+- OCI user needs enough privileges
 ```
