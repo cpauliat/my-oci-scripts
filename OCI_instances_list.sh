@@ -45,7 +45,7 @@ get_region_from_profile()
 # -- Get the list of all active regions
 get_all_active_regions()
 {
-  oci --profile $PROFILE iam region-subscription list --query "data [].{Region:\"region-name\"}" |jq -r '.[].Region'
+  ${OCI} --profile $PROFILE iam region-subscription list --query "data [].{Region:\"region-name\"}" |jq -r '.[].Region'
 }
 
 cleanup()
@@ -86,6 +86,8 @@ fi
 # -------- main
 
 OCI_CONFIG_FILE=~/.oci/config
+OCI=$HOME/bin/oci
+
 TMP_FILE=tmp_$$
 
 ALL_REGIONS=false
@@ -119,15 +121,15 @@ do
   # -- list instances in the root compartment
   echo
   echo -e "${COLOR_TITLE0}========== COMPARTMENT ${COLOR_COMP}root${COLOR_TITLE0} (${COLOR_COMP}${TENANCYOCID}${COLOR_TITLE0}) ${COLOR_NORMAL}"
-  oci --profile $PROFILE compute instance list -c $TENANCYOCID --region $region --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Status:\"lifecycle-state\"}"
+  ${OCI} --profile $PROFILE compute instance list -c $TENANCYOCID --region $region --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Status:\"lifecycle-state\"}"
 
   # -- list instances compartment by compartment (excluding root compartment but including all subcompartments)
-  oci --profile $PROFILE iam compartment list --compartment-id-in-subtree true --all --query "data [?\"lifecycle-state\" == 'ACTIVE']" 2>/dev/null| egrep "^ *\"name|^ *\"id"|awk -F'"' '{ print $4 }'|while read compid
+  ${OCI} --profile $PROFILE iam compartment list --compartment-id-in-subtree true --all --query "data [?\"lifecycle-state\" == 'ACTIVE']" 2>/dev/null| egrep "^ *\"name|^ *\"id"|awk -F'"' '{ print $4 }'|while read compid
   do
     read compname
     echo
     echo -e "${COLOR_TITLE0}========== COMPARTMENT ${COLOR_COMP}${compname}${COLOR_TITLE0} (${COLOR_COMP}${compid}${COLOR_TITLE0}) ${COLOR_NORMAL}"
-    #oci --profile $PROFILE compute instance list -c $compid --output table --query "data [*].{CompartmentOCID:\"compartment-id\",InstanceName:\"display-name\", InstanceOCID:id}"
-    oci --profile $PROFILE compute instance list -c $compid --region $region --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Status:\"lifecycle-state\"}"
+    #${OCI} --profile $PROFILE compute instance list -c $compid --output table --query "data [*].{CompartmentOCID:\"compartment-id\",InstanceName:\"display-name\", InstanceOCID:id}"
+    ${OCI} --profile $PROFILE compute instance list -c $compid --region $region --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Status:\"lifecycle-state\"}"
   done
 done 
