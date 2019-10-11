@@ -86,9 +86,9 @@ list_compartments()
     state="ACTIVE"
   fi
   if [ "$state" == "ACTIVE" ]; then
-    printf "${COLOR_GREEN}%s ${COLOR_NORMAL}%s ${COLOR_YELLOW}ACTIVE \n" "$cptname" "$parent_id"
+    printf "${COLOR_GREEN}%s ${COLOR_NORMAL}%s ${COLOR_YELLOW}ACTIVE ${COLOR_NORMAL}\n" "$cptname" "$parent_id"
   else
-    printf "${COLOR_BLUE}%s ${COLOR_GREY}%s ${COLOR_RED}DELETED \n" "$cptname" "$parent_id"
+    printf "${COLOR_BLUE}%s ${COLOR_GREY}%s ${COLOR_RED}DELETED ${COLOR_NORMAL}\n" "$cptname" "$parent_id"
   fi
 
   if [ $LIST_DELETED == true ]
