@@ -48,16 +48,16 @@ process_compartment()
 {
   local lcompid=$1
 
-  CHANGED_FLAG=${TMPFILE}_changed 
+  CHANGED_FLAG=${TMP_FILE}_changed 
   rm -f $CHANGED_FLAG
 
-  oci --profile $PROFILE compute instance list -c $lcompid --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Status:\"lifecycle-state\"}" > $TMPFILE
-  cat $TMPFILE
+  oci --profile $PROFILE compute instance list -c $lcompid --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Status:\"lifecycle-state\"}" > $TMP_FILE
+  cat $TMP_FILE
 
-  # if no instance found in this compartment (TMPFILE empty), exit the function
-  if [ ! -s $TMPFILE ]; then rm -f $TMPFILE; return; fi 
+  # if no instance found in this compartment (TMP_FILE empty), exit the function
+  if [ ! -s $TMP_FILE ]; then rm -f $TMP_FILE; return; fi 
 
-  cat $TMPFILE | sed '1,3d;$d' | while read s1 inst_name s2 inst_id s3 inst_status s4
+  cat $TMP_FILE | sed '1,3d;$d' | while read s1 inst_name s2 inst_id s3 inst_status s4
   do
     if ( [ "$inst_status" == "STOPPED" ] && [ "$ACTION" == "start" ] ) || ( [ "$inst_status" == "RUNNING" ] && [ "$ACTION" == "stop" ] )
     then 
@@ -92,7 +92,7 @@ process_compartment()
     rm -f $CHANGED_FLAG
   fi
   
-  rm -f $TMPFILE
+  rm -f $TMP_FILE
 }
 
 # -------- main
@@ -117,7 +117,7 @@ esac
 if [ "$PROFILE" == "-h" ] || [ "PROFILE" == "--help" ]; then usage; fi
 if [ "$ACTION" != "start" ] && [ "$ACTION" != "stop" ]; then usage; fi
 
-TMPFILE=tmp_$$
+TMP_FILE=tmp_$$
 
 # -- Check if jq is installed
 which jq > /dev/null 2>&1
@@ -144,5 +144,5 @@ do
   process_compartment $compid
 done
 
-rm -f $TMPFILE
+rm -f $TMP_FILE
 exit 0

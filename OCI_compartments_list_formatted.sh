@@ -18,6 +18,16 @@
 #    2019-10-11: fix minor display bug
 # --------------------------------------------------------------------------------------------------------------
 
+# ---------- Colors for output
+COLOR_YELLOW="\e[93m"
+COLOR_RED="\e[91m"
+COLOR_GREEN="\e[32m"
+COLOR_NORMAL="\e[39m"
+COLOR_CYAN="\e[96m"
+COLOR_BLUE="\e[94m"
+COLOR_GREY="\e[90m"
+
+# ---------- Functions
 usage()
 {
 cat << EOF
@@ -61,11 +71,11 @@ list_compartments()
   i=1;
   while [ $i -le `expr $level - 1` ]
   do
-    if [ `cat tmp_last_$i` == "0" ]; then printf "${COLOR_CYAN}│      "; else printf "       "; fi
+    if [ `cat ${TMP_FILE}_$i` == "0" ]; then printf "${COLOR_CYAN}│      "; else printf "       "; fi
     ((i++))
   done
   if [ $level -gt 0 ]; then
-    if [ `cat tmp_last_$level` == "0" ]; then printf "${COLOR_CYAN}├───── "; else printf "${COLOR_CYAN}└───── "; fi
+    if [ `cat ${TMP_FILE}_$level` == "0" ]; then printf "${COLOR_CYAN}├───── "; else printf "${COLOR_CYAN}└───── "; fi
   fi
 
   if [ $level -gt 0 ]; then
@@ -76,7 +86,7 @@ list_compartments()
     state="ACTIVE"
   fi
   if [ "$state" == "ACTIVE" ]; then
-    printf "${COLOR_GREEN}%s ${COLOR_DEFAULT}%s ${COLOR_YELLOW}ACTIVE \n" "$cptname" "$parent_id"
+    printf "${COLOR_GREEN}%s ${COLOR_NORMAL}%s ${COLOR_YELLOW}ACTIVE \n" "$cptname" "$parent_id"
   else
     printf "${COLOR_BLUE}%s ${COLOR_GREY}%s ${COLOR_RED}DELETED \n" "$cptname" "$parent_id"
   fi
@@ -94,17 +104,33 @@ list_compartments()
     for cptid in $cptid_list
     do
       level1=`expr $level + 1`
-      if [ $i -eq $nb_cpts ]; then echo 1 > tmp_last_$level1; else echo 0 > tmp_last_$level1; fi
+      if [ $i -eq $nb_cpts ]; then echo 1 > ${TMP_FILE}_$level1; else echo 0 > ${TMP_FILE}_$level1; fi
       list_compartments $cptid `expr $level + 1`
       ((i++))
     done
   fi
 }
 
+cleanup()
+{
+  rm -f $TMP_FILE ${TMP_FILE}_*
+}
+
+trap_ctrl_c()
+{
+  echo
+  echo -e "${COLOR_RED}SCRIPT INTERRUPTED BY USER ! ${COLOR_NORMAL}"
+  echo
+
+  cleanup
+  exit 99
+}
+
 # -------- main
 
 OCI_CONFIG_FILE=~/.oci/config
-TMP_FILE=tmp_all_cpts_$$
+
+TMP_FILE=tmp_list_cpts_$$
 LIST_DELETED=false
 
 if [ $# -ne 1 ] && [ $# -ne 2 ]; then usage; fi
@@ -120,13 +146,8 @@ case $# in
    ;;
 esac
 
-COLOR_YELLOW="\e[93m"
-COLOR_RED="\e[91m"
-COLOR_GREEN="\e[32m"
-COLOR_DEFAULT="\e[39m"
-COLOR_CYAN="\e[96m"
-COLOR_BLUE="\e[94m"
-COLOR_GREY="\e[90m"
+# -- trap ctrl-c and call trap_ctrl_c()
+trap trap_ctrl_c INT
 
 # -- Check if the PROFILE exists
 grep "\[$PROFILE\]" $OCI_CONFIG_FILE > /dev/null 2>&1
@@ -141,4 +162,5 @@ oci --profile $PROFILE iam compartment list -c $TENANCYOCID --compartment-id-in-
 # -- recursive call to list all compartments and sub-compartments in right order
 list_compartments $TENANCYOCID 0 false
 
-rm -f $TMP_FILE tmp_last_*
+cleanup
+exit 0
