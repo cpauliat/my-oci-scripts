@@ -119,6 +119,8 @@ if [ "$ACTION" != "start" ] && [ "$ACTION" != "stop" ]; then usage; fi
 
 TMP_FILE=tmp_$$
 
+echo "BEGIN SCRIPT: `date`"
+
 # -- Check if jq is installed
 which jq > /dev/null 2>&1
 if [ $? -ne 0 ]; then echo "ERROR: jq not found !"; exit 2; fi
@@ -143,6 +145,8 @@ do
   echo "Compartment $compname, OCID=$compid"
   process_compartment $compid
 done
+
+echo "END SCRIPT: `date`"
 
 rm -f $TMP_FILE
 exit 0
