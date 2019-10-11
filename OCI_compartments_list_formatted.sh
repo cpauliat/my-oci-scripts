@@ -1,5 +1,4 @@
 #!/bin/bash
-
 # --------------------------------------------------------------------------------------------------------------
 # This script will list the compartment names and IDs in a OCI tenant using OCI CLI
 # It will also list all subcompartments
@@ -16,6 +15,7 @@
 #    2019-05-31: if -h or --help provided, display the usage message
 #    2019-10-02: change default behaviour (does not display deleted compartment)
 #                and add option -d to list deleted compartments
+#    2019-10-11: fix minor display bug
 # --------------------------------------------------------------------------------------------------------------
 
 usage()
@@ -81,12 +81,11 @@ list_compartments()
     printf "${COLOR_BLUE}%s ${COLOR_GREY}%s ${COLOR_RED}DELETED \n" "$cptname" "$parent_id"
   fi
 
-  cptid_list=`oci --profile $PROFILE iam compartment list -c $parent_id --all| grep "^ *\"id" |awk -F'"' '{ print $4 }'`
   if [ $LIST_DELETED == true ]
   then
-    cptid_list=`oci --profile $PROFILE iam compartment list -c $parent_id --all| grep "^ *\"id" |awk -F'"' '{ print $4 }'`
+    cptid_list=`oci --profile $PROFILE iam compartment list -c $parent_id --all 2>/dev/null| grep "^ *\"id" |awk -F'"' '{ print $4 }'`
   else
-    cptid_list=`oci --profile $PROFILE iam compartment list -c $parent_id --all --query "data [?\"lifecycle-state\" == 'ACTIVE'].{id:id}"| grep "^ *\"id" |awk -F'"' '{ print $4 }'`
+    cptid_list=`oci --profile $PROFILE iam compartment list -c $parent_id --all --query "data [?\"lifecycle-state\" == 'ACTIVE'].{id:id}" 2>/dev/null | grep "^ *\"id" |awk -F'"' '{ print $4 }'`
   fi
 
   if [ "$cptid_list" != "" ]; then
@@ -137,7 +136,7 @@ if [ $? -ne 0 ]; then echo "ERROR: PROFILE $PROFILE does not exist in file $OCI_
 TENANCYOCID=`egrep "^\[|ocid1.tenancy" $OCI_CONFIG_FILE|sed -n -e "/\[$PROFILE\]/,/tenancy/p"|tail -1| awk -F'=' '{ print $2 }' | sed 's/ //g'`
 
 # -- get the list of all compartments and sub-compartments (excluding root compartment)
-oci --profile $PROFILE iam compartment list -c $TENANCYOCID --compartment-id-in-subtree true --all 2>/dev/null| egrep "^ *\"name|^ *\"id|^ *\"lifecycle-state"|awk -F'"' '{ print $4 }' >$TMP_FILE
+oci --profile $PROFILE iam compartment list -c $TENANCYOCID --compartment-id-in-subtree true --all 2>/dev/null| egrep "^ *\"name|^ *\"id|^ *\"lifecycle-state"|awk -F'"' '{ print $4 }' >$TMP_FILE 2>/dev/null
 
 # -- recursive call to list all compartments and sub-compartments in right order
 list_compartments $TENANCYOCID 0 false
