@@ -14,6 +14,7 @@
 #
 # Versions
 #    2019-10-10: Initial Version
+#    2019-10-11: Add support for all active regions
 # --------------------------------------------------------------------------------------------------------------
 
 # ---------- Tag names, key and value to look for
@@ -28,11 +29,12 @@ TAG_VALUE="on"
 usage()
 {
 cat << EOF
-Usage: $0 OCI_PROFILE start|stop [--confirm]
+Usage: $0 [-a] OCI_PROFILE start|stop [--confirm]
 
-notes: 
+Notes: 
 - OCI_PROFILE must exist in ~/.oci/config file (see example below)
-- If --confirm is not provided, the instances to stop are listed but not actually stopped
+- If -a is provided, the script processes all active regions instead of singe region provided in profile
+- If --confirm is not provided, the instances to stop (or start) are listed but not actually stopped (or started)
 
 [EMEAOSCf]
 tenancy     = ocid1.tenancy.oc1..aaaaaaaaw7e6nkszrry6d5hxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
@@ -47,11 +49,12 @@ EOF
 process_compartment()
 {
   local lcompid=$1
+  local lregion=$2
 
   CHANGED_FLAG=${TMP_FILE}_changed 
   rm -f $CHANGED_FLAG
 
-  ${OCI} --profile $PROFILE compute instance list -c $lcompid --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Status:\"lifecycle-state\"}" > $TMP_FILE
+  ${OCI} --profile $PROFILE compute instance list -c $lcompid --region $lregion --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Status:\"lifecycle-state\"}" > $TMP_FILE
   cat $TMP_FILE
 
   # if no instance found in this compartment (TMP_FILE empty), exit the function
@@ -62,17 +65,17 @@ process_compartment()
     if ( [ "$inst_status" == "STOPPED" ] && [ "$ACTION" == "start" ] ) || ( [ "$inst_status" == "RUNNING" ] && [ "$ACTION" == "stop" ] )
     then 
       # WORKAROUND: cannot use variable, hardcode TAG_NS and TAG_KEY
-      ltag_value=`${OCI} --profile $PROFILE compute instance get --instance-id $inst_id | jq -r '.[]."defined-tags"."osc"."stop_non_working_hours"' 2>/dev/null`
+      ltag_value=`${OCI} --profile $PROFILE compute instance get --region $lregion --instance-id $inst_id | jq -r '.[]."defined-tags"."osc"."stop_non_working_hours"' 2>/dev/null`
       if [ "$ltag_value" == "$TAG_VALUE" ]
       then 
         if [ $CONFIRM == true ]
         then
           case $ACTION in
             "start") echo "--> STARTING instance $inst_name ($inst_id) because of TAG VALUE"
-                     ${OCI} --profile $PROFILE compute instance action --instance-id $inst_id --action START >/dev/null 2>&1
+                     ${OCI} --profile $PROFILE compute instance action --region $lregion --instance-id $inst_id --action START >/dev/null 2>&1
                      ;;
             "stop")  echo "--> STOPPING instance $inst_name ($inst_id) because of TAG VALUE"
-                     ${OCI} --profile $PROFILE compute instance action --instance-id $inst_id --action SOFTSTOP >/dev/null 2>&1
+                     ${OCI} --profile $PROFILE compute instance action --region $lregion --instance-id $inst_id --action SOFTSTOP >/dev/null 2>&1
                      ;;
           esac
           touch $CHANGED_FLAG
@@ -88,11 +91,25 @@ process_compartment()
 
   if [ -f $CHANGED_FLAG ]
   then
-    ${OCI} --profile $PROFILE compute instance list -c $lcompid --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Status:\"lifecycle-state\"}" 
+    ${OCI} --profile $PROFILE compute instance list -c $lcompid --region $lregion --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Status:\"lifecycle-state\"}" 
     rm -f $CHANGED_FLAG
   fi
   
   rm -f $TMP_FILE
+}
+
+# -- Get the current region from the profile
+get_region_from_profile()
+{
+  egrep "^\[|^region" ${OCI_CONFIG_FILE} | fgrep -A 1 "[${PROFILE}]" |grep "^region" > $TMP_FILE 2>&1
+  if [ $? -ne 0 ]; then echo "ERROR: region not found in OCI config file $OCI_CONFIG_FILE for profile $PROFILE !"; cleanup; exit 5; fi
+  awk -F'=' '{ print $2 }' $TMP_FILE | sed 's# ##g'
+}
+
+# -- Get the list of all active regions
+get_all_active_regions()
+{
+  oci --profile $PROFILE iam region-subscription list --query "data [].{Region:\"region-name\"}" |jq -r '.[].Region'
 }
 
 # -------- main
@@ -100,7 +117,10 @@ process_compartment()
 OCI_CONFIG_FILE=~/.oci/config
 OCI=$HOME/bin/oci
 
+ALL_REGIONS=false
 CONFIRM=false
+
+if  [ "$1" == "-a" ]; then ALL_REGIONS=true; shift; fi
 
 case $# in 
   2) PROFILE=$1
@@ -133,18 +153,32 @@ if [ $? -ne 0 ]; then echo "ERROR: PROFILE $PROFILE does not exist in file $OCI_
 # -- get tenancy OCID from OCI PROFILE
 TENANCYOCID=`egrep "^\[|ocid1.tenancy" $OCI_CONFIG_FILE|sed -n -e "/\[$PROFILE\]/,/tenancy/p"|tail -1| awk -F'=' '{ print $2 }' | sed 's/ //g'`
 
-# -- list instances in the root compartment
-echo
-echo "Compartment root, OCID=$TENANCYOCID"
-process_compartment $TENANCYOCID 
-
-# -- list instances compartment by compartment (excluding root compartment but including all subcompartments). Only ACTIVE compartments
-${OCI} --profile $PROFILE iam compartment list -c $TENANCYOCID --compartment-id-in-subtree true --all --query "data [?\"lifecycle-state\" == 'ACTIVE']" 2>/dev/null| egrep "^ *\"name|^ *\"id"|awk -F'"' '{ print $4 }' | while read compid
+# -- set the list of regions
+if [ $ALL_REGIONS == false ]
+then
+  REGIONS_LIST=`get_region_from_profile`
+else
+  REGIONS_LIST=`get_all_active_regions`
+fi
+ 
+# -- process required regions list
+for region in $REGIONS_LIST
 do
-  read compname
+  echo -e "==================== REGION ${region}"
+
+  # -- list instances in the root compartment
   echo
-  echo "Compartment $compname, OCID=$compid"
-  process_compartment $compid
+  echo "Compartment root, OCID=$TENANCYOCID"
+  process_compartment $TENANCYOCID $region
+
+  # -- list instances compartment by compartment (excluding root compartment but including all subcompartments). Only ACTIVE compartments
+  ${OCI} --profile $PROFILE iam compartment list -c $TENANCYOCID --compartment-id-in-subtree true --all --query "data [?\"lifecycle-state\" == 'ACTIVE']" 2>/dev/null| egrep "^ *\"name|^ *\"id"|awk -F'"' '{ print $4 }' | while read compid
+  do
+    read compname
+    echo
+    echo "Compartment $compname, OCID=$compid"
+    process_compartment $compid $region
+  done
 done
 
 echo "END SCRIPT: `date`"
