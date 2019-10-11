@@ -51,7 +51,7 @@ process_compartment()
   CHANGED_FLAG=${TMP_FILE}_changed 
   rm -f $CHANGED_FLAG
 
-  oci --profile $PROFILE compute instance list -c $lcompid --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Status:\"lifecycle-state\"}" > $TMP_FILE
+  ${OCI} --profile $PROFILE compute instance list -c $lcompid --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Status:\"lifecycle-state\"}" > $TMP_FILE
   cat $TMP_FILE
 
   # if no instance found in this compartment (TMP_FILE empty), exit the function
@@ -62,17 +62,17 @@ process_compartment()
     if ( [ "$inst_status" == "STOPPED" ] && [ "$ACTION" == "start" ] ) || ( [ "$inst_status" == "RUNNING" ] && [ "$ACTION" == "stop" ] )
     then 
       # WORKAROUND: cannot use variable, hardcode TAG_NS and TAG_KEY
-      ltag_value=`oci --profile $PROFILE compute instance get --instance-id $inst_id | jq -r '.[]."defined-tags"."osc"."stop_non_working_hours"' 2>/dev/null`
+      ltag_value=`${OCI} --profile $PROFILE compute instance get --instance-id $inst_id | jq -r '.[]."defined-tags"."osc"."stop_non_working_hours"' 2>/dev/null`
       if [ "$ltag_value" == "$TAG_VALUE" ]
       then 
         if [ $CONFIRM == true ]
         then
           case $ACTION in
             "start") echo "--> STARTING instance $inst_name ($inst_id) because of TAG VALUE"
-                     oci --profile $PROFILE compute instance action --instance-id $inst_id --action START >/dev/null 2>&1
+                     ${OCI} --profile $PROFILE compute instance action --instance-id $inst_id --action START >/dev/null 2>&1
                      ;;
             "stop")  echo "--> STOPPING instance $inst_name ($inst_id) because of TAG VALUE"
-                     oci --profile $PROFILE compute instance action --instance-id $inst_id --action SOFTSTOP >/dev/null 2>&1
+                     ${OCI} --profile $PROFILE compute instance action --instance-id $inst_id --action SOFTSTOP >/dev/null 2>&1
                      ;;
           esac
           touch $CHANGED_FLAG
@@ -88,7 +88,7 @@ process_compartment()
 
   if [ -f $CHANGED_FLAG ]
   then
-    oci --profile $PROFILE compute instance list -c $lcompid --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Status:\"lifecycle-state\"}" 
+    ${OCI} --profile $PROFILE compute instance list -c $lcompid --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Status:\"lifecycle-state\"}" 
     rm -f $CHANGED_FLAG
   fi
   
@@ -98,6 +98,7 @@ process_compartment()
 # -------- main
 
 OCI_CONFIG_FILE=~/.oci/config
+OCI=$HOME/bin/oci
 
 CONFIRM=false
 
@@ -138,7 +139,7 @@ echo "Compartment root, OCID=$TENANCYOCID"
 process_compartment $TENANCYOCID 
 
 # -- list instances compartment by compartment (excluding root compartment but including all subcompartments). Only ACTIVE compartments
-oci --profile $PROFILE iam compartment list -c $TENANCYOCID --compartment-id-in-subtree true --all --query "data [?\"lifecycle-state\" == 'ACTIVE']" 2>/dev/null| egrep "^ *\"name|^ *\"id"|awk -F'"' '{ print $4 }' | while read compid
+${OCI} --profile $PROFILE iam compartment list -c $TENANCYOCID --compartment-id-in-subtree true --all --query "data [?\"lifecycle-state\" == 'ACTIVE']" 2>/dev/null| egrep "^ *\"name|^ *\"id"|awk -F'"' '{ print $4 }' | while read compid
 do
   read compname
   echo
