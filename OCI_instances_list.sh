@@ -34,6 +34,15 @@ EOF
   exit 1
 }
 
+# -- Get the current region from the profile
+get_region_from_profile()
+{
+  egrep "^\[|^region" ${OCI_CONFIG_FILE} | fgrep -A 1 "[${PROFILE}]" |grep "^region" > $TMP_FILE 2>&1
+  if [ $? -ne 0 ]; then echo "ERROR: region not found in OCI config file $OCI_CONFIG_FILE for profile $PROFILE !"; cleanup; exit 5; fi
+  awk -F'=' '{ print $2 }' $TMP_FILE | sed 's# ##g'
+}
+
+# -- Get the list of all active regions
 get_all_active_regions()
 {
   oci --profile $PROFILE iam region-subscription list --query "data [].{Region:\"region-name\"}" |jq -r '.[].Region'
@@ -81,18 +90,8 @@ TMP_FILE=tmp_$$
 
 ALL_REGIONS=false
 
-if [ $# -ne 1 ] && [ $# -ne 2 ]; then usage; fi
-
-if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then usage; fi
-if [ "$2" == "-h" ] || [ "$2" == "--help" ]; then usage; fi
-
-case $# in
-  1) PROFILE=$1;  
-     ;;
-  2) PROFILE=$2;  
-     if [ "$1" == "-a" ]; then ALL_REGIONS=true; else usage; fi
-     ;;
-esac
+if [ "$1" == "-a" ]; then ALL_REGIONS=true; shift; fi
+if [ $# -eq 1 ]; then PROFILE=$1; else usage; fi
 
 # -- Check if jq is installed
 which jq > /dev/null 2>&1
@@ -105,15 +104,10 @@ if [ $? -ne 0 ]; then echo "ERROR: PROFILE $PROFILE does not exist in file $OCI_
 # -- get tenancy OCID from OCI PROFILE
 TENANCYOCID=`egrep "^\[|ocid1.tenancy" $OCI_CONFIG_FILE|sed -n -e "/\[$PROFILE\]/,/tenancy/p"|tail -1| awk -F'=' '{ print $2 }' | sed 's/ //g'`
 
-# -- Get the current region from the profile
-egrep "^\[|^region" ${OCI_CONFIG_FILE} | fgrep -A 1 "[${PROFILE}]" |grep "^region" > $TMP_FILE 2>&1
-if [ $? -ne 0 ]; then echo "ERROR: region not found in OCI config file $OCI_CONFIG_FILE for profile $PROFILE !"; cleanup; exit 5; fi
-CURRENT_REGION=`awk -F'=' '{ print $2 }' $TMP_FILE | sed 's# ##g'`
-
 # -- set the list of regions
 if [ $ALL_REGIONS == false ]
 then
-  REGIONS_LIST=$CURRENT_REGION
+  REGIONS_LIST=`get_region_from_profile`
 else
   REGIONS_LIST=`get_all_active_regions`
 fi
