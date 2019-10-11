@@ -136,7 +136,7 @@ if [ $? -ne 0 ]; then echo "ERROR: PROFILE $PROFILE does not exist in file $OCI_
 TENANCYOCID=`egrep "^\[|ocid1.tenancy" $OCI_CONFIG_FILE|sed -n -e "/\[$PROFILE\]/,/tenancy/p"|tail -1| awk -F'=' '{ print $2 }' | sed 's/ //g'`
 
 # -- get the list of all compartments and sub-compartments (excluding root compartment)
-oci --profile $PROFILE iam compartment list -c $TENANCYOCID --compartment-id-in-subtree true --all 2>/dev/null| egrep "^ *\"name|^ *\"id|^ *\"lifecycle-state"|awk -F'"' '{ print $4 }' >$TMP_FILE 2>/dev/null
+oci --profile $PROFILE iam compartment list -c $TENANCYOCID --compartment-id-in-subtree true --all 2>/dev/null| egrep "^ *\"name|^ *\"id|^ *\"lifecycle-state"|awk -F'"' '{ print $4 }' >$TMP_FILE
 
 # -- recursive call to list all compartments and sub-compartments in right order
 list_compartments $TENANCYOCID 0 false
