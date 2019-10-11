@@ -95,6 +95,9 @@ ALL_REGIONS=false
 if [ "$1" == "-a" ]; then ALL_REGIONS=true; shift; fi
 if [ $# -eq 1 ]; then PROFILE=$1; else usage; fi
 
+# -- trap ctrl-c and call trap_ctrl_c()
+trap trap_ctrl_c INT
+
 # -- Check if jq is installed
 which jq > /dev/null 2>&1
 if [ $? -ne 0 ]; then echo "ERROR: jq not found !"; exit 2; fi
