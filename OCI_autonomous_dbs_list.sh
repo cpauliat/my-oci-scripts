@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # --------------------------------------------------------------------------------------------------------------
-# This script will list the compute instances in all compartments in a OCI tenant in a region or all regions
+# This script will list the autonomous databases in all compartments in a OCI tenant in a region or all regions
 # using OCI CLI
 # Note: OCI tenant and region given by an OCI CLI PROFILE
 # Author        : Christophe Pauliat
@@ -9,9 +9,7 @@
 # prerequisites : jq (JSON parser) installed, OCI CLI installed and OCI config file configured with profiles
 #
 # Versions
-#    2019-05-14: Initial Version
-#    2019-10-10: change default behaviour (do not look for instances in deleted compartment)
-#    2019-10-14: Add quiet mode option
+#    2019-10-14: Initial Version
 # --------------------------------------------------------------------------------------------------------------
 
 # -------- functions
@@ -91,9 +89,11 @@ quiet_display()
   local lcompname=$2
 
   # remove first 3 lines and list line to get instances details
-  cat $TMP_FILE | sed '1,3d;$d' | while read s1 inst_name s2 inst_id s3 inst_status s4
+  cat $TMP_FILE | sed '1,3d;$d' | awk -F' ' '{ print $2 }' | while read adb_id
   do
-    printf "%-15s %-20s %-20s %-100s %-10s\n" "$lregion" "$lcompname" "$inst_name" "$inst_id" "$inst_status"
+    adb_status=`${OCI} --profile $PROFILE db autonomous-database get --region $lregion --autonomous-database-id $adb_id | jq -r '.[]."lifecycle-state"' 2>/dev/null`
+    adb_name=`${OCI} --profile $PROFILE db autonomous-database get --region $lregion --autonomous-database-id $adb_id | jq -r '.[]."display-name"' 2>/dev/null`
+    printf "%-15s %-20s %-20s %-100s %-10s\n" "$lregion" "$lcompname" "$adb_name" "$adb_id" "$adb_status"
   done
 }
 # -------- main
@@ -139,11 +139,11 @@ do
   then
     echo -e "${COLOR_TITLE1}==================== REGION ${COLOR_COMP}${region}${COLOR_NORMAL}"
   
-    # -- list instances in the root compartment
+    # -- list autonomous dbs in the root compartment
     echo
     echo -e "${COLOR_TITLE0}========== COMPARTMENT ${COLOR_COMP}root${COLOR_TITLE0} (${COLOR_COMP}${TENANCYOCID}${COLOR_TITLE0}) ${COLOR_NORMAL}"
   fi
-  ${OCI} --profile $PROFILE compute instance list -c $TENANCYOCID --region $region --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Status:\"lifecycle-state\"}" > $TMP_FILE
+  ${OCI} --profile $PROFILE db autonomous-database list -c $TENANCYOCID --region $region --output table --query "data [*].{ADB_name:\"display-name\", ADB_id:id, Status:\"lifecycle-state\"}" > $TMP_FILE
   if [ -s $TMP_FILE ] 
   then
     if [ $QUIET_MODE == false ]
@@ -154,7 +154,7 @@ do
     fi
   fi
 
-  # -- list instances compartment by compartment (excluding root compartment but including all subcompartments)
+  # -- list utonomous dbs compartment by compartment (excluding root compartment but including all subcompartments)
   ${OCI} --profile $PROFILE iam compartment list --compartment-id-in-subtree true --all --query "data [?\"lifecycle-state\" == 'ACTIVE']" 2>/dev/null| egrep "^ *\"name|^ *\"id"|awk -F'"' '{ print $4 }'|while read compid
   do
     read compname
@@ -163,7 +163,7 @@ do
       echo
       echo -e "${COLOR_TITLE0}========== COMPARTMENT ${COLOR_COMP}${compname}${COLOR_TITLE0} (${COLOR_COMP}${compid}${COLOR_TITLE0}) ${COLOR_NORMAL}"
     fi
-    ${OCI} --profile $PROFILE compute instance list -c $compid --region $region --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Status:\"lifecycle-state\"}" > $TMP_FILE
+    ${OCI} --profile $PROFILE db autonomous-database list -c $compid --region $region --output table --query "data [*].{ADB_name:\"display-name\", ADB_id:id, Status:\"lifecycle-state\"}" > $TMP_FILE
     if [ -s $TMP_FILE ] 
     then
       if [ $QUIET_MODE == false ]
