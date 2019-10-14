@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # --------------------------------------------------------------------------------------------------------------
-# This script will list the instance names and IDs in all compartments in a OCI tenant in a region using OCI CLI
+# This script will list the compute instances in all compartments in a OCI tenant in a region or all regions
+# using OCI CLI
 # Note: OCI tenant and region given by an OCI CLI PROFILE
 # Author        : Christophe Pauliat
 # Platforms     : MacOS / Linux
@@ -10,6 +11,7 @@
 # Versions
 #    2019-05-14: Initial Version
 #    2019-10-10: change default behaviour (do not look for instances in deleted compartment)
+#    2019-10-14: Add quiet mode option
 # --------------------------------------------------------------------------------------------------------------
 
 # -------- functions
@@ -17,12 +19,12 @@
 usage()
 {
 cat << EOF
-Usage: $0 [-a] OCI_PROFILE
+Usage: $0 [-q] [-a] OCI_PROFILE
 
-    By default, only the compute instances in the region provided in the profile are listed
-    If -a is provided, the compute instances from all active regions are listed
-
-note: OCI_PROFILE must exist in ~/.oci/config file (see example below)
+Notes: 
+- OCI_PROFILE must exist in ~/.oci/config file (see example below)
+- If -q is provided, output is minimal (quiet mode): only stopped/started autonomous databases are displayed.
+- If -a is provided, the script processes all active regions instead of singe region provided in profile
 
 [EMEAOSCf]
 tenancy     = ocid1.tenancy.oc1..aaaaaaaaw7e6nkszrry6d5hxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
@@ -83,6 +85,17 @@ else
   COLOR_NORMAL=""
 fi
 
+quiet_display()
+{
+  local lregion=$1
+  local lcompname=$2
+
+  # remove first 3 lines and list line to get instances details
+  cat $TMP_FILE | sed '1,3d;$d' | while read s1 inst_name s2 inst_id s3 inst_status s4
+  do
+    printf "%-15s %-20s %-20s %-100s %-10s\n" $lregion $lcompname $inst_name $inst_id $inst_status
+  done
+}
 # -------- main
 
 OCI_CONFIG_FILE=~/.oci/config
@@ -91,8 +104,11 @@ OCI=$HOME/bin/oci
 TMP_FILE=tmp_$$
 
 ALL_REGIONS=false
+QUIET_MODE=false
 
+if [ "$1" == "-q" ]; then QUIET_MODE=true; shift; fi
 if [ "$1" == "-a" ]; then ALL_REGIONS=true; shift; fi
+
 if [ $# -eq 1 ]; then PROFILE=$1; else usage; fi
 
 # -- trap ctrl-c and call trap_ctrl_c()
@@ -119,20 +135,46 @@ fi
 
 for region in $REGIONS_LIST
 do
-  echo -e "${COLOR_TITLE1}==================== REGION ${COLOR_COMP}${region}${COLOR_NORMAL}"
-
-  # -- list instances in the root compartment
-  echo
-  echo -e "${COLOR_TITLE0}========== COMPARTMENT ${COLOR_COMP}root${COLOR_TITLE0} (${COLOR_COMP}${TENANCYOCID}${COLOR_TITLE0}) ${COLOR_NORMAL}"
-  ${OCI} --profile $PROFILE compute instance list -c $TENANCYOCID --region $region --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Status:\"lifecycle-state\"}"
+  if [ $QUIET_MODE == false ]
+  then
+    echo -e "${COLOR_TITLE1}==================== REGION ${COLOR_COMP}${region}${COLOR_NORMAL}"
+  
+    # -- list instances in the root compartment
+    echo
+    echo -e "${COLOR_TITLE0}========== COMPARTMENT ${COLOR_COMP}root${COLOR_TITLE0} (${COLOR_COMP}${TENANCYOCID}${COLOR_TITLE0}) ${COLOR_NORMAL}"
+  fi
+  ${OCI} --profile $PROFILE compute instance list -c $TENANCYOCID --region $region --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Status:\"lifecycle-state\"}" > $TMP_FILE
+  if [ -s $TMP_FILE ] 
+  then
+    if [ $QUIET_MODE == false ]
+    then
+      cat $TMP_FILE
+    else
+      quiet_display $region root 
+    fi
+  fi
 
   # -- list instances compartment by compartment (excluding root compartment but including all subcompartments)
   ${OCI} --profile $PROFILE iam compartment list --compartment-id-in-subtree true --all --query "data [?\"lifecycle-state\" == 'ACTIVE']" 2>/dev/null| egrep "^ *\"name|^ *\"id"|awk -F'"' '{ print $4 }'|while read compid
   do
     read compname
-    echo
-    echo -e "${COLOR_TITLE0}========== COMPARTMENT ${COLOR_COMP}${compname}${COLOR_TITLE0} (${COLOR_COMP}${compid}${COLOR_TITLE0}) ${COLOR_NORMAL}"
-    #${OCI} --profile $PROFILE compute instance list -c $compid --output table --query "data [*].{CompartmentOCID:\"compartment-id\",InstanceName:\"display-name\", InstanceOCID:id}"
-    ${OCI} --profile $PROFILE compute instance list -c $compid --region $region --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Status:\"lifecycle-state\"}"
+    if [ $QUIET_MODE == false ]
+    then
+      echo
+      echo -e "${COLOR_TITLE0}========== COMPARTMENT ${COLOR_COMP}${compname}${COLOR_TITLE0} (${COLOR_COMP}${compid}${COLOR_TITLE0}) ${COLOR_NORMAL}"
+    fi
+    ${OCI} --profile $PROFILE compute instance list -c $compid --region $region --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Status:\"lifecycle-state\"}" > $TMP_FILE
+    if [ -s $TMP_FILE ] 
+    then
+      if [ $QUIET_MODE == false ]
+      then
+        cat $TMP_FILE
+      else
+        quiet_display $region $compname 
+      fi
+    fi
   done
 done 
+
+cleanup
+exit 0

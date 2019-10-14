@@ -128,8 +128,8 @@ ALL_REGIONS=false
 CONFIRM=false
 QUIET_MODE=false
 
-if  [ "$1" == "-q" ]; then QUIET_MODE=true; shift; fi
-if  [ "$1" == "-a" ]; then ALL_REGIONS=true; shift; fi
+if [ "$1" == "-q" ]; then QUIET_MODE=true; shift; fi
+if [ "$1" == "-a" ]; then ALL_REGIONS=true; shift; fi
 
 case $# in 
   2) PROFILE=$1
