@@ -33,10 +33,10 @@ cat << EOF
 Usage: $0 [-q] [-a] OCI_PROFILE start|stop [--confirm]
 
 Notes: 
-- OCI_PROFILE must exist in ~/.oci/config file (see example below)
 - If -q is provided, output is minimal (quiet mode): only stopped/started instances are displayed.
 - If -a is provided, the script processes all active regions instead of singe region provided in profile
 - If --confirm is not provided, the instances to stop (or start) are listed but not actually stopped (or started)
+- OCI_PROFILE must exist in ~/.oci/config file (see example below)
 
 [EMEAOSCf]
 tenancy     = ocid1.tenancy.oc1..aaaaaaaaw7e6nkszrry6d5hxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx

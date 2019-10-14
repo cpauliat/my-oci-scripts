@@ -93,7 +93,7 @@ quiet_display()
   do
     adb_status=`${OCI} --profile $PROFILE db autonomous-database get --region $lregion --autonomous-database-id $adb_id | jq -r '.[]."lifecycle-state"' 2>/dev/null`
     adb_name=`${OCI} --profile $PROFILE db autonomous-database get --region $lregion --autonomous-database-id $adb_id | jq -r '.[]."display-name"' 2>/dev/null`
-    printf "%-15s %-20s %-20s %-100s %-10s\n" "$lregion" "$lcompname" "$adb_name" "$adb_id" "$adb_status"
+    printf "%-15s %-20s %-20s %-110s %-10s\n" "$lregion" "$lcompname" "$adb_name" "$adb_id" "$adb_status"
   done
 }
 # -------- main
