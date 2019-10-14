@@ -103,3 +103,16 @@ Prerequisites :
 - jq installed, OCI CLI installed and OCI config file configured with profiles
 - OCI user needs enough privileges
 ```
+
+### OCI_vm_dbsytems_stop_start_tagged.sh
+
+```
+Bash script to start or stop database systems node tagged with a specific value 
+in a region or in all active regions using OCI CLI (all compartments)
+
+Prerequisites :
+- jq installed, OCI CLI installed and OCI config file configured with profiles
+- OCI user needs enough privileges
+
+Note: supports only non RAC VM.Standard* database systems
+```
