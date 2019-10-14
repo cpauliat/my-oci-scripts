@@ -93,7 +93,7 @@ quiet_display()
   # remove first 3 lines and list line to get instances details
   cat $TMP_FILE | sed '1,3d;$d' | while read s1 inst_name s2 inst_id s3 inst_status s4
   do
-    printf "%-15s %-20s %-20s %-100s %-10s\n" "$lregion" "$lcompname" "$inst_name" "$inst_id" "$inst_status"
+    printf "%-15s %-20s %-22s %-100s %-10s\n" "$lregion" "$lcompname" "$inst_name" "$inst_id" "$inst_status"
   done
 }
 # -------- main
