@@ -4,7 +4,7 @@
 # This script looks for autonomous databases with a specific tag value and start or stop them
 # You can use it to automatically stop some autonomous database during non working hours
 #     and start them again at the beginning of working hours 
-# This script can be executed by an external scheduler (cron table on Linux for Autonomous DB)
+# This script can be executed by an external scheduler (cron table on Linux for example)
 # This script looks in all compartments in a OCI tenant in a region using OCI CLI
 # Note: OCI tenant and region given by an OCI CLI PROFILE
 #
@@ -14,6 +14,7 @@
 #
 # Versions
 #    2019-10-11: Initial Version
+#    2019-10-14: Add quiet mode option
 # --------------------------------------------------------------------------------------------------------------
 
 # ---------- Tag names, key and value to look for
@@ -28,10 +29,11 @@ TAG_VALUE="on"
 usage()
 {
 cat << EOF
-Usage: $0 [-a] OCI_PROFILE start|stop [--confirm]
+Usage: $0 [-q] [-a] OCI_PROFILE start|stop [--confirm]
 
 Notes: 
 - OCI_PROFILE must exist in ~/.oci/config file (see example below)
+- If -q is provided, output is minimal (quiet mode): only stopped/started autonomous databases are displayed.
 - If -a is provided, the script processes all active regions instead of singe region provided in profile
 - If --confirm is not provided, the Autonomous DBs to stop (or start) are listed but not actually stopped (or started)
 
@@ -48,13 +50,14 @@ EOF
 process_compartment()
 {
   local lcompid=$1
-  local lregion=$2
+  local lcompname=$2
+  local lregion=$3
 
   CHANGED_FLAG=${TMP_FILE}_changed 
   rm -f $CHANGED_FLAG
 
   ${OCI} --profile $PROFILE db autonomous-database list -c $lcompid --region $lregion --output table --query "data [*].{ADB_name:\"display-name\", ADB_id:id, Status:\"lifecycle-state\"}" > $TMP_FILE
-  cat $TMP_FILE
+  if [ $QUIET_MODE == false ]; then cat $TMP_FILE; fi
 
   # if no ADB found in this compartment (TMP_FILE empty), exit the function
   if [ ! -s $TMP_FILE ]; then rm -f $TMP_FILE; return; fi 
@@ -69,21 +72,22 @@ process_compartment()
       ltag_value=`${OCI} --profile $PROFILE db autonomous-database get --region $lregion --autonomous-database-id $adb_id | jq -r '.[]."defined-tags"."osc"."stop_non_working_hours"' 2>/dev/null`
       if [ "$ltag_value" == "$TAG_VALUE" ]
       then 
+        if [ $QUIET_MODE == true ]; then printf "region $lregion, cpt $lcompname: "; else printf " --> "; fi             
         if [ $CONFIRM == true ]
         then
           case $ACTION in
-            "start") echo "--> STARTING Autonomous DB $adb_name ($adb_id) because of TAG VALUE"
+            "start") echo "STARTING Autonomous DB $adb_name ($adb_id) because of TAG VALUE"
                      ${OCI} --profile $PROFILE db autonomous-database start --region $lregion --autonomous-database-id $adb_id >/dev/null 2>&1
                      ;;
-            "stop")  echo "--> STOPPING Autonomous DB $adb_name ($adb_id) because of TAG VALUE"
+            "stop")  echo "STOPPING Autonomous DB $adb_name ($adb_id) because of TAG VALUE"
                      ${OCI} --profile $PROFILE db autonomous-database stop --region $lregion --autonomous-database-id $adb_id >/dev/null 2>&1
                      ;;
           esac
           touch $CHANGED_FLAG
         else
           case $ACTION in
-            "start")  echo "--> Autonomous DB $adb_name ($adb_id) SHOULD BE STARTED because of TAG VALUE --> re-run script with --confirm to actually start Autonomous DBs"  ;;
-            "stop")   echo "--> Autonomous DB $adb_name ($adb_id) SHOULD BE STOPPED because of TAG VALUE --> re-run script with --confirm to actually stop Autonomous DBs"  ;;
+            "start")  echo "Autonomous DB $adb_name ($adb_id) SHOULD BE STARTED because of TAG VALUE --> re-run script with --confirm to actually start Autonomous DBs"  ;;
+            "stop")   echo "Autonomous DB $adb_name ($adb_id) SHOULD BE STOPPED because of TAG VALUE --> re-run script with --confirm to actually stop Autonomous DBs"  ;;
           esac
         fi
       fi
@@ -92,8 +96,10 @@ process_compartment()
 
   if [ -f $CHANGED_FLAG ]
   then
-    ${OCI} --profile $PROFILE db autonomous-database list -c $lcompid --region $lregion --output table --query "data [*].{ADB_name:\"display-name\", ADB_id:id, Status:\"lifecycle-state\"}" 
     rm -f $CHANGED_FLAG
+    if [ $QUIET_MODE == false ]; then 
+      ${OCI} --profile $PROFILE db autonomous-database list -c $lcompid --region $lregion --output table --query "data [*].{ADB_name:\"display-name\", ADB_id:id, Status:\"lifecycle-state\"}" 
+    fi
   fi
   
   rm -f $TMP_FILE
@@ -120,7 +126,9 @@ OCI=$HOME/bin/oci
 
 ALL_REGIONS=false
 CONFIRM=false
+QUIET_MODE=false
 
+if  [ "$1" == "-q" ]; then QUIET_MODE=true; shift; fi
 if  [ "$1" == "-a" ]; then ALL_REGIONS=true; shift; fi
 
 case $# in 
@@ -165,20 +173,29 @@ fi
 # -- process required regions list
 for region in $REGIONS_LIST
 do
-  echo -e "==================== REGION ${region}"
+  if [ $QUIET_MODE == false ]
+  then
+    echo -e "==================== REGION ${region}"
+  fi
 
   # -- list Autonomous DBs in the root compartment
-  echo
-  echo "Compartment root, OCID=$TENANCYOCID"
-  process_compartment $TENANCYOCID $region
+  if [ $QUIET_MODE == false ]
+  then
+    echo
+    echo "Compartment root, OCID=$TENANCYOCID"
+  fi
+  process_compartment $TENANCYOCID root $region
 
   # -- list Autonomous DBs compartment by compartment (excluding root compartment but including all subcompartments). Only ACTIVE compartments
   ${OCI} --profile $PROFILE iam compartment list -c $TENANCYOCID --compartment-id-in-subtree true --all --query "data [?\"lifecycle-state\" == 'ACTIVE']" 2>/dev/null| egrep "^ *\"name|^ *\"id"|awk -F'"' '{ print $4 }' | while read compid
   do
     read compname
-    echo
-    echo "Compartment $compname, OCID=$compid"
-    process_compartment $compid $region
+    if [ $QUIET_MODE == false ]
+    then
+      echo
+      echo "Compartment $compname, OCID=$compid"
+    fi
+    process_compartment $compid $compname $region
   done
 done
 

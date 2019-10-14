@@ -4,7 +4,7 @@
 # This script looks for compute instances with a specific tag value and start or stop them
 # You can use it to automatically stop some instances during non working hours
 #     and start them again at the beginning of working hours 
-# This script can be executed by an external scheduler (cron table on Linux for instance)
+# This script can be executed by an external scheduler (cron table on Linux for example)
 # This script looks in all compartments in a OCI tenant in a region using OCI CLI
 # Note: OCI tenant and region given by an OCI CLI PROFILE
 #
@@ -15,6 +15,7 @@
 # Versions
 #    2019-10-10: Initial Version
 #    2019-10-11: Add support for all active regions
+#    2019-10-14: Add quiet mode option
 # --------------------------------------------------------------------------------------------------------------
 
 # ---------- Tag names, key and value to look for
