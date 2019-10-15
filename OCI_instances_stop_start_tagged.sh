@@ -63,10 +63,12 @@ process_compartment()
   # if no instance found in this compartment (TMP_FILE empty), exit the function
   if [ ! -s $TMP_FILE ]; then rm -f $TMP_FILE; return; fi 
 
-  cat $TMP_FILE | sed '1,3d;$d' | while read s1 inst_name s2 inst_id s3 inst_status s4
+  cat $TMP_FILE | sed '1,3d;$d' | sed -e 's#^.*ocid1.instance#ocid1.instance#' -e 's# .*$##' | while read inst_id
   do
+    inst_status=`${OCI} --profile $PROFILE compute instance get --region $lregion --instance-id $inst_id | jq -r '.[]."lifecycle-state"' 2>/dev/null`
     if ( [ "$inst_status" == "STOPPED" ] && [ "$ACTION" == "start" ] ) || ( [ "$inst_status" == "RUNNING" ] && [ "$ACTION" == "stop" ] )
     then 
+      inst_name=`${OCI} --profile $PROFILE compute instance get --region $lregion --instance-id $inst_id | jq -r '.[]."display-name"' 2>/dev/null`
       # WORKAROUND: cannot use variable, hardcode TAG_NS and TAG_KEY
       ltag_value=`${OCI} --profile $PROFILE compute instance get --region $lregion --instance-id $inst_id | jq -r '.[]."defined-tags"."osc"."stop_non_working_hours"' 2>/dev/null`
       if [ "$ltag_value" == "$TAG_VALUE" ]
