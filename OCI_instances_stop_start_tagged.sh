@@ -150,7 +150,7 @@ if [ "$ACTION" != "start" ] && [ "$ACTION" != "stop" ]; then usage; fi
 
 TMP_FILE=tmp_$$
 
-echo "BEGIN SCRIPT: `date`"
+echo "BEGIN SCRIPT: `date` : $ACTION"
 
 # -- Check if jq is installed
 which jq > /dev/null 2>&1
@@ -200,7 +200,7 @@ do
   done
 done
 
-echo "END SCRIPT: `date`"
+echo "END SCRIPT: `date` : $ACTION"
 
 rm -f $TMP_FILE
 exit 0
