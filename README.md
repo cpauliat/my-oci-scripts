@@ -115,7 +115,7 @@ Prerequisites :
 - OCI user needs enough privileges
 ```
 
-### OCI_vm_db_sytems_stop_start_tagged.sh
+### OCI_vm_db_mv sytems_stop_start_tagged.sh
 
 ```
 Bash script to start or stop database systems node tagged with a specific value 

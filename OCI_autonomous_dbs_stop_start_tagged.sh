@@ -116,7 +116,7 @@ get_region_from_profile()
 # -- Get the list of all active regions
 get_all_active_regions()
 {
-  oci --profile $PROFILE iam region-subscription list --query "data [].{Region:\"region-name\"}" |jq -r '.[].Region'
+  ${OCI} --profile $PROFILE iam region-subscription list --query "data [].{Region:\"region-name\"}" |jq -r '.[].Region'
 }
 
 # -------- main
