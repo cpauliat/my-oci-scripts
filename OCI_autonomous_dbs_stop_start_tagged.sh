@@ -76,18 +76,18 @@ process_compartment()
         if [ $CONFIRM == true ]
         then
           case $ACTION in
-            "start") echo "STARTING Autonomous DB $adb_name ($adb_id) because of TAG VALUE"
+            "start") echo "STARTING Autonomous DB $adb_name ($adb_id)"
                      ${OCI} --profile $PROFILE db autonomous-database start --region $lregion --autonomous-database-id $adb_id >/dev/null 2>&1
                      ;;
-            "stop")  echo "STOPPING Autonomous DB $adb_name ($adb_id) because of TAG VALUE"
+            "stop")  echo "STOPPING Autonomous DB $adb_name ($adb_id)"
                      ${OCI} --profile $PROFILE db autonomous-database stop --region $lregion --autonomous-database-id $adb_id >/dev/null 2>&1
                      ;;
           esac
           touch $CHANGED_FLAG
         else
           case $ACTION in
-            "start")  echo "Autonomous DB $adb_name ($adb_id) SHOULD BE STARTED because of TAG VALUE --> re-run script with --confirm to actually start Autonomous DBs"  ;;
-            "stop")   echo "Autonomous DB $adb_name ($adb_id) SHOULD BE STOPPED because of TAG VALUE --> re-run script with --confirm to actually stop Autonomous DBs"  ;;
+            "start")  echo "Autonomous DB $adb_name ($adb_id) SHOULD BE STARTED --> re-run script with --confirm to actually start Autonomous DBs"  ;;
+            "stop")   echo "Autonomous DB $adb_name ($adb_id) SHOULD BE STOPPED --> re-run script with --confirm to actually stop Autonomous DBs"  ;;
           esac
         fi
       fi
