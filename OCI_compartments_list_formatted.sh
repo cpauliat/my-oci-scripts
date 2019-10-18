@@ -69,7 +69,7 @@ list_compartments()
   local nb_cpts
 
   i=1;
-  while [ $i -le `expr $level - 1` ]
+  while [ $i -lt $level ]
   do
     if [ `cat ${TMP_FILE}_$i` == "0" ]; then printf "${COLOR_CYAN}│      "; else printf "       "; fi
     ((i++))
@@ -160,7 +160,7 @@ TENANCYOCID=`egrep "^\[|ocid1.tenancy" $OCI_CONFIG_FILE|sed -n -e "/\[$PROFILE\]
 oci --profile $PROFILE iam compartment list -c $TENANCYOCID --compartment-id-in-subtree true --all 2>/dev/null| egrep "^ *\"name|^ *\"id|^ *\"lifecycle-state"|awk -F'"' '{ print $4 }' >$TMP_FILE
 
 # -- recursive call to list all compartments and sub-compartments in right order
-list_compartments $TENANCYOCID 0 false
+list_compartments $TENANCYOCID 0
 
 cleanup
 exit 0
