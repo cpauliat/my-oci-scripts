@@ -1,5 +1,12 @@
 # my-oci-scripts
 Scripts I developed for OCI (Oracle Cloud Infrastructure) with precious help from Matthieu Bordonne
+Those scripts were tested on MacOS and Oracle Linux 7
+
+### generate_api_keys.sh
+
+```
+Bash script to create a new API key pair for OCI
+```
 
 ### OCI_compartments_list.sh
 
