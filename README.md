@@ -1,12 +1,5 @@
 # my-oci-scripts
 Scripts I developed for OCI (Oracle Cloud Infrastructure) with precious help from Matthieu Bordonne
-Those scripts were tested on MacOS and Oracle Linux 7
-
-### generate_api_keys.sh
-
-```
-Bash script to create a new API key pair for OCI
-```
 
 ### OCI_compartments_list.sh
 
@@ -133,4 +126,14 @@ Prerequisites :
 - OCI user needs enough privileges
 
 Note: supports only non RAC VM.Standard* database systems
+```
+
+### OCI_free_tier_instances_delete.sh
+
+```
+Bash script to delete compute instance using free tier (shape VM.Standard.E2.Micro)
+
+Prerequisites :
+- jq installed, OCI CLI 2.6.11 or later installed and OCI config file configured with profiles
+- OCI user needs enough privileges
 ```
