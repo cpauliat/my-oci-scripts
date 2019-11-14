@@ -52,7 +52,7 @@ cleanup()
 trap_ctrl_c()
 {
   echo
-  echo -e "${COLOR_BREAK}SCRIPT INTERRUPTED BY USER ! ${COLOR_NORMAL}"
+  echo -e "SCRIPT INTERRUPTED BY USER !"
   echo
 
   cleanup

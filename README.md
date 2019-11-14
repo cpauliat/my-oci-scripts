@@ -131,7 +131,17 @@ Note: supports only non RAC VM.Standard* database systems
 ### OCI_free_tier_instances_delete.sh
 
 ```
-Bash script to delete compute instance using free tier (shape VM.Standard.E2.Micro)
+Bash script to delete compute instances using free tier (shape VM.Standard.E2.Micro)
+
+Prerequisites :
+- jq installed, OCI CLI 2.6.11 or later installed and OCI config file configured with profiles
+- OCI user needs enough privileges
+```
+
+### OCI_free_tier_autonomous_dbs_delete.sh
+
+```
+Bash script to delete autonomous database instances using free tier
 
 Prerequisites :
 - jq installed, OCI CLI 2.6.11 or later installed and OCI config file configured with profiles
