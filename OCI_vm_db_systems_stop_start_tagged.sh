@@ -17,6 +17,7 @@
 #
 # Versions
 #    2019-10-14: Initial Version
+#    2019-11-15: Fix bug for regions
 # --------------------------------------------------------------------------------------------------------------
 #set -vx 
 
@@ -70,7 +71,7 @@ process_compartment()
   cat $TMP_FILE | sed '1,3d;$d' | sed -e 's#^.*ocid1.dbsystem#ocid1.dbsystem#' -e 's# .*$##' | while read dbs_id
   do
     dbs_node_id=`${OCI} --profile $PROFILE db node list --region $lregion -c $lcompid --db-system-id $dbs_id --query "data[*].{id:id}" | jq -r '.[]."id"'`
-    dbs_node_status=`${OCI} --profile $PROFILE db node get --db-node-id $dbs_node_id | jq -r '.[]."lifecycle-state"' 2>/dev/null`
+    dbs_node_status=`${OCI} --profile $PROFILE db node get --region $lregion --db-node-id $dbs_node_id | jq -r '.[]."lifecycle-state"' 2>/dev/null`
     if ( [ "$dbs_node_status" == "STOPPED" ] && [ "$ACTION" == "start" ] ) || ( [ "$dbs_node_status" == "AVAILABLE" ] && [ "$ACTION" == "stop" ] )
     then 
       dbs_name=`${OCI} --profile $PROFILE db system get --region $lregion --db-system-id $dbs_id | jq -r '.[]."display-name"' 2>/dev/null`
@@ -83,10 +84,10 @@ process_compartment()
         then
           case $ACTION in
             "start") echo "STARTING node for database system $dbs_name ($dbs_id)"
-                     ${OCI} --profile $PROFILE db node start --db-node-id $dbs_node_id >/dev/null 2>&1
+                     ${OCI} --profile $PROFILE db node start --region $lregion --db-node-id $dbs_node_id >/dev/null 2>&1
                      ;;
             "stop")  echo "STOPPING node for database system $dbs_name ($dbs_id)"
-                     ${OCI} --profile $PROFILE db node stop  --db-node-id $dbs_node_id >/dev/null 2>&1
+                     ${OCI} --profile $PROFILE db node stop  --region $lregion --db-node-id $dbs_node_id >/dev/null 2>&1
                      ;;
           esac
           touch $CHANGED_FLAG
