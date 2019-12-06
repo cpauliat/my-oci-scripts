@@ -12,6 +12,7 @@
 #    2019-05-14: Initial Version
 #    2019-10-10: change default behaviour (do not look for instances in deleted compartment)
 #    2019-10-14: Add quiet mode option
+#    2019-12-06: Also list shape
 # --------------------------------------------------------------------------------------------------------------
 
 # -------- functions
@@ -143,7 +144,7 @@ do
     echo
     echo -e "${COLOR_TITLE0}========== COMPARTMENT ${COLOR_COMP}root${COLOR_TITLE0} (${COLOR_COMP}${TENANCYOCID}${COLOR_TITLE0}) ${COLOR_NORMAL}"
   fi
-  ${OCI} --profile $PROFILE compute instance list -c $TENANCYOCID --region $region --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Status:\"lifecycle-state\"}" > $TMP_FILE
+  ${OCI} --profile $PROFILE compute instance list -c $TENANCYOCID --region $region --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Shape:shape, Status:\"lifecycle-state\"}" > $TMP_FILE
   if [ -s $TMP_FILE ] 
   then
     if [ $QUIET_MODE == false ]
@@ -163,7 +164,7 @@ do
       echo
       echo -e "${COLOR_TITLE0}========== COMPARTMENT ${COLOR_COMP}${compname}${COLOR_TITLE0} (${COLOR_COMP}${compid}${COLOR_TITLE0}) ${COLOR_NORMAL}"
     fi
-    ${OCI} --profile $PROFILE compute instance list -c $compid --region $region --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Status:\"lifecycle-state\"}" > $TMP_FILE
+    ${OCI} --profile $PROFILE compute instance list -c $compid --region $region --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Shape:shape, Status:\"lifecycle-state\"}" > $TMP_FILE
     if [ -s $TMP_FILE ] 
     then
       if [ $QUIET_MODE == false ]
