@@ -12,6 +12,7 @@
 # Versions
 #    2019-08-30: Initial Version 
 #    2019-10-04: Change defaut behavior (does not display limits with quota set to 0). 
+#    2019-12-31: Fix minor formatting bug
 # --------------------------------------------------------------------------------------------------------------
 
 usage()
@@ -67,6 +68,7 @@ list_limits()
   # Get list of availability domains
   ADS=`oci --profile $PROFILE --region $lregion iam availability-domain list|jq '.data[].name'|sed 's#"##g'`
 
+  max=0
   for ad in $ADS
   do
     printf "${COLOR_AD}   AD = %-32s${COLOR_NORMAL}\n" $ad > ${TMP_FILE}_AD_$ad
@@ -79,9 +81,27 @@ list_limits()
         if [ $LIST_ZEROS == true ]; then printf "${COLOR_NORMAL}%-40s${COLOR_NORMAL}\n" "$myline"; fi
       fi
     done >> ${TMP_FILE}_AD_$ad
+
+    # find the maximum number of lines of the tempo files
+    nb_lines=`wc -l ${TMP_FILE}_AD_$ad | awk -F' ' '{print $1}'`
+    if [ $nb_lines -gt $max ]; then max=$nb_lines; fi
   done
 
+  # add space lines to each tempo files so that they all have the same number of lines
+  for ad in $ADS
+  do
+    nb_lines=`wc -l ${TMP_FILE}_AD_$ad | awk -F' ' '{print $1}'`
+    i=$nb_lines
+    while [ $i -lt $max ]
+    do
+      printf "%-40s\n" "" >> ${TMP_FILE}_AD_$ad
+      i=`expr $i + 1`
+    done
+  done
+
+  # display the AD files in columns
   paste ${TMP_FILE}_AD_*
+  
   rm -f ${TMP_FILE}_AD_*
 } 
 
