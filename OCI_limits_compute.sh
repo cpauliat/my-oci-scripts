@@ -72,7 +72,8 @@ list_limits()
   for ad in $ADS
   do
     printf "${COLOR_AD}   AD = %-33s${COLOR_NORMAL}\n" $ad > ${TMP_FILE}_AD_$ad
-    oci --profile $PROFILE limits value list --service-name compute --region $lregion --availability-domain $ad --compartment-id $TENANCYOCID --all --output table --query "data [*].{Shape:name, Number:value}" | while read myline
+    oci --profile $PROFILE limits value list --service-name compute --region $lregion --availability-domain $ad \
+        --compartment-id $TENANCYOCID --all --output table --query "data [*].{Shape:name, Number:value}" | while read myline
     do
       value=`echo $myline| awk -F' ' '{ print $2 }'`
       if [ "$value" != 0 ]; then 
