@@ -11,7 +11,7 @@
 # - NETWORKING         : VCN, DRG, CPE, IPsec connection, LB, public IPs, DNS zones (common to all regions)
 # - DATABASE           : DB Systems, DB Systems backups, Autonomous DB, Autonomous DB backups
 # - RESOURCE MANAGER   : Stacks
-# - DEVELOPER SERVICES : Container clusters (OKE)
+# - DEVELOPER SERVICES : Container clusters (OKE), Functions applications
 # - IDENTITY           : Policies (common to all regions)
 # - GOVERNANCE         : Tags namespaces (common to all regions)
 #
@@ -33,6 +33,7 @@
 #    2019-07-15: add tag namespaces
 #    2019-07-16: change title for DNS zone as now in Networking instead of Edge Services
 #    2019-10-02: add support for sub-compartments (-r option) + print full compartment name
+#    2020-02-01: add support for Functions applications
 # --------------------------------------------------------------------------------------------------------------------------
 
 usage()
@@ -344,6 +345,14 @@ list_developer_services_oke()
   oci --profile $PROFILE ce cluster list -c $lcpid --region $lr --output table --all --query 'data[].{Name:name, OCID:id, Status:"lifecycle-state"}'
 }
 
+list_developer_services_functions()
+{
+  local lr=$1
+  local lcpid=$2
+  echo -e "${COLOR_TITLE2}========== DEVELOPER SERVICES: Functions applications${COLOR_NORMAL}"
+  oci --profile $PROFILE fn application list -c $lcpid --region $lr --output table --all --query 'data[].{Name:"display-name", OCID:id, Status:"lifecycle-state"}'
+}
+
 # -- list region specific objects
 list_region_specific_objects()
 {
@@ -378,6 +387,7 @@ list_region_specific_objects()
   list_database_autonomous_backups $lregion $lcompid
   list_resource_manager_stacks $lregion $lcompid
   list_developer_services_oke $lregion $lcompid
+  list_developer_services_functions $lregion $lcompid
 
   echo -e "${COLOR_TITLE1}==================== END: objects specific to region ${COLOR_COMP}${lregion}${COLOR_NORMAL}"
 }
