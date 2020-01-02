@@ -1,5 +1,12 @@
 # my-oci-scripts
-Scripts I developed for OCI (Oracle Cloud Infrastructure) with precious help from Matthieu Bordonne
+Scripts I developed for OCI (Oracle Cloud Infrastructure) using OCI CLI or OCI Python SDK
+with precious help from Matthieu Bordonne
+
+### OCI_compartments_list.sh
+
+```
+Bash script to generate an API key pair for OCI
+```
 
 ### OCI_compartments_list.sh
 
