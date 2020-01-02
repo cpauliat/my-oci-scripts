@@ -4,16 +4,17 @@
 # This script lists all objects (detailed list below) in a given compartment in a region or all active regions using OCI CLI
 #
 # Supported objects:
-# - COMPUTE            : compute instances, custom images, boot volumes, boot volumes backups
-# - BLOCK STORAGE      : block volumes, block volumes backups, volume groups, volume groups backups
-# - OBJECT STORAGE     : buckets
-# - FILE STORAGE       : file systems, mount targets
-# - NETWORKING         : VCN, DRG, CPE, IPsec connection, LB, public IPs, DNS zones (common to all regions)
-# - DATABASE           : DB Systems, DB Systems backups, Autonomous DB, Autonomous DB backups
-# - RESOURCE MANAGER   : Stacks
-# - DEVELOPER SERVICES : Container clusters (OKE), Functions applications
-# - IDENTITY           : Policies (common to all regions)
-# - GOVERNANCE         : Tags namespaces (common to all regions)
+# - COMPUTE                : compute instances, custom images, boot volumes, boot volumes backups
+# - BLOCK STORAGE          : block volumes, block volumes backups, volume groups, volume groups backups
+# - OBJECT STORAGE         : buckets
+# - FILE STORAGE           : file systems, mount targets
+# - NETWORKING             : VCN, DRG, CPE, IPsec connection, LB, public IPs, DNS zones (common to all regions)
+# - DATABASE               : DB Systems, DB Systems backups, Autonomous DB, Autonomous DB backups
+# - RESOURCE MANAGER       : Stacks
+# - APPLICATION INTEGRATION: Notifications, Events
+# - DEVELOPER SERVICES     : Container clusters (OKE), Functions applications
+# - IDENTITY               : Policies (common to all regions)
+# - GOVERNANCE             : Tags namespaces (common to all regions)
 #
 # Note: OCI tenant and region given by an OCI CLI PROFILE
 # Author        : Christophe Pauliat with some help from Matthieu Bordonne
@@ -33,7 +34,7 @@
 #    2019-07-15: add tag namespaces
 #    2019-07-16: change title for DNS zone as now in Networking instead of Edge Services
 #    2019-10-02: add support for sub-compartments (-r option) + print full compartment name
-#    2020-02-01: add support for Functions applications
+#    2020-02-01: add support for Functions applications, Notifications and Events
 # --------------------------------------------------------------------------------------------------------------------------
 
 usage()
@@ -337,6 +338,22 @@ list_resource_manager_stacks()
   oci --profile $PROFILE resource-manager stack list -c $lcpid --region $lr --output table --all --query 'data[].{Name:"display-name", OCID:id, Status:"lifecycle-state"}'
 }
 
+list_application_integration_notifications_topics()
+{
+  local lr=$1
+  local lcpid=$2
+  echo -e "${COLOR_TITLE2}========== APPLICATION INTEGRATION: Notifications topics${COLOR_NORMAL}"
+  oci --profile $PROFILE ons topic list -c $lcpid --region $lr --output table --all --query 'data[].{Name:name, OCID:"topic-id", Status:"lifecycle-state"}'
+}
+
+list_application_integration_events_rules()
+{
+  local lr=$1
+  local lcpid=$2
+  echo -e "${COLOR_TITLE2}========== APPLICATION INTEGRATION: Events rules${COLOR_NORMAL}"
+  oci --profile $PROFILE events rule list -c $lcpid --region $lr --output table --all --query 'data[].{Name:"display-name", OCID:id, Status:"lifecycle-state"}'
+}
+
 list_developer_services_oke()
 {
   local lr=$1
@@ -386,6 +403,8 @@ list_region_specific_objects()
   list_database_autonomous_db $lregion $lcompid
   list_database_autonomous_backups $lregion $lcompid
   list_resource_manager_stacks $lregion $lcompid
+  list_application_integration_notifications_topics $lregion $lcompid
+  list_application_integration_events_rules $lregion $lcompid
   list_developer_services_oke $lregion $lcompid
   list_developer_services_functions $lregion $lcompid
 

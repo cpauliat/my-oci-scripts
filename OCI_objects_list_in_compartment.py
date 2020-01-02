@@ -2,19 +2,20 @@
 # This script lists all objects (detailed list below) in a given compartment in a region or all active regions using OCI CLI
 #
 # Supported objects:
-# - COMPUTE            : compute instances, custom images, boot volumes, boot volumes backups
-# - BLOCK STORAGE      : block volumes, block volumes backups, volume groups, volume groups backups
-# - OBJECT STORAGE     : buckets
-# - FILE STORAGE       : file systems, mount targets
-# - NETWORKING         : VCN, DRG, CPE, IPsec connection, LB, public IPs, DNS zones (common to all regions)
-# - DATABASE           : DB Systems, DB Systems backups, Autonomous DB, Autonomous DB backups
-# - RESOURCE MANAGER   : Stacks
-# - DEVELOPER SERVICES : Container clusters (OKE), Functions applications
-# - IDENTITY           : Policies (common to all regions)
-# - GOVERNANCE         : Tags namespaces (common to all regions)
+# - COMPUTE                : compute instances, custom images, boot volumes, boot volumes backups
+# - BLOCK STORAGE          : block volumes, block volumes backups, volume groups, volume groups backups
+# - OBJECT STORAGE         : buckets
+# - FILE STORAGE           : file systems, mount targets
+# - NETWORKING             : VCN, DRG, CPE, IPsec connection, LB, public IPs, DNS zones (common to all regions)
+# - DATABASE               : DB Systems, DB Systems backups, Autonomous DB, Autonomous DB backups
+# - RESOURCE MANAGER       : Stacks
+# - APPLICATION INTEGRATION: Notifications, Events
+# - DEVELOPER SERVICES     : Container clusters (OKE), Functions applications
+# - IDENTITY               : Policies (common to all regions)
+# - GOVERNANCE             : Tags namespaces (common to all regions)
 #
 # Note: OCI tenant and region given by an OCI CLI PROFILE
-# Author        : Christophe Pauliat with some help from Matthieu Bordonne
+# Author        : Christophe Pauliat
 # Platforms     : MacOS / Linux
 #
 # prerequisites : - Python 3 with OCI Python SDK installed
@@ -296,6 +297,21 @@ def list_resource_manager_stacks(lcpt_ocid):
         for stack in response.data:
             print ('{0:100s} {1:30s} {2:10s}'.format(stack.id, stack.display_name, stack.lifecycle_state))
 
+# -- Application integration
+def list_application_integration_notifications_topics (lcpt_ocid):
+    print (COLOR_TITLE2+"========== APPLICATION INTEGRATION: Notifications topics"+COLOR_NORMAL)
+    response = oci.pagination.list_call_get_all_results(NotificationControlPlaneClient.list_topics,compartment_id=lcpt_ocid)
+    if len(response.data) > 0:
+        for topic in response.data:
+            print ('{0:100s} {1:30s} {2:10s}'.format(topic.topic_id, topic.name, topic.lifecycle_state))
+
+def list_application_integration_events_rules (lcpt_ocid):
+    print (COLOR_TITLE2+"========== APPLICATION INTEGRATION: Events rules"+COLOR_NORMAL)
+    response = oci.pagination.list_call_get_all_results(EventsClient.list_rules,compartment_id=lcpt_ocid)
+    if len(response.data) > 0:
+        for rule in response.data:
+            print ('{0:100s} {1:30s} {2:10s}'.format(rule.id, rule.display_name, rule.lifecycle_state))
+
 # -- Developer services
 def list_developer_services_oke(lcpt_ocid):
     print (COLOR_TITLE2+"========== DEVELOPER SERVICES: Container clusters (OKE)"+COLOR_NORMAL)
@@ -321,6 +337,8 @@ def list_region_specific_objects (cpt_ocid,cpt_name):
     global LoadBalancerClient
     global DatabaseClient
     global ResourceManagerClient
+    global NotificationControlPlaneClient
+    global EventsClient
     global ContainerEngineClient
     global FunctionsManagementClient
 
@@ -369,6 +387,12 @@ def list_region_specific_objects (cpt_ocid,cpt_name):
     # Resource Manager
     ResourceManagerClient = oci.resource_manager.ResourceManagerClient(config)
     list_resource_manager_stacks (cpt_ocid)
+
+    # Application integration
+    NotificationControlPlaneClient = oci.ons.NotificationControlPlaneClient(config)
+    list_application_integration_notifications_topics (cpt_ocid)
+    EventsClient = oci.events.EventsClient(config)
+    list_application_integration_events_rules (cpt_ocid) 
 
     # Developer Services
     ContainerEngineClient = oci.container_engine.ContainerEngineClient(config)
