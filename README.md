@@ -15,11 +15,32 @@ prerequisites :
 - OCI user needs enough privileges to read the compartments list
 ```
 
+### OCI_compartments_list.py
+
+```
+Python 3 script to display the names and IDs of all compartments and subcompartments
+in a OCI tenant using OCI Python SDK
+
+Note: by default, only active compartments are listed. 
+      optionally (-d) deleted compartments can also be listed
+
+prerequisites :
+- Python 3 installed, OCI SDK installed and OCI config file configured with profiles
+- OCI user needs enough privileges to read the compartments list
+```
+
 ### OCI_compartments_list_formatted.sh
 
 ```
 Similar to OCI_compartments_list.sh with formatted output
 (color and indent to easily identify parents of subcompartments)
+```
+
+### OCI_compartments_list_formatted.py
+
+```
+Similar to OCI_compartments_list.py with formatted output
+Much faster than OCI_compartments_list_formatted.sh
 ```
 
 ### OCI_instances_list.sh
@@ -76,6 +97,30 @@ Supported objects:
 
 Prerequisites :
 - jq installed, OCI CLI installed and OCI config file configured with profiles
+- OCI user needs enough privileges to read all objects in the compartment
+```
+
+### OCI_objects_list_in_compartment.py
+
+```
+Python 3 script to list OCI objects in a compartment in a region or in all active regions using OCI Python SDK
+
+Note: optionally (-r) it can list the objects in sub-compartments
+
+Supported objects:
+- COMPUTE            : compute instances, custom images, boot volumes, boot volumes backups
+- BLOCK STORAGE      : block volumes, block volumes backups, volume groups, volume groups backups
+- OBJECT STORAGE     : buckets
+- FILE STORAGE       : file systems, mount targets
+- NETWORKING         : VCN, DRG, CPE, IPsec connection, LB, public IPs
+- DATABASE           : DB Systems, DB Systems backups, Autonomous DB, Autonomous DB backups
+- RESOURCE MANAGER   : Stacks
+- EDGE SERVICES      : DNS zones
+- DEVELOPER SERVICES : Container clusters (OKE)
+- IDENTITY           : Policies
+
+Prerequisites :
+- Python 3 installed, OCI SDK installed and OCI config file configured with profiles
 - OCI user needs enough privileges to read all objects in the compartment
 ```
 
