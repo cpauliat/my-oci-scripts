@@ -9,7 +9,7 @@
 # - NETWORKING         : VCN, DRG, CPE, IPsec connection, LB, public IPs, DNS zones (common to all regions)
 # - DATABASE           : DB Systems, DB Systems backups, Autonomous DB, Autonomous DB backups
 # - RESOURCE MANAGER   : Stacks
-# - DEVELOPER SERVICES : Container clusters (OKE)
+# - DEVELOPER SERVICES : Container clusters (OKE), Functions applications
 # - IDENTITY           : Policies (common to all regions)
 # - GOVERNANCE         : Tags namespaces (common to all regions)
 #
@@ -78,21 +78,21 @@ def list_networking_dns_zones(lcpt_ocid):
     response = oci.pagination.list_call_get_all_results(DnsClient.list_zones,compartment_id=lcpt_ocid)
     if len(response.data) > 0:
         for zone in response.data:
-            print ('{0:s}'.format(zone.name))
+            print ('{0:100s} {1:30s} {2:10s}'.format(zone.id, zone.name, zone.lifecycle_state))
 
 def list_identity_policies(lcpt_ocid):
     print (COLOR_TITLE2+"========== IDENTITY: Policies "+COLOR_NORMAL)
     response = oci.pagination.list_call_get_all_results(IdentityClient.list_policies,compartment_id=lcpt_ocid)
     if len(response.data) > 0:
         for policy in response.data:
-            print ('{0:s}'.format(policy.name))
+            print ('{0:100s} {1:30s} {2:10s}'.format(policy.id, policy.name, policy.lifecycle_state))
 
 def list_governance_tag_namespaces(lcpt_ocid):
     print (COLOR_TITLE2+"========== GOVERNANCE: Tag Namespaces "+COLOR_NORMAL)
     response = oci.pagination.list_call_get_all_results(IdentityClient.list_tag_namespaces,compartment_id=lcpt_ocid)
     if len(response.data) > 0:
         for tag_namespace in response.data:
-            print ('{0:s}'.format(tag_namespace.name))
+            print ('{0:100s} {1:30s} {2:10s}'.format(tag_namespace.id, tag_namespace.name, tag_namespace.lifecycle_state))
 
 # -- List objects common to all regions
 def list_objects_common_to_all_regions(cpt_ocid,cpt_name):
@@ -124,14 +124,14 @@ def list_compute_instances (lcpt_ocid):
     response = oci.pagination.list_call_get_all_results(ComputeClient.list_instances,compartment_id=lcpt_ocid)
     if len(response.data) > 0:
         for instance in response.data:
-            print ('{0:15s} {1:20s} {2:50s}'.format(instance.display_name, instance.shape, instance.id))
+            print ('{0:100s} {1:20s} {2:20s} {3:10s}'.format(instance.id, instance.display_name, instance.shape,  instance.lifecycle_state))
 
 def list_compute_custom_images(lcpt_ocid):
     print (COLOR_TITLE2+"========== COMPUTE: Custom Images "+COLOR_NORMAL)
     response = oci.pagination.list_call_get_all_results(ComputeClient.list_images,compartment_id=lcpt_ocid)
     if len(response.data) > 0:
         for image in response.data:
-            print ('{0:s}'.format(image.display_name))
+            print ('{0:100s} {1:s}'.format(image.id, image.display_name))
 
 def list_compute_boot_volumes(lcpt_ocid):
     print (COLOR_TITLE2+"========== COMPUTE: Boot Volumes "+COLOR_NORMAL)
@@ -141,14 +141,15 @@ def list_compute_boot_volumes(lcpt_ocid):
         response = oci.pagination.list_call_get_all_results(BlockstorageClient.list_boot_volumes,availability_domain=ad.name,compartment_id=lcpt_ocid)
         if len(response.data) > 0:
             for bootvol in response.data:
-                print ('{0:s}'.format(bootvol.display_name))
+                print ('{0:100s} {1:30s} {2:10s}'.format(bootvol.id, bootvol.display_name, bootvol.lifecycle_state))
+
 
 def list_compute_boot_volume_backups(lcpt_ocid):
     print (COLOR_TITLE2+"========== COMPUTE: Boot Volume Backups "+COLOR_NORMAL)
     response = oci.pagination.list_call_get_all_results(BlockstorageClient.list_boot_volume_backups,compartment_id=lcpt_ocid)
     if len(response.data) > 0:
         for bootvol_backup in response.data:
-            print ('{0:s}'.format(bootvol_backup.display_name))
+            print ('{0:100s} {1:30s} {2:10s}'.format(bootvol_backup.id, bootvol_backup.display_name, bootvol_backup.lifecycle_state))
 
 # -- Block Storage
 def list_block_storage_volumes(lcpt_ocid):
@@ -159,14 +160,14 @@ def list_block_storage_volumes(lcpt_ocid):
         response = oci.pagination.list_call_get_all_results(BlockstorageClient.list_volumes,availability_domain=ad.name,compartment_id=lcpt_ocid)
         if len(response.data) > 0:
             for bkvol in response.data:
-                print ('{0:s}'.format(bkvol.display_name))
+                print ('{0:100s} {1:30s} {2:10s}'.format(bkvol.id, bkvol.display_name, bkvol.lifecycle_state))
 
 def list_block_storage_volume_backups(lcpt_ocid):
     print (COLOR_TITLE2+"========== BLOCK STORAGE: Block volume backups "+COLOR_NORMAL)
     response = oci.pagination.list_call_get_all_results(BlockstorageClient.list_volume_backups,compartment_id=lcpt_ocid)
     if len(response.data) > 0:
         for bkvol_backup in response.data:
-            print ('{0:s}'.format(bkvol_backup.display_name))
+            print ('{0:100s} {1:30s} {2:10s}'.format(bkvol_backup.id, bkvol_backup.display_name, bkvol_backup.lifecycle_state))
 
 def list_block_storage_volume_groups(lcpt_ocid):
     print (COLOR_TITLE2+"========== BLOCK STORAGE: Volumes groups "+COLOR_NORMAL)
@@ -176,14 +177,14 @@ def list_block_storage_volume_groups(lcpt_ocid):
         response = oci.pagination.list_call_get_all_results(BlockstorageClient.list_volume_groups,availability_domain=ad.name,compartment_id=lcpt_ocid)
         if len(response.data) > 0:
             for vg in response.data:
-                print ('{0:s}'.format(vg.display_name))
+                print ('{0:100s} {1:30s} {2:10s}'.format(vg.id, vg.display_name, vg.lifecycle_state))
 
 def list_block_storage_volume_group_backups(lcpt_ocid):
     print (COLOR_TITLE2+"========== BLOCK STORAGE: Volumes group backups "+COLOR_NORMAL)
     response = oci.pagination.list_call_get_all_results(BlockstorageClient.list_volume_group_backups,compartment_id=lcpt_ocid)
     if len(response.data) > 0:
         for vg_backup in response.data:
-            print ('{0:s}'.format(vg_backup.display_name))
+            print ('{0:100s} {1:30s} {2:10s}'.format(vg_backup.id, vg_backup.display_name, vg_backup.lifecycle_state))
 
 # -- Object Storage
 def list_object_storage_buckets(lcpt_ocid):
@@ -203,7 +204,7 @@ def list_file_storage_filesystems(lcpt_ocid):
         response = oci.pagination.list_call_get_all_results(FileStorageClient.list_file_systems,availability_domain=ad.name,compartment_id=lcpt_ocid)
         if len(response.data) > 0:
             for fs in response.data:
-                print ('{0:s}'.format(fs.display_name))
+                print ('{0:100s} {1:30s} {2:10s}'.format(fs.id, fs.display_name, fs.lifecycle_state))
 
 def list_file_storage_mount_targets(lcpt_ocid):
     print (COLOR_TITLE2+"========== FILE STORAGE: Mount targets "+COLOR_NORMAL)
@@ -213,7 +214,7 @@ def list_file_storage_mount_targets(lcpt_ocid):
         response = oci.pagination.list_call_get_all_results(FileStorageClient.list_mount_targets,availability_domain=ad.name,compartment_id=lcpt_ocid)
         if len(response.data) > 0:
             for mt in response.data:
-                print ('{0:s}'.format(mt.display_name))
+                print ('{0:100s} {1:30s} {2:10s}'.format(mt.id, mt.display_name, mt.lifecycle_state))
 
 # -- Networking
 def list_networking_vcns(lcpt_ocid):
@@ -221,42 +222,42 @@ def list_networking_vcns(lcpt_ocid):
     response = oci.pagination.list_call_get_all_results(VirtualNetworkClient.list_vcns,compartment_id=lcpt_ocid)
     if len(response.data) > 0:
         for vcn in response.data:
-            print ('{0:s}'.format(vcn.display_name))
+            print ('{0:100s} {1:30s} {2:10s}'.format(vcn.id, vcn.display_name, vcn.lifecycle_state))
 
 def list_networking_drgs(lcpt_ocid):
     print (COLOR_TITLE2+"========== NETWORKING: Dynamic Routing Gateways (DRGs)"+COLOR_NORMAL)
     response = oci.pagination.list_call_get_all_results(VirtualNetworkClient.list_drgs,compartment_id=lcpt_ocid)
     if len(response.data) > 0:
         for drg in response.data:
-            print ('{0:s}'.format(drg.display_name))
+            print ('{0:100s} {1:30s} {2:10s}'.format(drg.id, drg.display_name, drg.lifecycle_state))
 
 def list_networking_cpes(lcpt_ocid):
     print (COLOR_TITLE2+"========== NETWORKING: Customer Premises Equipments (CPEs)"+COLOR_NORMAL)
     response = oci.pagination.list_call_get_all_results(VirtualNetworkClient.list_cpes,compartment_id=lcpt_ocid)
     if len(response.data) > 0:
         for cpe in response.data:
-            print ('{0:s}'.format(cpe.display_name))
+            print ('{0:100s} {1:30s}'.format(cpe.id, cpe.display_name))
 
 def list_networking_ipsecs(lcpt_ocid):
     print (COLOR_TITLE2+"========== NETWORKING: IPsec connections"+COLOR_NORMAL)
     response = oci.pagination.list_call_get_all_results(VirtualNetworkClient.list_ip_sec_connections,compartment_id=lcpt_ocid)
     if len(response.data) > 0:
         for ipsec in response.data:
-            print ('{0:s}'.format(ipsec.display_name))
+            print ('{0:100s} {1:30s} {2:10s}'.format(ipsec.id, ipsec.display_name, ipsec.lifecycle_state))
 
 def list_networking_lbs(lcpt_ocid):
     print (COLOR_TITLE2+"========== NETWORKING: Load balancers"+COLOR_NORMAL)
     response = oci.pagination.list_call_get_all_results(LoadBalancerClient.list_load_balancers,compartment_id=lcpt_ocid)
     if len(response.data) > 0:
         for lb in response.data:
-            print ('{0:s}'.format(lb.display_name))
+            print ('{0:100s} {1:30s} {2:10s}'.format(lb.id, lb.display_name, lb.lifecycle_state))
 
 def list_networking_public_ips(lcpt_ocid):
     print (COLOR_TITLE2+"========== NETWORKING: Reserved Public IPs"+COLOR_NORMAL)
     response = oci.pagination.list_call_get_all_results(VirtualNetworkClient.list_public_ips,scope="REGION",lifetime="RESERVED",compartment_id=lcpt_ocid)
     if len(response.data) > 0:
         for ip in response.data:
-            print ('{0:s}'.format(ip.display_name))
+            print ('{0:100s} {1:30s} {2:10s}'.format(ip.id, ip.display_name, ip.lifecycle_state))
 
 # -- Database
 def list_database_db_systems(lcpt_ocid):
@@ -264,28 +265,28 @@ def list_database_db_systems(lcpt_ocid):
     response = oci.pagination.list_call_get_all_results(DatabaseClient.list_db_systems,compartment_id=lcpt_ocid)
     if len(response.data) > 0:
         for dbs in response.data:
-            print ('{0:s}'.format(dbs.display_name))
+            print ('{0:100s} {1:30s} {2:10s}'.format(dbs.id, dbs.display_name, dbs.lifecycle_state))
 
 def list_database_db_systems_backups(lcpt_ocid):
     print (COLOR_TITLE2+"========== DATABASE: DB Systems backups"+COLOR_NORMAL)
     response = oci.pagination.list_call_get_all_results(DatabaseClient.list_backups,compartment_id=lcpt_ocid)
     if len(response.data) > 0:
-        for dbs in response.data:
-            print ('{0:s}'.format(dbs.display_name))
+        for dbs_backup in response.data:
+            print ('{0:100s} {1:30s} {2:10s}'.format(dbs_backup.id, dbs_backup.display_name, dbs_backup.lifecycle_state))
 
 def list_database_autonomous_db(lcpt_ocid):
     print (COLOR_TITLE2+"========== DATABASE: Autonomous databases (ATP/ADW)"+COLOR_NORMAL)
     response = oci.pagination.list_call_get_all_results(DatabaseClient.list_autonomous_databases,compartment_id=lcpt_ocid)
     if len(response.data) > 0:
         for adb in response.data:
-            print ('{0:s}'.format(adb.display_name))
+            print ('{0:100s} {1:30s} {2:10s}'.format(adb.id, adb.display_name, adb.lifecycle_state))
 
 def list_database_autonomous_backups(lcpt_ocid):
     print (COLOR_TITLE2+"========== DATABASE: Autonomous databases backups"+COLOR_NORMAL)
     response = oci.pagination.list_call_get_all_results(DatabaseClient.list_autonomous_database_backups,compartment_id=lcpt_ocid)
     if len(response.data) > 0:
         for adb_backup in response.data:
-            print ('{0:s}'.format(adb_backup.display_name))
+            print ('{0:100s} {1:30s} {2:10s}'.format(adb_backup.id, adb_backup.display_name, adb_backup.lifecycle_state))
 
 # -- Resource manager
 def list_resource_manager_stacks(lcpt_ocid):
@@ -293,7 +294,7 @@ def list_resource_manager_stacks(lcpt_ocid):
     response = oci.pagination.list_call_get_all_results(ResourceManagerClient.list_stacks,compartment_id=lcpt_ocid)
     if len(response.data) > 0:
         for stack in response.data:
-            print ('{0:s}'.format(stack.display_name))
+            print ('{0:100s} {1:30s} {2:10s}'.format(stack.id, stack.display_name, stack.lifecycle_state))
 
 # -- Developer services
 def list_developer_services_oke(lcpt_ocid):
@@ -301,7 +302,14 @@ def list_developer_services_oke(lcpt_ocid):
     response = oci.pagination.list_call_get_all_results(ContainerEngineClient.list_clusters,compartment_id=lcpt_ocid)
     if len(response.data) > 0:
         for cluster in response.data:
-            print ('{0:s}'.format(cluster.display_name))
+            print ('{0:100s} {1:30s} {2:10s}'.format(cluster.id, cluster.name, cluster.lifecycle_state))
+
+def list_developer_services_functions(lcpt_ocid):
+    print (COLOR_TITLE2+"========== Functions applications"+COLOR_NORMAL)
+    response = oci.pagination.list_call_get_all_results(FunctionsManagementClient.list_applications,compartment_id=lcpt_ocid)
+    if len(response.data) > 0:
+        for app in response.data:
+            print ('{0:100s} {1:30s} {2:10s}'.format(app.id, app.display_name, app.lifecycle_state))
 
 # -- List region specific objects
 def list_region_specific_objects (cpt_ocid,cpt_name):
@@ -314,6 +322,7 @@ def list_region_specific_objects (cpt_ocid,cpt_name):
     global DatabaseClient
     global ResourceManagerClient
     global ContainerEngineClient
+    global FunctionsManagementClient
 
     print (COLOR_TITLE1+"==================== BEGIN: objects specific to region "+COLOR_COMP+config["region"]+COLOR_TITLE1+" in compartment "+COLOR_COMP+"{} ".format(cpt_name)+COLOR_NORMAL)
 
@@ -364,6 +373,8 @@ def list_region_specific_objects (cpt_ocid,cpt_name):
     # Developer Services
     ContainerEngineClient = oci.container_engine.ContainerEngineClient(config)
     list_developer_services_oke (cpt_ocid)
+    FunctionsManagementClient = oci.functions.FunctionsManagementClient(config)
+    list_developer_services_functions (cpt_ocid)
 
     print (COLOR_TITLE1+"==================== END: objects specific to region "+COLOR_COMP+config["region"]+COLOR_TITLE1+" in compartment "+COLOR_COMP+"{} ".format(cpt_name)+COLOR_NORMAL)
 
