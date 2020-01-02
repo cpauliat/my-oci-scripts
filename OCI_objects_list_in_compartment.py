@@ -9,7 +9,7 @@
 # - NETWORKING             : VCN, DRG, CPE, IPsec connection, LB, public IPs, DNS zones (common to all regions)
 # - DATABASE               : DB Systems, DB Systems backups, Autonomous DB, Autonomous DB backups
 # - RESOURCE MANAGER       : Stacks
-# - APPLICATION INTEGRATION: Notifications, Events
+# - APPLICATION INTEGRATION: Notifications, Events, Content and Experience
 # - DEVELOPER SERVICES     : Container clusters (OKE), Functions applications
 # - IDENTITY               : Policies (common to all regions)
 # - GOVERNANCE             : Tags namespaces (common to all regions)
@@ -312,6 +312,13 @@ def list_application_integration_events_rules (lcpt_ocid):
         for rule in response.data:
             print ('{0:100s} {1:30s} {2:10s}'.format(rule.id, rule.display_name, rule.lifecycle_state))
 
+def list_application_integration_cec_instances (lcpt_ocid):
+    print (COLOR_TITLE2+"========== APPLICATION INTEGRATION: Content and Experience instances"+COLOR_NORMAL)
+    response = oci.pagination.list_call_get_all_results(OceInstanceClient.list_oce_instances,compartment_id=lcpt_ocid)
+    if len(response.data) > 0:
+        for instance in response.data:
+            print ('{0:100s} {1:30s} {2:10s}'.format(instance.id, instance.name, instance.lifecycle_state))
+
 # -- Developer services
 def list_developer_services_oke(lcpt_ocid):
     print (COLOR_TITLE2+"========== DEVELOPER SERVICES: Container clusters (OKE)"+COLOR_NORMAL)
@@ -339,6 +346,7 @@ def list_region_specific_objects (cpt_ocid,cpt_name):
     global ResourceManagerClient
     global NotificationControlPlaneClient
     global EventsClient
+    global OceInstanceClient
     global ContainerEngineClient
     global FunctionsManagementClient
 
@@ -393,6 +401,8 @@ def list_region_specific_objects (cpt_ocid,cpt_name):
     list_application_integration_notifications_topics (cpt_ocid)
     EventsClient = oci.events.EventsClient(config)
     list_application_integration_events_rules (cpt_ocid) 
+    OceInstanceClient = oci.oce.OceInstanceClient(config)
+    list_application_integration_cec_instances (cpt_ocid)
 
     # Developer Services
     ContainerEngineClient = oci.container_engine.ContainerEngineClient(config)

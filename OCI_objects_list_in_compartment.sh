@@ -11,7 +11,7 @@
 # - NETWORKING             : VCN, DRG, CPE, IPsec connection, LB, public IPs, DNS zones (common to all regions)
 # - DATABASE               : DB Systems, DB Systems backups, Autonomous DB, Autonomous DB backups
 # - RESOURCE MANAGER       : Stacks
-# - APPLICATION INTEGRATION: Notifications, Events
+# - APPLICATION INTEGRATION: Notifications, Events, Content and Experience
 # - DEVELOPER SERVICES     : Container clusters (OKE), Functions applications
 # - IDENTITY               : Policies (common to all regions)
 # - GOVERNANCE             : Tags namespaces (common to all regions)
@@ -123,7 +123,7 @@ list_objects_common_to_all_regions()
   local lcptid=$2
 
   echo
-  echo -e "${COLOR_TITLE0}============================ COMPARTMENT ${COLOR_COMP}${lcptname}${COLOR_TITLE0} (${COLOR_COMP}${lcptid}${COLOR_TITLE1})"
+  echo -e "${COLOR_TITLE0}============================ COMPARTMENT ${COLOR_COMP}${lcptname}${COLOR_TITLE0} (${COLOR_COMP}${lcptid}${COLOR_TITLE0})"
   echo -e "${COLOR_TITLE1}==================== BEGIN: objects common to all regions${COLOR_NORMAL}"
 
   list_networking_dns_zones $lcptid
@@ -354,6 +354,16 @@ list_application_integration_events_rules()
   oci --profile $PROFILE events rule list -c $lcpid --region $lr --output table --all --query 'data[].{Name:"display-name", OCID:id, Status:"lifecycle-state"}'
 }
 
+list_application_integration_cec_instances()
+{
+  local lr=$1
+  local lcpid=$2
+  echo -e "${COLOR_TITLE2}========== APPLICATION INTEGRATION: Content and Experience instances${COLOR_NORMAL}"
+  oci --profile $PROFILE oce oce-instance list -c $lcpid --region $lr --output table --query 'data[].{Name:name, OCID:id, Status:"lifecycle-state"}'
+  # --all option documented but not supported by OCI CLI 2.7.0
+  # oci --profile $PROFILE oce oce-instance list -c $lcpid --region $lr --output table --all --query 'data[].{Name:name, OCID:id, Status:"lifecycle-state"}'
+}
+
 list_developer_services_oke()
 {
   local lr=$1
@@ -405,6 +415,7 @@ list_region_specific_objects()
   list_resource_manager_stacks $lregion $lcompid
   list_application_integration_notifications_topics $lregion $lcompid
   list_application_integration_events_rules $lregion $lcompid
+  list_application_integration_cec_instances $lregion $lcompid
   list_developer_services_oke $lregion $lcompid
   list_developer_services_functions $lregion $lcompid
 
