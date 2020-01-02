@@ -2,7 +2,7 @@
 Scripts I developed for OCI (Oracle Cloud Infrastructure) using OCI CLI or OCI Python SDK
 with precious help from Matthieu Bordonne
 
-### OCI_compartments_list.sh
+### OCI_generate_api_keys.sh
 
 ```
 Bash script to generate an API key pair for OCI
