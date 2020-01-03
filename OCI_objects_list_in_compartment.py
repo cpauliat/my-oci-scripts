@@ -127,7 +127,7 @@ def list_compute_instances (lcpt_ocid):
             print ('{0:100s} {1:20s} {2:20s} {3:10s}'.format(instance.id, instance.display_name, instance.shape,  instance.lifecycle_state))
 
 def list_compute_custom_images(lcpt_ocid):
-    print (COLOR_TITLE2+"========== COMPUTE: Custom Images "+COLOR_NORMAL)
+    print (COLOR_TITLE2+"========== COMPUTE: Images "+COLOR_NORMAL)
     response = oci.pagination.list_call_get_all_results(ComputeClient.list_images,compartment_id=lcpt_ocid)
     if len(response.data) > 0:
         for image in response.data:
