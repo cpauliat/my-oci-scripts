@@ -27,7 +27,6 @@
 # -- import
 import oci
 import sys
-import argparse
 
 # ---------- Colors for output
 # see https://misc.flogisoft.com/bash/tip_colors_and_formatting to customize
@@ -451,6 +450,8 @@ elif len(sys.argv) == 5:
         include_sub_cpt = True
     else:
         usage ()
+else:
+    usage()
 
 # -- load profile from config file
 try:
