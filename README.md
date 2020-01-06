@@ -199,3 +199,13 @@ Prerequisites :
 - jq installed, OCI CLI 2.6.11 or later installed and OCI config file configured with profiles
 - OCI user needs enough privileges
 ```
+
+### OCI_idcs.sh
+
+```
+Bash script to manage IDCS users and groups using REST APIs
+
+Prerequisites :
+- jq installed 
+- IDCS OAuth2 application already created with Client ID and Client secret available (for authentication)
+```
