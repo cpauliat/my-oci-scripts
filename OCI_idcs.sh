@@ -141,6 +141,25 @@ list_users()
       $IDCS_END_POINT/admin/v1/Users?count=$MAX_OBJECTS 2>/dev/null | tail -1 | jq -r '.Resources[]? | "\(.id)\t\(.active)\t\(.userName)"' | sort -k3
 }
 
+list_users_long()
+{
+  if [ $# -ne 0 ]; then usage; fi
+
+  TMPFILE=/tmp/idcs_tmpfile
+
+  echo "==== USER NAMES,==== USER IDS,ACTIVE,==== CREATION DATE,==== CREATED BY" > $TMPFILE
+  # by default, pagination=50 users, use MAX_OBJECT here
+  curl -i -X GET \
+      -H "Content-Type:application/scim+json" \
+      -H "Authorization: Bearer `cat $TOKEN_FILE`" \
+      $IDCS_END_POINT/admin/v1/Users?count=$MAX_OBJECTS 2>/dev/null | tail -1 | \
+      jq -r '.Resources[]? | "\(.userName),\(.id),\(.active),\(.meta.created),\(.idcsCreatedBy.display)"' | sort -t',' -k4 >> $TMPFILE
+
+  # display result in a table format sorted by date
+  column -t -s"," $TMPFILE 
+  rm -f $TMPFILE
+}
+
 # ---- list groups
 list_groups()
 {
@@ -513,6 +532,7 @@ shift
 case "$operation" in 
 "set_credentials")        set_credentials "$@" ;; 
 "list_users")             init; list_users "$@" ;;
+"list_users_long")             init; list_users_long "$@" ;;
 "list_groups")            init; list_groups "$@" ;;
 "list_users_in_group")    init; list_users_in_group "$@" ;;
 "list_groups_of_user")    init; list_groups_of_user "$@" ;;
