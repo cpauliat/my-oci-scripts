@@ -133,13 +133,12 @@ list_users()
 {
   if [ $# -ne 0 ]; then usage; fi
 
-  echo -e "=========== USER IDS ===========\t=========== USER NAMES ==========="
+  echo -e "=========== USER IDS ===========\tACTIVE\t=========== USER NAMES ==========="
   # by default, pagination=50 users, use MAX_OBJECT here
   curl -i -X GET \
       -H "Content-Type:application/scim+json" \
       -H "Authorization: Bearer `cat $TOKEN_FILE`" \
-      "$IDCS_END_POINT/admin/v1/Users?attributes=userName&count=$MAX_OBJECTS" 2>/dev/null | tail -1 | jq -r '.Resources[]? | "\(.id)\t\(.userName)"' | sort -k2
-
+      $IDCS_END_POINT/admin/v1/Users?count=$MAX_OBJECTS 2>/dev/null | tail -1 | jq -r '.Resources[]? | "\(.id)\t\(.active)\t\(.userName)"' | sort -k3
 }
 
 # ---- list groups
