@@ -23,6 +23,7 @@ Usage: $0 operation [parameters]
 Supported operations:
 - set_credentials idcs_instance client_ID client_secret        (prerequisite to all operations)
 - list_users
+- list_users_long           also gives creation date and creator
 - list_groups
 - list_users_in_group groupname
 - list_groups_of_user username
