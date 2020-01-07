@@ -87,8 +87,8 @@ set_credentials()
   client_id=$2
   client_secret=$3
 
-  OS=`uname -s``
-`
+  OS=`uname -s`
+
   case $OS in
   # MacOS
   "Darwin")  base64code=`echo -n "$client_id:$client_secret" | base64`
