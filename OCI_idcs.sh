@@ -152,7 +152,8 @@ list_groups()
   curl -i -X GET \
       -H "Content-Type:application/scim+json" \
       -H "Authorization: Bearer `cat $TOKEN_FILE`" \
-      "$IDCS_END_POINT/admin/v1/Groups?attributes=displayName&count=$MAX_OBJECTS" 2>/dev/null | tail -1 | jq -r '.Resources[]? | "\(.id)\t\(.displayName)"' | sort -k2
+      "$IDCS_END_POINT/admin/v1/Groups?attributes=displayName&count=$MAX_OBJECTS" 2>/dev/null | tail -1 | jq -r '.Resources[]? | "\(.id)\t\(.displayName)"' | sort -k2 | \
+      sed -e 's#AllUsersId#AllUsersId                           #g'
 }
 
 # ---- list users in a group
