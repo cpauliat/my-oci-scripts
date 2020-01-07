@@ -12,6 +12,7 @@
 #
 # Versions
 #    2020-01-06: Initial Version
+#    2020-01-07: Optimize requests for list_users_in_group() and list_groups_of_user()
 # --------------------------------------------------------------------------------------------------------------------------
 
 usage()
@@ -51,6 +52,7 @@ exit 1
 CREDENTIALS_FILE=~/.oci/idcs_credentials
 TOKEN_FILE=/tmp/idcs_auth_token.tmp
 TMP_JSON_FILE=/tmp/tmp_request_body.json
+MAX_OBJECTS=200
 
 # -------- functions
 fatal_error()
@@ -131,24 +133,13 @@ list_users()
 {
   if [ $# -ne 0 ]; then usage; fi
 
-  TMPID=/tmp/idcs_tmp_id
-  TMPNAME=/tmp/idcs_tmp_name
-
-  # by default, pagination=50 users, use 200 here
-  curl -i -X GET \
-      -H "Content-Type:application/scim+json" \
-      -H "Authorization: Bearer `cat $TOKEN_FILE`" \
-      $IDCS_END_POINT/admin/v1/Users?count=200 2>/dev/null | tail -1 | jq -r ".Resources[].userName" > $TMPNAME
-
-  curl -i -X GET \
-      -H "Content-Type:application/scim+json" \
-      -H "Authorization: Bearer `cat $TOKEN_FILE`" \
-      $IDCS_END_POINT/admin/v1/Users?count=200 2>/dev/null | tail -1 | jq -r ".Resources[].id" > $TMPID
-
   echo -e "=========== USER IDS ===========\t=========== USER NAMES ==========="
+  # by default, pagination=50 users, use MAX_OBJECT here
+  curl -i -X GET \
+      -H "Content-Type:application/scim+json" \
+      -H "Authorization: Bearer `cat $TOKEN_FILE`" \
+      "$IDCS_END_POINT/admin/v1/Users?attributes=userName&count=$MAX_OBJECTS" 2>/dev/null | tail -1 | jq -r '.Resources[]? | "\(.id)\t\(.userName)"' | sort -k2
 
-  paste $TMPID $TMPNAME | sort -k2
-  rm -f $TMPID $TMPNAME
 }
 
 # ---- list groups
@@ -156,23 +147,12 @@ list_groups()
 {
   if [ $# -ne 0 ]; then usage; fi
 
-  TMPID=/tmp/idcs_tmp_id
-  TMPNAME=/tmp/idcs_tmp_name
-
-  # by default, pagination=50 groups, use 200 here
+  echo -e "========== GROUP IDS ===========\t=========== GROUP NAMES ==========="
+  # by default, pagination=50 groups, use MAX_OBJECT here
   curl -i -X GET \
       -H "Content-Type:application/scim+json" \
       -H "Authorization: Bearer `cat $TOKEN_FILE`" \
-      $IDCS_END_POINT/admin/v1/Groups?count=200 2>/dev/null | tail -1 | jq -r ".Resources[].displayName" > $TMPNAME
-
-  curl -i -X GET \
-      -H "Content-Type:application/scim+json" \
-      -H "Authorization: Bearer `cat $TOKEN_FILE`" \
-      $IDCS_END_POINT/admin/v1/Groups?count=200 2>/dev/null | tail -1 | jq -r ".Resources[].id" > $TMPID
-
-  echo -e "=========== GROUP IDS ===========\t=========== GROUP NAMES ==========="
-  paste $TMPID $TMPNAME | sort -k2
-  rm -f $TMPID $TMPNAME
+      "$IDCS_END_POINT/admin/v1/Groups?attributes=displayName&count=$MAX_OBJECTS" 2>/dev/null | tail -1 | jq -r '.Resources[]? | "\(.id)\t\(.displayName)"' | sort -k2
 }
 
 # ---- list users in a group
@@ -181,7 +161,7 @@ list_users_in_group()
   if [ $# -ne 1 ]; then usage; fi
 
   GROUPNAME=$1
-  MYGROUP_ID=`get_groupid_from_name $GROUPNAME`
+  MYGROUP_ID=`get_groupid_from_name "$GROUPNAME"`
   if [ "$MYGROUP_ID" == "" ]; then exit 6; fi
 
   curl -i -X GET \
@@ -196,14 +176,13 @@ list_groups_of_user()
   if [ $# -ne 1 ]; then usage; fi
 
   USERNAME=$1
-  MYUSER_ID=`get_userid_from_name $USERNAME`
+  MYUSER_ID=`get_userid_from_name "$USERNAME"`
   if [ "$MYUSER_ID" == "" ]; then exit 5; fi
 
   curl -i -X GET \
       -H "Content-Type:application/scim+json" \
       -H "Authorization: Bearer `cat $TOKEN_FILE`" \
-      $IDCS_END_POINT/admin/v1/Groups?attributes=members 2>/dev/null | tail -1 | \
-    jq --arg U "$USERNAME" '.Resources[] | select (.members[]?.name == $U)' | jq -r ".displayName"
+      $IDCS_END_POINT/admin/v1/Users/$MYUSER_ID?attributes=groups 2>/dev/null | tail -1 | jq -r ".groups[]?.display"
 }
 
 get_userid_from_name()
@@ -215,7 +194,7 @@ get_userid_from_name()
   curl -i -X GET \
       -H "Content-Type:application/scim+json" \
       -H "Authorization: Bearer `cat $TOKEN_FILE`" \
-      $IDCS_END_POINT/admin/v1/Users?count=200 2>/dev/null | tail -1 | jq --arg U "$USERNAME" '.Resources[] | select(.userName == $U )' | jq -r ".id" > $TMPID
+      $IDCS_END_POINT/admin/v1/Users?count=$MAX_OBJECTS 2>/dev/null | tail -1 | jq --arg U "$USERNAME" '.Resources[] | select(.userName == $U )' | jq -r ".id" > $TMPID
   
   USERID=`cat $TMPID`
   rm -f $TMPID
@@ -230,7 +209,7 @@ show_user()
   if [ $# -ne 1 ]; then usage; fi
 
   USERNAME=$1
-  MYUSER_ID=`get_userid_from_name $USERNAME`
+  MYUSER_ID=`get_userid_from_name "$USERNAME"`
   if [ "$MYUSER_ID" == "" ]; then exit 5; fi
 
   curl -i -X GET \
@@ -249,7 +228,7 @@ get_groupid_from_name()
   curl -i -X GET \
       -H "Content-Type:application/scim+json" \
       -H "Authorization: Bearer `cat $TOKEN_FILE`" \
-      $IDCS_END_POINT/admin/v1/Groups?count=200 2>/dev/null | tail -1 | jq --arg G "$GROUPNAME" '.Resources[] | select(.displayName == $G )' | jq -r ".id" > $TMPID
+      $IDCS_END_POINT/admin/v1/Groups?count=$MAX_OBJECTS 2>/dev/null | tail -1 | jq --arg G "$GROUPNAME" '.Resources[] | select(.displayName == $G )' | jq -r ".id" > $TMPID
   
   GROUPID=`cat $TMPID`
   rm -f $TMPID
@@ -264,7 +243,7 @@ show_group()
   if [ $# -ne 1 ]; then usage; fi
 
   GROUPNAME=$1
-  MYGROUP_ID=`get_groupid_from_name $GROUPNAME`
+  MYGROUP_ID=`get_groupid_from_name "$GROUPNAME"`
   if [ "$MYGROUP_ID" == "" ]; then exit 6; fi
 
   curl -i -X GET \
@@ -347,10 +326,10 @@ add_user_to_group()
   USERNAME=$1
   GROUPNAME=$2
 
-  MYUSER_ID=`get_userid_from_name $USERNAME`
+  MYUSER_ID=`get_userid_from_name "$USERNAME"`
   if [ "$MYUSER_ID" == "" ]; then exit 5; fi
 
-  MYGROUP_ID=`get_groupid_from_name $GROUPNAME`
+  MYGROUP_ID=`get_groupid_from_name "$GROUPNAME"`
   if [ "$MYGROUP_ID" == "" ]; then exit 6; fi
 
   cat > $TMP_JSON_FILE << EOF
@@ -390,10 +369,10 @@ remove_user_from_group()
   USERNAME=$1
   GROUPNAME=$2
 
-  MYUSER_ID=`get_userid_from_name $USERNAME`
+  MYUSER_ID=`get_userid_from_name "$USERNAME"`
   if [ "$MYUSER_ID" == "" ]; then exit 5; fi
 
-  MYGROUP_ID=`get_groupid_from_name $GROUPNAME`
+  MYGROUP_ID=`get_groupid_from_name "$GROUPNAME"`
   if [ "$MYGROUP_ID" == "" ]; then exit 6; fi
   
   cat > $TMP_JSON_FILE << EOF
@@ -431,7 +410,7 @@ deactivate_user()
   if [ $# -ne 1 ]; then usage; fi
 
   USERNAME=$1
-  MYUSER_ID=`get_userid_from_name $USERNAME`
+  MYUSER_ID=`get_userid_from_name "$USERNAME"`
   if [ "$MYUSER_ID" == "" ]; then exit 5; fi
 
   cat > $TMP_JSON_FILE << EOF
@@ -458,7 +437,7 @@ activate_user()
   if [ $# -ne 1 ]; then usage; fi
 
   USERNAME=$1
-  MYUSER_ID=`get_userid_from_name $USERNAME`
+  MYUSER_ID=`get_userid_from_name "$USERNAME"`
   if [ "$MYUSER_ID" == "" ]; then exit 5; fi
 
   cat > $TMP_JSON_FILE << EOF
@@ -487,7 +466,7 @@ delete_user()
   USERNAME=$1
   CONFIRM=$2
 
-  MYUSER_ID=`get_userid_from_name $USERNAME`
+  MYUSER_ID=`get_userid_from_name "$USERNAME"`
   if [ "$MYUSER_ID" == "" ]; then exit 5; fi
 
   if [ "$CONFIRM" != "--confirm" ]; then 
@@ -511,7 +490,7 @@ delete_group()
   GROUPNAME=$1
   CONFIRM=$2
 
-  MYGROUP_ID=`get_groupid_from_name $GROUPNAME`
+  MYGROUP_ID=`get_groupid_from_name "$GROUPNAME"`
   if [ "$MYGROUP_ID" == "" ]; then exit 6; fi
 
   if [ "$CONFIRM" != "--confirm" ]; then 
