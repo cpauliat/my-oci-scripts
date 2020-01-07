@@ -384,13 +384,7 @@ remove_user_from_group()
   "Operations": [
     {
       "op": "remove",
-      "path": "members",
-      "value": [
-        {
-          "value": "$MYUSER_ID",
-          "type": "User"
-        }
-      ]
+      "path": "members[value eq \"$MYUSER_ID\"]"
     }
   ]
 }
