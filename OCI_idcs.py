@@ -368,7 +368,7 @@ def delete_user(argv):
         response=input("Do you confirm deletion of user {} (Id {}) ? (y/n): ".format(user_name,user_id))
         if (response != "y"): print ("User deletion cancelled !"); exit (0)
 
-    api_url=IDCS_END_POINT+"/admin/v1/Users/"+user_id
+    api_url=IDCS_END_POINT+"/admin/v1/Users/"+user_id+"?forceDelete=True"
     headers = { 'Content-Type': 'application/scim+json', 'Authorization': 'Bearer '+TOKEN }
     r = requests.delete(api_url, headers=headers)
     if (r.status_code == 204):
@@ -390,7 +390,7 @@ def delete_group(argv):
         response=input("Do you confirm deletion of group {} (Id {}) ? (y/n): ".format(group_name,group_id))
         if (response != "y"): print ("Group deletion cancelled !"); exit (0)
 
-    api_url=IDCS_END_POINT+"/admin/v1/Groups/"+group_id
+    api_url=IDCS_END_POINT+"/admin/v1/Groups/"+group_id+"?forceDelete=True"
     headers = { 'Content-Type': 'application/scim+json', 'Authorization': 'Bearer '+TOKEN }
     r = requests.delete(api_url, headers=headers)
     if (r.status_code == 204):
