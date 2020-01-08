@@ -209,3 +209,14 @@ Prerequisites :
 - jq installed 
 - IDCS OAuth2 application already created with Client ID and Client secret available (for authentication)
 ```
+
+### OCI_idcs.py
+
+```
+Python 3 script to manage IDCS users and groups using REST APIs
+
+Prerequisites :
+- Python 3 installed  
+- Following Python 3 modules installed: sys, json,base64, requests, pathlib, pprint
+- IDCS OAuth2 application already created with Client ID and Client secret available (for authentication)
+```
