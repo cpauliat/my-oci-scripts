@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # --------------------------------------------------------------------------------------------------------------
 # This script lists all the compartments and sub-compartments names and IDs in an OCI tenant using OCI Python SDK
 # The output is formatted with colors and indents to easily identify parents of sub-compartments
@@ -33,7 +35,7 @@ flag=[0,0,0,0,0,0,0,0,0,0]
 
 # -- functions
 def usage():
-    print ("Usage: python3 {} [-d] OCI_PROFILE".format(sys.argv[0]))
+    print ("Usage: {} [-d] OCI_PROFILE".format(sys.argv[0]))
     print ("")
     print ("    If -d is provided, deleted compartments are also listed.")
     print ("    If not, only active compartments are listed.")

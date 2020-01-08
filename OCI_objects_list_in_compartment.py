@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # --------------------------------------------------------------------------------------------------------------------------
 # This script lists all objects (detailed list below) in a given compartment in a region or all active regions using OCI CLI
 #
@@ -55,7 +57,7 @@ configfile = "~/.oci/config"    # Define config file to be used.
 
 # -- usage syntax
 def usage():
-    print ("Usage: python3 {} [-a] [-r] OCI_PROFILE compartment_ocid".format(sys.argv[0]))
+    print ("Usage: {} [-a] [-r] OCI_PROFILE compartment_ocid".format(sys.argv[0]))
     print ("    or python3 {} [-a] [-r] OCI_PROFILE compartment_name".format(sys.argv[0]))
     print ("")
     print ("    By default, only the objects in the region provided in the profile are listed")
