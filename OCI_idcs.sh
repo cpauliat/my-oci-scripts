@@ -491,7 +491,7 @@ delete_user()
 
   curl -X DELETE \
       -H "Authorization: Bearer `cat $TOKEN_FILE`" \
-      $IDCS_END_POINT/admin/v1/Users/$MYUSER_ID 2>/dev/null | tail -1 | jq "."
+      $IDCS_END_POINT/admin/v1/Users/$MYUSER_ID?forceDelete=True 2>/dev/null | tail -1 | jq "."
 
   echo "User $USERNAME (Id $MYUSER_ID) deleted !"
 }
@@ -515,7 +515,7 @@ delete_group()
 
   curl -X DELETE \
       -H "Authorization: Bearer `cat $TOKEN_FILE`" \
-      $IDCS_END_POINT/admin/v1/Groups/$MYGROUP_ID 2>/dev/null | tail -1 | jq "."
+      $IDCS_END_POINT/admin/v1/Groups/$MYGROUP_ID?forceDelete=True 2>/dev/null | tail -1 | jq "."
 
   echo "Group $GROUPNAME (Id $MYGROUP_ID) deleted !"
 }

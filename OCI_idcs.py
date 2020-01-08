@@ -164,11 +164,17 @@ def list_users_long():
     r = requests.get(api_url, headers=headers)
     dict=r.json()
     list=dict['Resources']
-    table_headers=['====== USER NAME ======','ACTIVE','====== USER ID ======','==== CREATION DATE ====','==== CREATED BY ====']
+    table_headers=['====== USER NAME ======','ACTIVE','====== USER ID ======','==== TITLE ====','==== CREATION DATE ====','==== CREATED BY ====']
     table_list=[]
-    for i in range(len(list)): table_list.append([ list[i]['userName'], list[i]['active'], list[i]['id'], list[i]['meta']['created'], list[i]['idcsCreatedBy']['display'] ])
+    for i in range(len(list)): 
+        print(list[i]['userName'])
+        # sometimes, no title assigned, so no title key
+        try:
+            table_list.append([ list[i]['userName'], list[i]['active'], list[i]['id'], list[i]['title'], list[i]['meta']['created'], list[i]['idcsCreatedBy']['display'] ])
+        except:
+            table_list.append([ list[i]['userName'], list[i]['active'], list[i]['id'], " ", list[i]['meta']['created'], list[i]['idcsCreatedBy']['display'] ])
     # sort by creation date (oldest first)
-    table = columnar(sorted(table_list, key=itemgetter(3)), table_headers, no_borders=True)
+    table = columnar(sorted(table_list, key=itemgetter(4)), table_headers, no_borders=True)
     print(table)
 
 # ---- list groups
