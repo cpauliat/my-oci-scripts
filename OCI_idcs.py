@@ -21,6 +21,8 @@ import json
 import requests
 from pathlib import Path
 from pprint import pprint
+from columnar import columnar
+from operator import itemgetter, attrgetter
 
 # -- Usage
 def usage():
@@ -149,8 +151,12 @@ def list_users():
     r = requests.get(api_url, headers=headers)
     dict=r.json()
     list=dict['Resources']
-    for i in range(len(list)):
-        print (list[i]['id'],"\t",list[i]['active'],"\t",list[i]['userName'])
+    table_headers=['====== USER NAME ======','ACTIVE','====== USER ID ======']
+    table_list=[]
+    for i in range(len(list)): table_list.append([ list[i]['userName'], list[i]['active'], list[i]['id'] ])
+    # sort by user name
+    table = columnar(sorted(table_list, key=itemgetter(0)), table_headers, no_borders=True)
+    print(table)
 
 def list_users_long():
     api_url=IDCS_END_POINT+"/admin/v1/Users?count="+MAX_OBJECTS
@@ -158,8 +164,12 @@ def list_users_long():
     r = requests.get(api_url, headers=headers)
     dict=r.json()
     list=dict['Resources']
-    for i in range(len(list)):
-        print (list[i]['id'],"\t",list[i]['active'],"\t",list[i]['userName'],"\t",list[i]['meta']['created'],"\t",list[i]['idcsCreatedBy']['display'])
+    table_headers=['====== USER NAME ======','ACTIVE','====== USER ID ======','==== CREATION DATE ====','==== CREATED BY ====']
+    table_list=[]
+    for i in range(len(list)): table_list.append([ list[i]['userName'], list[i]['active'], list[i]['id'], list[i]['meta']['created'], list[i]['idcsCreatedBy']['display'] ])
+    # sort by creation date (oldest first)
+    table = columnar(sorted(table_list, key=itemgetter(3)), table_headers, no_borders=True)
+    print(table)
 
 # ---- list groups
 def list_groups():
@@ -168,9 +178,12 @@ def list_groups():
     r = requests.get(api_url, headers=headers)
     dict=r.json()
     list=dict['Resources']
-    for i in range(len(list)):
-        print (list[i]['id'],"\t",list[i]['displayName'])
-
+    table_headers=['==== GROUP ID ====','==== GROUP NAME ====']
+    table_list=[]
+    for i in range(len(list)): table_list.append([ list[i]['id'], list[i]['displayName'] ])
+    table = columnar(table_list, table_headers, no_borders=True)
+    print(table)
+    
 # ---- list users in a group
 def list_users_in_group(argv):
     if len(argv) != 3: usage()
