@@ -56,8 +56,6 @@ def usage():
 
 # -------- variables
 CREDENTIALS_FILE=str(Path.home())+"/.oci/idcs_credentials.python3"
-TOKEN_FILE="/tmp/idcs_auth_token.tmp"
-TMP_JSON_FILE="/tmp/tmp_request_body.json"
 MAX_OBJECTS="200"
 IDCS_END_POINT="xx"
 TOKEN="xx"
@@ -65,12 +63,12 @@ TOKEN="xx"
 # -------- functions
 def fatal_error(error_number):
   if   (error_number == 2):    print ("ERROR 2: cannot create credentials file {} !".format(CREDENTIALS_FILE))
-  elif (error_number == 3):    print ("ERROR 3: credentials file {} not found !".format(CREDENTIALS_FILE))
+  elif (error_number == 3):    print ("ERROR 3: credentials file {} not found ! Run set_credentials operation.".format(CREDENTIALS_FILE))
   elif (error_number == 4):    print ("ERROR 4: syntax error in credentials file {} !".format(CREDENTIALS_FILE))
   elif (error_number == 5):    print ("ERROR 5: user name not found !")
   elif (error_number == 6):    print ("ERROR 6: group name not found !")
   elif (error_number == 7):    print ("ERROR 7: API request error !")
-  exit (error_number)
+  sys.exit (error_number)
 
 # ---- create credentials file
 def set_credentials(argv):
@@ -83,19 +81,19 @@ def set_credentials(argv):
         f=open(CREDENTIALS_FILE,"w+")
     except:
         fatal_error(2)
-    finally:
-        f.write (idcs_instance+"\n")
-        data=client_id+":"+client_secret
-        f.writelines (str(base64.b64encode(data.encode("utf-8")),"utf-8")+"\n")
-        f.close ()
+    
+    f.write (idcs_instance+"\n")
+    data=client_id+":"+client_secret
+    f.writelines (str(base64.b64encode(data.encode("utf-8")),"utf-8")+"\n")
+    f.close ()
 
 # ---- get auth_token
-def get_auth_token():
+def get_auth_token(b64code):
     global TOKEN
 
     api_url=IDCS_END_POINT+"/oauth2/v1/token"
     headers = { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-                'Authorization': 'Basic '+BASE64CODE }
+                'Authorization': 'Basic '+b64code }
     payload = "grant_type=client_credentials&scope=urn:opc:idm:__myscopes__"
 
     r = requests.post(api_url, headers=headers, data=payload)
@@ -104,21 +102,20 @@ def get_auth_token():
 # ---- initialize script
 def init():
     global IDCS_END_POINT
-    global BASE64CODE
 
     try:
         f = open(CREDENTIALS_FILE,"r")
-    except IOError:
+    except:
         fatal_error(3)
-    finally:
-        IDCS_INSTANCE=f.readline().rstrip('\n')
-        BASE64CODE=f.readline().rstrip('\n')
-        f.close()
+    
+    IDCS_INSTANCE=f.readline().rstrip('\n')
+    base64code=f.readline().rstrip('\n')
+    f.close()
 
     IDCS_END_POINT="https://"+IDCS_INSTANCE+".identity.oraclecloud.com"
 
     # get a new Authentication token  
-    get_auth_token()
+    get_auth_token(base64code)
 
 # ---- get user id from user name
 def get_user_id_from_name(name):
