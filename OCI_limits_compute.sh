@@ -20,8 +20,8 @@ usage()
 cat << EOF
 Usage: $0 [-a] [-z] OCI_PROFILE 
  
-    By default, only the objects in the region provided in the profile are listed
-    If -a is provided, the objects from all active regions are listed
+    By default, only the limits in the region provided in the profile are listed
+    If -a is provided, the limits from all active regions are listed
     If -z is provided, limits with quota set to 0 are also listed
     Note: if both -a and -z are provided, -a must be provided first
 
