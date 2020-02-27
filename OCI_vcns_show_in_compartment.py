@@ -13,7 +13,7 @@
 #      - the security list(s) with security rules
 #
 # Note: OCI tenant and region given by an OCI CLI PROFILE
-# Author        : Christophe Pauliat with some help from Matthieu Bordonne
+# Author        : Christophe Pauliat
 # Platforms     : MacOS / Linux
 #
 # prerequisites : jq (JSON parser) installed, OCI CLI installed and OCI config file configured with profiles
