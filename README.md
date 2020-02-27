@@ -220,3 +220,12 @@ Prerequisites :
 - Following Python 3 modules installed: sys, json,base64, requests, pathlib, pprint, columnar, operator
 - IDCS OAuth2 application already created with Client ID and Client secret available (for authentication)
 ```
+
+### OCI_vcns_show_in_compartment.py
+
+```
+Python 3 script to show detailed VCNs in a compartment using OCI Python SDK
+
+Prerequisites :
+- Python 3 installed, OCI SDK installed and OCI config file configured with profiles
+```
