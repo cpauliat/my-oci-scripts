@@ -58,7 +58,7 @@ configfile = "~/.oci/config"    # Define config file to be used.
 # -- usage syntax
 def usage():
     print ("Usage: {} [-a] [-r] OCI_PROFILE compartment_ocid".format(sys.argv[0]))
-    print ("    or python3 {} [-a] [-r] OCI_PROFILE compartment_name".format(sys.argv[0]))
+    print ("    or {} [-a] [-r] OCI_PROFILE compartment_name".format(sys.argv[0]))
     print ("")
     print ("    By default, only the objects in the region provided in the profile are listed")
     print ("    If -a is provided, the objects from all subscribed regions are listed")
