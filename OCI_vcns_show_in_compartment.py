@@ -177,10 +177,6 @@ if not(cpt_exist):
     print ("ERROR 03: compartment '{}' does not exist !".format(cpt))
     exit (3) 
 
-# -- get list of subscribed regions
-response = oci.pagination.list_call_get_all_results(IdentityClient.list_region_subscriptions, RootCompartmentID)
-regions = response.data
-
 list_vcns(initial_cpt_ocid,initial_cpt_name)
 
 # -- the end
