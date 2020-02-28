@@ -140,7 +140,6 @@ def list_vcns (cpt_ocid,cpt_name):
 
 # ------------ main
 global config
-global ads
 global IdentityClient
 global initial_cpt_ocid
 global initial_cpt_name
@@ -181,10 +180,6 @@ if not(cpt_exist):
 # -- get list of subscribed regions
 response = oci.pagination.list_call_get_all_results(IdentityClient.list_region_subscriptions, RootCompartmentID)
 regions = response.data
-
-# -- get list of ADs
-response = oci.pagination.list_call_get_all_results(IdentityClient.list_availability_domains, RootCompartmentID)
-ads = response.data
 
 list_vcns(initial_cpt_ocid,initial_cpt_name)
 
