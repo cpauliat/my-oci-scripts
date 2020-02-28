@@ -192,5 +192,5 @@ if not(cpt_exist):
 
 list_vcns(initial_cpt_ocid,initial_cpt_name)
 
-# -- the end
+# -- the happy end
 exit (0)
