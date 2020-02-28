@@ -108,15 +108,22 @@ def list_vcns (cpt_ocid,cpt_name):
             print (COLOR_LYELLOW+"---------------------------------------- VCN = ",end='')
             print (COLOR_LRED+'{:s}'.format(vcn.display_name)+COLOR_NORMAL,end='')
             print (COLOR_LBLUE+' {:s}'.format(vcn.cidr_block)+COLOR_NORMAL,end='')
-            #print (COLOR_NORMAL+' {:s}'.format(vcn.dns_label)+COLOR_NORMAL,end='')
+            try:
+                print (COLOR_NORMAL+' {:s}.oraclevcn.com'.format(vcn.dns_label)+COLOR_NORMAL,end='')
+            except:
+                print (COLOR_NORMAL+' <no DNS label>'+COLOR_NORMAL,end='')
             print ("")
             #print (COLOR_NORMAL+' ({:s})'.format(vcn.id))
             response_subnet = oci.pagination.list_call_get_all_results(VirtualNetworkClient.list_subnets,compartment_id=cpt_ocid,vcn_id=vcn.id)
             if len(response_subnet.data) > 0:
                 for subnet in response_subnet.data:
-                    # subnet name, CIDR
+                    # subnet name, CIDR, dns label (if exists)
                     print ('    subnet = '+COLOR_GREEN+'{:s}'.format(subnet.display_name),end='')
                     print (COLOR_LBLUE+' {:s}'.format(subnet.cidr_block)+COLOR_NORMAL,end='')
+                    try:
+                        print (COLOR_NORMAL+' {:s}.{:s}.oraclevcn.com'.format(subnet.dns_label,vcn.dns_label)+COLOR_NORMAL,end='')
+                    except:
+                        print (COLOR_NORMAL+' <no DNS label>'+COLOR_NORMAL,end='')
                     print ("")
                     #print (COLOR_NORMAL+' ({:s})'.format(subnet.id))
 
