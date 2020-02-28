@@ -74,12 +74,19 @@ def rule_details(lrule):
     
     elif lrule.protocol=="1":
         try:
-            code=lrule.icmp_options.code
-            type=lrule.icmp_options.type
-            return "icmp code {:d} type {:d}".format(code,type)
-        except: 
-            #icmp_options does not exist
+            ltype="type "+str(lrule.icmp_options.type)
+        except:
+            ltype=""
+
+        try:     
+            lcode="code "+str(lrule.icmp_options.code)
+        except:
+            lcode=""
+
+        if lcode=="" and lcode=="":
             return "icmp all"
+        else:
+            return "icmp {:s} {:s}".format(lcode,ltype)
 
     elif lrule.protocol=="6":
         try:
