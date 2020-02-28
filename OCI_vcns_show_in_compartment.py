@@ -73,7 +73,13 @@ def rule_details(lrule):
         return "ALL"
     
     elif lrule.protocol=="1":
-        return "icmp"
+        try:
+            code=lrule.icmp_options.code
+            type=lrule.icmp_options.type
+            return "icmp code {:d} type {:d}".format(code,type)
+        except: 
+            #icmp_options does not exist
+            return "icmp all"
 
     elif lrule.protocol=="6":
         try:
@@ -140,7 +146,7 @@ def list_vcns (cpt_ocid,cpt_name):
                         print ("            ingress:")
                         for rule in response_sl.data.ingress_security_rules:
                             print (COLOR_CYAN+"                source       {:18s} {:s}".format(rule.source,rule_details(rule))+COLOR_NORMAL)
-                        print ("            engress:")
+                        print ("            egress:")
                         for rule in response_sl.data.egress_security_rules:
                             print (COLOR_CYAN+"                destination  {:18s} {:4s}".format(rule.destination,rule_details(rule))+COLOR_NORMAL)
 
