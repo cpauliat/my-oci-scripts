@@ -13,6 +13,7 @@
 #    2019-08-30: Initial Version 
 #    2019-10-04: Change defaut behavior (does not display limits with quota set to 0). 
 #    2019-12-31: Fix minor formatting bug
+#    2020-03-20: change location of temporary files to /tmp + check oci exists
 # --------------------------------------------------------------------------------------------------------------
 
 usage()
@@ -133,8 +134,8 @@ trap_ctrl_c()
 # -------- main
 
 OCI_CONFIG_FILE=~/.oci/config
-TMP_FILE=tmp_$$
-TMP_PROFILE=tmp$$
+TMP_FILE=/tmp/tmp_$$
+TMP_PROFILE=/tmp/tmp_$$_profile
 
 ALL_REGIONS=false
 LIST_ZEROS=false
@@ -160,6 +161,10 @@ esac
 
 # -- trap ctrl-c and call ctrl_c()
 trap trap_ctrl_c INT
+
+# -- Check if oci is installed
+which oci > /dev/null 2>&1
+if [ $? -ne 0 ]; then echo "ERROR: oci not found !"; exit 2; fi
 
 # -- Check if jq is installed
 which jq > /dev/null 2>&1

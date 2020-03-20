@@ -11,6 +11,7 @@
 # - NETWORKING             : VCN, DRG, CPE, IPsec connection, LB, public IPs, DNS zones (common to all regions)
 # - DATABASE               : DB Systems, DB Systems backups, Autonomous DB, Autonomous DB backups
 # - RESOURCE MANAGER       : Stacks
+# - EMAIL DELIVERY         : approved senders
 # - APPLICATION INTEGRATION: Notifications, Events, Content and Experience
 # - DEVELOPER SERVICES     : Container clusters (OKE), Functions applications
 # - IDENTITY               : Policies (common to all regions)
@@ -35,6 +36,8 @@
 #    2019-07-16: change title for DNS zone as now in Networking instead of Edge Services
 #    2019-10-02: add support for sub-compartments (-r option) + print full compartment name
 #    2020-02-01: add support for Functions applications, Notifications and Events
+#    2020-03-20: add support for email approved senders
+#    2020-03-20: change location of temporary files to /tmp + check oci exists
 # --------------------------------------------------------------------------------------------------------------------------
 
 usage()
@@ -93,7 +96,7 @@ fi
 
 # ---------------- functions to list objects
 
-# -- list objects common to all regions
+# ------ list objects common to all regions
 list_identity_policies()
 {
   local lcpid=$1
@@ -133,7 +136,7 @@ list_objects_common_to_all_regions()
   echo -e "${COLOR_TITLE1}==================== END: objects common to all regions${COLOR_NORMAL}"
 }
 
-# -- objects specific to a region
+# ------ objects specific to a region
 list_compute_instances()
 {
   local lr=$1
@@ -338,6 +341,15 @@ list_resource_manager_stacks()
   oci --profile $PROFILE resource-manager stack list -c $lcpid --region $lr --output table --all --query 'data[].{Name:"display-name", OCID:id, Status:"lifecycle-state"}'
 }
 
+list_email_delivery_approved_senders()
+{
+  local lr=$1
+  local lcpid=$2
+  echo -e "${COLOR_TITLE2}========== EMAIL DELIVERY: Approved senders${COLOR_NORMAL}"
+  oci --profile $PROFILE email sender list -c $lcpid --region $lr --output table --all --query 'data[].{Email:"email-address", Status:"lifecycle-state"}' 2>/dev/null
+  # 2>/dev/null needed to remove message "Query returned empty result, no output to show."
+}
+
 list_application_integration_notifications_topics()
 {
   local lr=$1
@@ -377,7 +389,8 @@ list_developer_services_functions()
   local lr=$1
   local lcpid=$2
   echo -e "${COLOR_TITLE2}========== DEVELOPER SERVICES: Functions applications${COLOR_NORMAL}"
-  oci --profile $PROFILE fn application list -c $lcpid --region $lr --output table --all --query 'data[].{Name:"display-name", OCID:id, Status:"lifecycle-state"}'
+  oci --profile $PROFILE fn application list -c $lcpid --region $lr --output table --all --query 'data[].{Name:"display-name", OCID:id, Status:"lifecycle-state"}' 2>/dev/null
+  # 2>/dev/null needed to remove message "Authorization failed or requested resource not found" when no functions applications are present 
 }
 
 # -- list region specific objects
@@ -413,6 +426,7 @@ list_region_specific_objects()
   list_database_autonomous_db $lregion $lcompid
   list_database_autonomous_backups $lregion $lcompid
   list_resource_manager_stacks $lregion $lcompid
+  list_email_delivery_approved_senders $lregion $lcompid
   list_application_integration_notifications_topics $lregion $lcompid
   list_application_integration_events_rules $lregion $lcompid
   list_application_integration_cec_instances $lregion $lcompid
@@ -513,10 +527,10 @@ do_it_in_sub_compt()
 # ---------------- main
 
 OCI_CONFIG_FILE=~/.oci/config
-TMP_FILE=tmp_$$
+TMP_FILE=/tmp/tmp_$$
 TMP_FILE_COMPID_LIST=${TMP_FILE}_compid_list
 TMP_FILE_COMPNAME_LIST=${TMP_FILE}_compname_list
-TMP_PROFILE=tmp$$
+TMP_PROFILE=/tmp/tmp_$$_profile
 
 # -- Check usage
 
@@ -546,6 +560,10 @@ esac
 
 # -- trap ctrl-c and call ctrl_c()
 trap trap_ctrl_c INT
+
+# -- Check if oci is installed
+which oci > /dev/null 2>&1
+if [ $? -ne 0 ]; then echo "ERROR: oci not found !"; exit 2; fi
 
 # -- Check if jq is installed
 which jq > /dev/null 2>&1

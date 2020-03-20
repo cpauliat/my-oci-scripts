@@ -9,6 +9,7 @@
 #
 # Versions
 #    2020-01-27: Initial Version
+#    2020-03-20: check oci exists
 # --------------------------------------------------------------------------------------------------------------
 
 # -------- functions
@@ -71,13 +72,17 @@ if [ $# -eq 2 ]; then PROFILE=$1; INSTANCE_ID=$2; else usage; fi
 # -- trap ctrl-c and call trap_ctrl_c()
 trap trap_ctrl_c INT
 
+# -- Check if oci is installed
+which oci > /dev/null 2>&1
+if [ $? -ne 0 ]; then echo "ERROR: oci not found !"; exit 2; fi
+
 # -- Check if jq is installed
 which jq > /dev/null 2>&1
 if [ $? -ne 0 ]; then echo "ERROR: jq not found !"; exit 2; fi
 
 # -- Check if the PROFILE exists
 grep "\[$PROFILE\]" $OCI_CONFIG_FILE > /dev/null 2>&1
-if [ $? -ne 0 ]; then echo "ERROR: PROFILE $PROFILE does not exist in file $OCI_CONFIG_FILE !"; exit 2; fi
+if [ $? -ne 0 ]; then echo "ERROR: PROFILE $PROFILE does not exist in file $OCI_CONFIG_FILE !"; exit 3; fi
 
 # -- get the ID of the primary VNIC of the instance
 echo "# -- get the ID of the primary VNIC of the instance"

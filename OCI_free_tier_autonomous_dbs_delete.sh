@@ -10,6 +10,7 @@
 #
 # Versions
 #    2019-11-14: Initial Version
+#    2020-03-20: change location of temporary files to /tmp + check oci exists
 # --------------------------------------------------------------------------------------------------------------
 
 # -------- functions
@@ -36,13 +37,13 @@ EOF
 # -- Get the home region from the profile
 get_home_region_from_profile()
 {
-  $OCI --profile $PROFILE iam region-subscription list --query "data[].{home:\"is-home-region\",name:\"region-name\"}" | jq -r '.[] |  select(.home == true) | .name'
+  oci --profile $PROFILE iam region-subscription list --query "data[].{home:\"is-home-region\",name:\"region-name\"}" | jq -r '.[] |  select(.home == true) | .name'
 }
 
 # -- Get list of compartment IDs for active compartments (excluding root)
 get_comp_ids()
 {
-  $OCI --profile $PROFILE iam compartment list --compartment-id-in-subtree true --all --query "data [?\"lifecycle-state\" == 'ACTIVE']" 2>/dev/null| egrep "^ *\"id"|awk -F'"' '{ print $4 }'
+  oci --profile $PROFILE iam compartment list --compartment-id-in-subtree true --all --query "data [?\"lifecycle-state\" == 'ACTIVE']" 2>/dev/null| egrep "^ *\"id"|awk -F'"' '{ print $4 }'
 }
 
 cleanup()
@@ -67,13 +68,13 @@ look_for_free_adbs()
   
   #echo "DEBUG: comp $lcompid"
 
-  $OCI --profile $PROFILE db autonomous-database list -c $lcompid --region $HOME_REGION --all \
+  oci --profile $PROFILE db autonomous-database list -c $lcompid --region $HOME_REGION --all \
        --query "data [?\"is-free-tier\" && \"lifecycle-state\" != 'TERMINATED'].{ADBid:id}" 2>/dev/null | jq -r '.[].ADBid' | \
   while read id
   do  
     if [ $CONFIRM == true ]; then 
       echo "TERMINATING free autonomous database instance $id in compartment $lcompid"
-      $OCI --profile $PROFILE db autonomous-database delete  --autonomous-database-id $id --force > /dev/null 2>&1
+      oci --profile $PROFILE db autonomous-database delete  --autonomous-database-id $id --force > /dev/null 2>&1
     else
       echo "FOUND free autonomous database instance $id in compartment $lcompid but not terminated since --confirm not provided"
     fi
@@ -83,9 +84,8 @@ look_for_free_adbs()
 # -------- main
 
 OCI_CONFIG_FILE=~/.oci/config
-OCI=$HOME/bin/oci
 CONFIRM=false
-TMP_FILE=tmp_$$
+TMP_FILE=/tmp/tmp_$$
 
 case $# in
 1) PROFILE=$1
@@ -100,13 +100,17 @@ esac
 # -- trap ctrl-c and call trap_ctrl_c()
 trap trap_ctrl_c INT
 
+# -- Check if oci is installed
+which oci > /dev/null 2>&1
+if [ $? -ne 0 ]; then echo "ERROR: oci not found !"; exit 2; fi
+
 # -- Check if jq is installed
 which jq > /dev/null 2>&1
 if [ $? -ne 0 ]; then echo "ERROR: jq not found !"; exit 2; fi
 
 # -- Check if the PROFILE exists
 grep "\[$PROFILE\]" $OCI_CONFIG_FILE > /dev/null 2>&1
-if [ $? -ne 0 ]; then echo "ERROR: PROFILE $PROFILE does not exist in file $OCI_CONFIG_FILE !"; exit 2; fi
+if [ $? -ne 0 ]; then echo "ERROR: PROFILE $PROFILE does not exist in file $OCI_CONFIG_FILE !"; exit 3; fi
 
 # -- get tenancy OCID from OCI PROFILE (root compartment)
 TENANCYOCID=`egrep "^\[|ocid1.tenancy" $OCI_CONFIG_FILE|sed -n -e "/\[$PROFILE\]/,/tenancy/p"|tail -1| awk -F'=' '{ print $2 }' | sed 's/ //g'`

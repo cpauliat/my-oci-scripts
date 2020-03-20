@@ -10,6 +10,7 @@
 #
 # Versions
 #    2019-10-14: Initial Version
+#    2020-03-20: change location of temporary files to /tmp + check oci exists
 # --------------------------------------------------------------------------------------------------------------
 
 # -------- functions
@@ -45,7 +46,7 @@ get_region_from_profile()
 # -- Get the list of all active regions
 get_all_active_regions()
 {
-  ${OCI} --profile $PROFILE iam region-subscription list --query "data [].{Region:\"region-name\"}" |jq -r '.[].Region'
+  oci --profile $PROFILE iam region-subscription list --query "data [].{Region:\"region-name\"}" |jq -r '.[].Region'
 }
 
 cleanup()
@@ -91,17 +92,15 @@ quiet_display()
   # remove first 3 lines and list line to get instances details
   cat $TMP_FILE | sed '1,3d;$d' | awk -F' ' '{ print $2 }' | while read adb_id
   do
-    adb_status=`${OCI} --profile $PROFILE db autonomous-database get --region $lregion --autonomous-database-id $adb_id | jq -r '.[]."lifecycle-state"' 2>/dev/null`
-    adb_name=`${OCI} --profile $PROFILE db autonomous-database get --region $lregion --autonomous-database-id $adb_id | jq -r '.[]."display-name"' 2>/dev/null`
+    adb_status=`oci --profile $PROFILE db autonomous-database get --region $lregion --autonomous-database-id $adb_id | jq -r '.[]."lifecycle-state"' 2>/dev/null`
+    adb_name=`oci --profile $PROFILE db autonomous-database get --region $lregion --autonomous-database-id $adb_id | jq -r '.[]."display-name"' 2>/dev/null`
     printf "%-15s %-20s %-20s %-110s %-10s\n" "$lregion" "$lcompname" "$adb_name" "$adb_id" "$adb_status"
   done
 }
 # -------- main
 
 OCI_CONFIG_FILE=~/.oci/config
-OCI=$HOME/bin/oci
-
-TMP_FILE=tmp_$$
+TMP_FILE=/tmp/tmp_$$
 
 ALL_REGIONS=false
 QUIET_MODE=false
@@ -114,13 +113,17 @@ if [ $# -eq 1 ]; then PROFILE=$1; else usage; fi
 # -- trap ctrl-c and call trap_ctrl_c()
 trap trap_ctrl_c INT
 
+# -- Check if oci is installed
+which oci > /dev/null 2>&1
+if [ $? -ne 0 ]; then echo "ERROR: oci not found !"; exit 2; fi
+
 # -- Check if jq is installed
 which jq > /dev/null 2>&1
 if [ $? -ne 0 ]; then echo "ERROR: jq not found !"; exit 2; fi
 
 # -- Check if the PROFILE exists
 grep "\[$PROFILE\]" $OCI_CONFIG_FILE > /dev/null 2>&1
-if [ $? -ne 0 ]; then echo "ERROR: PROFILE $PROFILE does not exist in file $OCI_CONFIG_FILE !"; exit 2; fi
+if [ $? -ne 0 ]; then echo "ERROR: PROFILE $PROFILE does not exist in file $OCI_CONFIG_FILE !"; exit 3; fi
 
 # -- get tenancy OCID from OCI PROFILE
 TENANCYOCID=`egrep "^\[|ocid1.tenancy" $OCI_CONFIG_FILE|sed -n -e "/\[$PROFILE\]/,/tenancy/p"|tail -1| awk -F'=' '{ print $2 }' | sed 's/ //g'`
@@ -143,7 +146,7 @@ do
     echo
     echo -e "${COLOR_TITLE0}========== COMPARTMENT ${COLOR_COMP}root${COLOR_TITLE0} (${COLOR_COMP}${TENANCYOCID}${COLOR_TITLE0}) ${COLOR_NORMAL}"
   fi
-  ${OCI} --profile $PROFILE db autonomous-database list -c $TENANCYOCID --region $region --output table --query "data [*].{ADB_name:\"display-name\", ADB_id:id, Status:\"lifecycle-state\"}" > $TMP_FILE
+  oci --profile $PROFILE db autonomous-database list -c $TENANCYOCID --region $region --output table --query "data [*].{ADB_name:\"display-name\", ADB_id:id, Status:\"lifecycle-state\"}" > $TMP_FILE
   if [ -s $TMP_FILE ] 
   then
     if [ $QUIET_MODE == false ]
@@ -155,7 +158,7 @@ do
   fi
 
   # -- list utonomous dbs compartment by compartment (excluding root compartment but including all subcompartments)
-  ${OCI} --profile $PROFILE iam compartment list --compartment-id-in-subtree true --all --query "data [?\"lifecycle-state\" == 'ACTIVE']" 2>/dev/null| egrep "^ *\"name|^ *\"id"|awk -F'"' '{ print $4 }'|while read compid
+  oci --profile $PROFILE iam compartment list --compartment-id-in-subtree true --all --query "data [?\"lifecycle-state\" == 'ACTIVE']" 2>/dev/null| egrep "^ *\"name|^ *\"id"|awk -F'"' '{ print $4 }'|while read compid
   do
     read compname
     if [ $QUIET_MODE == false ]
@@ -163,7 +166,7 @@ do
       echo
       echo -e "${COLOR_TITLE0}========== COMPARTMENT ${COLOR_COMP}${compname}${COLOR_TITLE0} (${COLOR_COMP}${compid}${COLOR_TITLE0}) ${COLOR_NORMAL}"
     fi
-    ${OCI} --profile $PROFILE db autonomous-database list -c $compid --region $region --output table --query "data [*].{ADB_name:\"display-name\", ADB_id:id, Status:\"lifecycle-state\"}" > $TMP_FILE
+    oci --profile $PROFILE db autonomous-database list -c $compid --region $region --output table --query "data [*].{ADB_name:\"display-name\", ADB_id:id, Status:\"lifecycle-state\"}" > $TMP_FILE
     if [ -s $TMP_FILE ] 
     then
       if [ $QUIET_MODE == false ]

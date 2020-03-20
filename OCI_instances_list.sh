@@ -13,6 +13,7 @@
 #    2019-10-10: change default behaviour (do not look for instances in deleted compartment)
 #    2019-10-14: Add quiet mode option
 #    2019-12-06: Also list shape
+#    2020-03-20: change location of temporary files to /tmp + check oci exists
 # --------------------------------------------------------------------------------------------------------------
 
 # -------- functions
@@ -48,7 +49,7 @@ get_region_from_profile()
 # -- Get the list of all active regions
 get_all_active_regions()
 {
-  ${OCI} --profile $PROFILE iam region-subscription list --query "data [].{Region:\"region-name\"}" |jq -r '.[].Region'
+  oci --profile $PROFILE iam region-subscription list --query "data [].{Region:\"region-name\"}" |jq -r '.[].Region'
 }
 
 cleanup()
@@ -100,9 +101,8 @@ quiet_display()
 # -------- main
 
 OCI_CONFIG_FILE=~/.oci/config
-OCI=$HOME/bin/oci
 
-TMP_FILE=tmp_$$
+TMP_FILE=/tmp/tmp_$$
 
 ALL_REGIONS=false
 QUIET_MODE=false
@@ -115,13 +115,17 @@ if [ $# -eq 1 ]; then PROFILE=$1; else usage; fi
 # -- trap ctrl-c and call trap_ctrl_c()
 trap trap_ctrl_c INT
 
+# -- Check if oci is installed
+which oci > /dev/null 2>&1
+if [ $? -ne 0 ]; then echo "ERROR: oci not found !"; exit 2; fi
+
 # -- Check if jq is installed
 which jq > /dev/null 2>&1
 if [ $? -ne 0 ]; then echo "ERROR: jq not found !"; exit 2; fi
 
 # -- Check if the PROFILE exists
 grep "\[$PROFILE\]" $OCI_CONFIG_FILE > /dev/null 2>&1
-if [ $? -ne 0 ]; then echo "ERROR: PROFILE $PROFILE does not exist in file $OCI_CONFIG_FILE !"; exit 2; fi
+if [ $? -ne 0 ]; then echo "ERROR: PROFILE $PROFILE does not exist in file $OCI_CONFIG_FILE !"; exit 3; fi
 
 # -- get tenancy OCID from OCI PROFILE
 TENANCYOCID=`egrep "^\[|ocid1.tenancy" $OCI_CONFIG_FILE|sed -n -e "/\[$PROFILE\]/,/tenancy/p"|tail -1| awk -F'=' '{ print $2 }' | sed 's/ //g'`
@@ -144,7 +148,7 @@ do
     echo
     echo -e "${COLOR_TITLE0}========== COMPARTMENT ${COLOR_COMP}root${COLOR_TITLE0} (${COLOR_COMP}${TENANCYOCID}${COLOR_TITLE0}) ${COLOR_NORMAL}"
   fi
-  ${OCI} --profile $PROFILE compute instance list -c $TENANCYOCID --region $region --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Shape:shape, Status:\"lifecycle-state\"}" > $TMP_FILE
+  oci --profile $PROFILE compute instance list -c $TENANCYOCID --region $region --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Shape:shape, Status:\"lifecycle-state\"}" > $TMP_FILE
   if [ -s $TMP_FILE ] 
   then
     if [ $QUIET_MODE == false ]
@@ -156,7 +160,7 @@ do
   fi
 
   # -- list instances compartment by compartment (excluding root compartment but including all subcompartments)
-  ${OCI} --profile $PROFILE iam compartment list --compartment-id-in-subtree true --all --query "data [?\"lifecycle-state\" == 'ACTIVE']" 2>/dev/null| egrep "^ *\"name|^ *\"id"|awk -F'"' '{ print $4 }'|while read compid
+  oci --profile $PROFILE iam compartment list --compartment-id-in-subtree true --all --query "data [?\"lifecycle-state\" == 'ACTIVE']" 2>/dev/null| egrep "^ *\"name|^ *\"id"|awk -F'"' '{ print $4 }'|while read compid
   do
     read compname
     if [ $QUIET_MODE == false ]
@@ -164,7 +168,7 @@ do
       echo
       echo -e "${COLOR_TITLE0}========== COMPARTMENT ${COLOR_COMP}${compname}${COLOR_TITLE0} (${COLOR_COMP}${compid}${COLOR_TITLE0}) ${COLOR_NORMAL}"
     fi
-    ${OCI} --profile $PROFILE compute instance list -c $compid --region $region --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Shape:shape, Status:\"lifecycle-state\"}" > $TMP_FILE
+    oci --profile $PROFILE compute instance list -c $compid --region $region --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Shape:shape, Status:\"lifecycle-state\"}" > $TMP_FILE
     if [ -s $TMP_FILE ] 
     then
       if [ $QUIET_MODE == false ]

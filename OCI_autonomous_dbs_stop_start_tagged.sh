@@ -15,6 +15,7 @@
 # Versions
 #    2019-10-11: Initial Version
 #    2019-10-14: Add quiet mode option
+#    2020-03-20: change location of temporary files to /tmp + check oci exists
 # --------------------------------------------------------------------------------------------------------------
 
 # ---------- Tag names, key and value to look for
@@ -56,7 +57,7 @@ process_compartment()
   CHANGED_FLAG=${TMP_FILE}_changed 
   rm -f $CHANGED_FLAG
 
-  ${OCI} --profile $PROFILE db autonomous-database list -c $lcompid --region $lregion --output table --query "data [*].{ADB_name:\"display-name\", ADB_id:id, Status:\"lifecycle-state\"}" > $TMP_FILE
+  oci --profile $PROFILE db autonomous-database list -c $lcompid --region $lregion --output table --query "data [*].{ADB_name:\"display-name\", ADB_id:id, Status:\"lifecycle-state\"}" > $TMP_FILE
   if [ $QUIET_MODE == false ]; then cat $TMP_FILE; fi
 
   # if no ADB found in this compartment (TMP_FILE empty), exit the function
@@ -64,12 +65,12 @@ process_compartment()
 
   cat $TMP_FILE | sed '1,3d;$d' | awk -F' ' '{ print $2 }' | while read adb_id
   do
-    adb_status=`${OCI} --profile $PROFILE db autonomous-database get --region $lregion --autonomous-database-id $adb_id | jq -r '.[]."lifecycle-state"' 2>/dev/null`
+    adb_status=`oci --profile $PROFILE db autonomous-database get --region $lregion --autonomous-database-id $adb_id | jq -r '.[]."lifecycle-state"' 2>/dev/null`
     if ( [ "$adb_status" == "STOPPED" ] && [ "$ACTION" == "start" ] ) || ( [ "$adb_status" == "AVAILABLE" ] && [ "$ACTION" == "stop" ] )
     then 
-      adb_name=`${OCI} --profile $PROFILE db autonomous-database get --region $lregion --autonomous-database-id $adb_id | jq -r '.[]."display-name"' 2>/dev/null`
+      adb_name=`oci --profile $PROFILE db autonomous-database get --region $lregion --autonomous-database-id $adb_id | jq -r '.[]."display-name"' 2>/dev/null`
       # WORKAROUND: cannot use variable, hardcode TAG_NS and TAG_KEY
-      ltag_value=`${OCI} --profile $PROFILE db autonomous-database get --region $lregion --autonomous-database-id $adb_id | jq -r '.[]."defined-tags"."osc"."stop_non_working_hours"' 2>/dev/null`
+      ltag_value=`oci --profile $PROFILE db autonomous-database get --region $lregion --autonomous-database-id $adb_id | jq -r '.[]."defined-tags"."osc"."stop_non_working_hours"' 2>/dev/null`
       if [ "$ltag_value" == "$TAG_VALUE" ]
       then 
         if [ $QUIET_MODE == true ]; then printf "region $lregion, cpt $lcompname: "; else printf " --> "; fi             
@@ -77,10 +78,10 @@ process_compartment()
         then
           case $ACTION in
             "start") echo "STARTING Autonomous DB $adb_name ($adb_id)"
-                     ${OCI} --profile $PROFILE db autonomous-database start --region $lregion --autonomous-database-id $adb_id >/dev/null 2>&1
+                     oci --profile $PROFILE db autonomous-database start --region $lregion --autonomous-database-id $adb_id >/dev/null 2>&1
                      ;;
             "stop")  echo "STOPPING Autonomous DB $adb_name ($adb_id)"
-                     ${OCI} --profile $PROFILE db autonomous-database stop --region $lregion --autonomous-database-id $adb_id >/dev/null 2>&1
+                     oci --profile $PROFILE db autonomous-database stop --region $lregion --autonomous-database-id $adb_id >/dev/null 2>&1
                      ;;
           esac
           touch $CHANGED_FLAG
@@ -98,7 +99,7 @@ process_compartment()
   then
     rm -f $CHANGED_FLAG
     if [ $QUIET_MODE == false ]; then 
-      ${OCI} --profile $PROFILE db autonomous-database list -c $lcompid --region $lregion --output table --query "data [*].{ADB_name:\"display-name\", ADB_id:id, Status:\"lifecycle-state\"}" 
+      oci --profile $PROFILE db autonomous-database list -c $lcompid --region $lregion --output table --query "data [*].{ADB_name:\"display-name\", ADB_id:id, Status:\"lifecycle-state\"}" 
     fi
   fi
   
@@ -116,13 +117,12 @@ get_region_from_profile()
 # -- Get the list of all active regions
 get_all_active_regions()
 {
-  ${OCI} --profile $PROFILE iam region-subscription list --query "data [].{Region:\"region-name\"}" |jq -r '.[].Region'
+  oci --profile $PROFILE iam region-subscription list --query "data [].{Region:\"region-name\"}" |jq -r '.[].Region'
 }
 
 # -------- main
 
 OCI_CONFIG_FILE=~/.oci/config
-OCI=$HOME/bin/oci
 
 ALL_REGIONS=false
 CONFIRM=false
@@ -147,9 +147,13 @@ esac
 if [ "$PROFILE" == "-h" ] || [ "PROFILE" == "--help" ]; then usage; fi
 if [ "$ACTION" != "start" ] && [ "$ACTION" != "stop" ]; then usage; fi
 
-TMP_FILE=tmp_$$
+TMP_FILE=/tmp/tmp_$$
 
 echo "BEGIN SCRIPT: `date` : $ACTION"
+
+# -- Check if oci is installed
+which oci > /dev/null 2>&1
+if [ $? -ne 0 ]; then echo "ERROR: oci not found !"; exit 2; fi
 
 # -- Check if jq is installed
 which jq > /dev/null 2>&1
@@ -157,7 +161,7 @@ if [ $? -ne 0 ]; then echo "ERROR: jq not found !"; exit 2; fi
 
 # -- Check if the PROFILE exists
 grep "\[$PROFILE\]" $OCI_CONFIG_FILE > /dev/null 2>&1
-if [ $? -ne 0 ]; then echo "ERROR: PROFILE $PROFILE does not exist in file $OCI_CONFIG_FILE !"; exit 2; fi
+if [ $? -ne 0 ]; then echo "ERROR: PROFILE $PROFILE does not exist in file $OCI_CONFIG_FILE !"; exit 3; fi
 
 # -- get tenancy OCID from OCI PROFILE
 TENANCYOCID=`egrep "^\[|ocid1.tenancy" $OCI_CONFIG_FILE|sed -n -e "/\[$PROFILE\]/,/tenancy/p"|tail -1| awk -F'=' '{ print $2 }' | sed 's/ //g'`
@@ -187,7 +191,7 @@ do
   process_compartment $TENANCYOCID root $region
 
   # -- list Autonomous DBs compartment by compartment (excluding root compartment but including all subcompartments). Only ACTIVE compartments
-  ${OCI} --profile $PROFILE iam compartment list -c $TENANCYOCID --compartment-id-in-subtree true --all --query "data [?\"lifecycle-state\" == 'ACTIVE']" 2>/dev/null| egrep "^ *\"name|^ *\"id"|awk -F'"' '{ print $4 }' | while read compid
+  oci --profile $PROFILE iam compartment list -c $TENANCYOCID --compartment-id-in-subtree true --all --query "data [?\"lifecycle-state\" == 'ACTIVE']" 2>/dev/null| egrep "^ *\"name|^ *\"id"|awk -F'"' '{ print $4 }' | while read compid
   do
     read compname
     if [ $QUIET_MODE == false ]

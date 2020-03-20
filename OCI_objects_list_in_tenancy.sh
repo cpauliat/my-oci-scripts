@@ -21,6 +21,7 @@
 #    2019-05-29: Initial Version
 #    2019-06-03: Fix error in usage message about -a
 #    2019-07-15: Use dirname $0 to find required script
+#    2020-03-20: check oci exists
 # --------------------------------------------------------------------------------------------------------------
 
 usage()
@@ -64,6 +65,10 @@ case $# in
      PROFILE=$2;  ALL_REGIONS="-a"
      ;;
 esac
+
+# -- Check if oci is installed
+which oci > /dev/null 2>&1
+if [ $? -ne 0 ]; then echo "ERROR: oci not found !"; exit 2; fi
 
 # -- Check if jq is installed
 which jq > /dev/null 2>&1

@@ -13,6 +13,7 @@
 #    2019-05-31: if -h or --help provided, display the usage message
 #    2019-10-02: change default behaviour (does not display deleted compartment)
 #                and add option -d to list deleted compartments
+#    2020-03-20: check oci exists
 # --------------------------------------------------------------------------------------------------------------
 
 usage()
@@ -54,9 +55,13 @@ case $# in
    ;;
 esac
 
+# -- Check if oci is installed
+which oci > /dev/null 2>&1
+if [ $? -ne 0 ]; then echo "ERROR: oci not found !"; exit 2; fi
+
 # -- Check if the PROFILE exists
 grep "\[$PROFILE\]" $OCI_CONFIG_FILE > /dev/null 2>&1
-if [ $? -ne 0 ]; then echo "ERROR: PROFILE $PROFILE does not exist in file $OCI_CONFIG_FILE !"; exit 2; fi
+if [ $? -ne 0 ]; then echo "ERROR: PROFILE $PROFILE does not exist in file $OCI_CONFIG_FILE !"; exit 3; fi
 
 # -- list compartments and all sub-compartments (excluding root compartment)
 if [ $LIST_DELETED == true ]

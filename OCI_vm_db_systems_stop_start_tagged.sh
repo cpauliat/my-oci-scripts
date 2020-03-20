@@ -18,8 +18,8 @@
 # Versions
 #    2019-10-14: Initial Version
 #    2019-11-15: Fix bug for regions
+#    2020-03-20: change location of temporary files to /tmp + check oci exists
 # --------------------------------------------------------------------------------------------------------------
-#set -vx 
 
 # ---------- Tag names, key and value to look for
 # Instances tagged using this will be stopped/started.
@@ -61,7 +61,7 @@ process_compartment()
   rm -f $CHANGED_FLAG
 
   # we look only for DB systems with shape VM.Standard* and a single node (RAC not supported)
-  ${OCI} --profile $PROFILE db system list -c $lcompid --region $lregion --output table \
+  oci --profile $PROFILE db system list -c $lcompid --region $lregion --output table \
          --query "data[?contains(\"shape\",'VM.Standard') && to_string(\"node-count\") == '1' && \"lifecycle-state\" != 'TERMINATED'].{Name:\"display-name\", OCID:id}" > $TMP_FILE 2>/dev/null
   if [ $QUIET_MODE == false ]; then cat $TMP_FILE; fi
   
@@ -70,13 +70,13 @@ process_compartment()
 
   cat $TMP_FILE | sed '1,3d;$d' | sed -e 's#^.*ocid1.dbsystem#ocid1.dbsystem#' -e 's# .*$##' | while read dbs_id
   do
-    dbs_node_id=`${OCI} --profile $PROFILE db node list --region $lregion -c $lcompid --db-system-id $dbs_id --query "data[*].{id:id}" | jq -r '.[]."id"'`
-    dbs_node_status=`${OCI} --profile $PROFILE db node get --region $lregion --db-node-id $dbs_node_id | jq -r '.[]."lifecycle-state"' 2>/dev/null`
+    dbs_node_id=`oci --profile $PROFILE db node list --region $lregion -c $lcompid --db-system-id $dbs_id --query "data[*].{id:id}" | jq -r '.[]."id"'`
+    dbs_node_status=`oci --profile $PROFILE db node get --region $lregion --db-node-id $dbs_node_id | jq -r '.[]."lifecycle-state"' 2>/dev/null`
     if ( [ "$dbs_node_status" == "STOPPED" ] && [ "$ACTION" == "start" ] ) || ( [ "$dbs_node_status" == "AVAILABLE" ] && [ "$ACTION" == "stop" ] )
     then 
-      dbs_name=`${OCI} --profile $PROFILE db system get --region $lregion --db-system-id $dbs_id | jq -r '.[]."display-name"' 2>/dev/null`
+      dbs_name=`oci --profile $PROFILE db system get --region $lregion --db-system-id $dbs_id | jq -r '.[]."display-name"' 2>/dev/null`
       # WORKAROUND: cannot use variable, hardcode TAG_NS and TAG_KEY
-      ltag_value=`${OCI} --profile $PROFILE db system get --region $lregion --db-system-id $dbs_id | jq -r '.[]."defined-tags"."osc"."stop_non_working_hours"' 2>/dev/null`
+      ltag_value=`oci --profile $PROFILE db system get --region $lregion --db-system-id $dbs_id | jq -r '.[]."defined-tags"."osc"."stop_non_working_hours"' 2>/dev/null`
       if [ "$ltag_value" == "$TAG_VALUE" ]
       then 
         if [ $QUIET_MODE == true ]; then printf "region $lregion, cpt $lcompname: "; else printf " --> "; fi             
@@ -84,10 +84,10 @@ process_compartment()
         then
           case $ACTION in
             "start") echo "STARTING node for database system $dbs_name ($dbs_id)"
-                     ${OCI} --profile $PROFILE db node start --region $lregion --db-node-id $dbs_node_id >/dev/null 2>&1
+                     oci --profile $PROFILE db node start --region $lregion --db-node-id $dbs_node_id >/dev/null 2>&1
                      ;;
             "stop")  echo "STOPPING node for database system $dbs_name ($dbs_id)"
-                     ${OCI} --profile $PROFILE db node stop  --region $lregion --db-node-id $dbs_node_id >/dev/null 2>&1
+                     oci --profile $PROFILE db node stop  --region $lregion --db-node-id $dbs_node_id >/dev/null 2>&1
                      ;;
           esac
           touch $CHANGED_FLAG
@@ -105,7 +105,7 @@ process_compartment()
   then
     rm -f $CHANGED_FLAG
     if [ $QUIET_MODE == false ]; then 
-      ${OCI} --profile $PROFILE db system list -c $lcompid --region $lregion --output table --query "data [*].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}"
+      oci --profile $PROFILE db system list -c $lcompid --region $lregion --output table --query "data [*].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}"
     fi
   fi
   
@@ -123,13 +123,12 @@ get_region_from_profile()
 # -- Get the list of all active regions
 get_all_active_regions()
 {
-  ${OCI} --profile $PROFILE iam region-subscription list --query "data [].{Region:\"region-name\"}" |jq -r '.[].Region'
+  oci --profile $PROFILE iam region-subscription list --query "data [].{Region:\"region-name\"}" |jq -r '.[].Region'
 }
 
 # -------- main
 
 OCI_CONFIG_FILE=~/.oci/config
-OCI=$HOME/bin/oci
 
 ALL_REGIONS=false
 CONFIRM=false
@@ -154,9 +153,13 @@ esac
 if [ "$PROFILE" == "-h" ] || [ "PROFILE" == "--help" ]; then usage; fi
 if [ "$ACTION" != "start" ] && [ "$ACTION" != "stop" ]; then usage; fi
 
-TMP_FILE=tmp_$$
+TMP_FILE=/tmp/tmp_$$
 
 echo "BEGIN SCRIPT: `date` : $ACTION"
+
+# -- Check if oci is installed
+which oci > /dev/null 2>&1
+if [ $? -ne 0 ]; then echo "ERROR: oci not found !"; exit 2; fi
 
 # -- Check if jq is installed
 which jq > /dev/null 2>&1
@@ -164,7 +167,7 @@ if [ $? -ne 0 ]; then echo "ERROR: jq not found !"; exit 2; fi
 
 # -- Check if the PROFILE exists
 grep "\[$PROFILE\]" $OCI_CONFIG_FILE > /dev/null 2>&1
-if [ $? -ne 0 ]; then echo "ERROR: PROFILE $PROFILE does not exist in file $OCI_CONFIG_FILE !"; exit 2; fi
+if [ $? -ne 0 ]; then echo "ERROR: PROFILE $PROFILE does not exist in file $OCI_CONFIG_FILE !"; exit 3; fi
 
 # -- get tenancy OCID from OCI PROFILE
 TENANCYOCID=`egrep "^\[|ocid1.tenancy" $OCI_CONFIG_FILE|sed -n -e "/\[$PROFILE\]/,/tenancy/p"|tail -1| awk -F'=' '{ print $2 }' | sed 's/ //g'`
@@ -194,7 +197,7 @@ do
   process_compartment $TENANCYOCID root $region
 
   # -- list db systems compartment by compartment (excluding root compartment but including all subcompartments). Only ACTIVE compartments
-  ${OCI} --profile $PROFILE iam compartment list -c $TENANCYOCID --compartment-id-in-subtree true --all --query "data [?\"lifecycle-state\" == 'ACTIVE']" 2>/dev/null| egrep "^ *\"name|^ *\"id"|awk -F'"' '{ print $4 }' | while read compid
+  oci --profile $PROFILE iam compartment list -c $TENANCYOCID --compartment-id-in-subtree true --all --query "data [?\"lifecycle-state\" == 'ACTIVE']" 2>/dev/null| egrep "^ *\"name|^ *\"id"|awk -F'"' '{ print $4 }' | while read compid
   do
     read compname
     if [ $QUIET_MODE == false ]
