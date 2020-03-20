@@ -4,14 +4,14 @@
 # This script lists all objects (detailed list below) in a given compartment in a region or all active regions using OCI CLI
 #
 # Supported objects:
-# - COMPUTE                : compute instances, custom images, boot volumes, boot volumes backups
+# - COMPUTE                : compute instances, instance configurations, custom images, boot volumes, boot volumes backups
 # - BLOCK STORAGE          : block volumes, block volumes backups, volume groups, volume groups backups
 # - OBJECT STORAGE         : buckets
 # - FILE STORAGE           : file systems, mount targets
 # - NETWORKING             : VCN, DRG, CPE, IPsec connection, LB, public IPs, DNS zones (common to all regions)
 # - DATABASE               : DB Systems, DB Systems backups, Autonomous DB, Autonomous DB backups
 # - RESOURCE MANAGER       : Stacks
-# - EMAIL DELIVERY         : approved senders
+# - EMAIL DELIVERY         : Approved senders, Suppression list (list can only exists in root compartment)
 # - APPLICATION INTEGRATION: Notifications, Events, Content and Experience
 # - DEVELOPER SERVICES     : Container clusters (OKE), Functions applications
 # - IDENTITY               : Policies (common to all regions)
@@ -36,7 +36,8 @@
 #    2019-07-16: change title for DNS zone as now in Networking instead of Edge Services
 #    2019-10-02: add support for sub-compartments (-r option) + print full compartment name
 #    2020-02-01: add support for Functions applications, Notifications and Events
-#    2020-03-20: add support for email approved senders
+#    2020-03-20: add support for email approved senders, email suppression list
+#    2020-03-20: add support for compute instance configurations, compute instance pools
 #    2020-03-20: change location of temporary files to /tmp + check oci exists
 # --------------------------------------------------------------------------------------------------------------------------
 
@@ -137,6 +138,7 @@ list_objects_common_to_all_regions()
 }
 
 # ------ objects specific to a region
+
 list_compute_instances()
 {
   local lr=$1
@@ -144,6 +146,25 @@ list_compute_instances()
   echo -e "${COLOR_TITLE2}========== COMPUTE: Instances${COLOR_NORMAL}"
   oci --profile $PROFILE compute instance list -c $lcpid --region $lr --output table --all --query "data[?\"lifecycle-state\"!='TERMINATED'].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}" 2>/dev/null
   # 2>/dev/null needed to remove message "Query returned empty result, no output to show." when only TERMINATED objects are returned
+  # when using a filter in data[] value must be between ' so cannot use ' around query using " around query and \" inside query
+}
+
+list_compute_instance_configurations()
+{
+  local lr=$1
+  local lcpid=$2
+  echo -e "${COLOR_TITLE2}========== COMPUTE: Instance Configurations${COLOR_NORMAL}"
+  oci --profile $PROFILE compute-management instance-configuration list -c $lcpid --region $lr --output table --all --query 'data[].{Name:"display-name", OCID:id}'
+}
+
+list_compute_instance_pools()
+{
+  local lr=$1
+  local lcpid=$2
+  echo -e "${COLOR_TITLE2}========== COMPUTE: Instance Pools${COLOR_NORMAL}"
+  oci --profile $PROFILE compute-management instance-pool list -c $lcpid --region $lr --output table --all --query "data[?\"lifecycle-state\"!='TERMINATED'].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}" 2>/dev/null
+  # 2>/dev/null needed to remove message "Query returned empty result, no output to show." when only TERMINATED objects are returned
+  # when using a filter in data[] value must be between ' so cannot use ' around query using " around query and \" inside query
 }
 
 list_compute_custom_images()
@@ -165,6 +186,7 @@ list_compute_boot_volumes()
     echo -e "${COLOR_AD}== Availability-domain $ad${COLOR_NORMAL}"
     oci --profile $PROFILE bv boot-volume list -c $lcpid --region $lr --output table --all --availability-domain $ad --query "data[?\"lifecycle-state\"!='TERMINATED'].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}" 2>/dev/null
     # 2>/dev/null needed to remove message "Query returned empty result, no output to show." when only TERMINATED objects are returned
+    # when using a filter in data[] value must be between ' so cannot use ' around query using " around query and \" inside query
   done
 }
 
@@ -175,6 +197,7 @@ list_compute_boot_volume_backups()
   echo -e "${COLOR_TITLE2}========== COMPUTE: Boot volume backups${COLOR_NORMAL}"
   oci --profile $PROFILE bv boot-volume-backup list -c $lcpid --region $lr --output table --all --query "data[?\"lifecycle-state\"!='TERMINATED'].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}" 2>/dev/null
   # 2>/dev/null needed to remove message "Query returned empty result, no output to show." when only TERMINATED objects are returned
+  # when using a filter in data[] value must be between ' so cannot use ' around query using " around query and \" inside query
 }
 
 list_block_storage_volumes()
@@ -187,6 +210,7 @@ list_block_storage_volumes()
     echo -e "${COLOR_AD}== Availability-domain $ad${COLOR_NORMAL}"
     oci --profile $PROFILE bv volume list -c $lcpid --region $lr --output table --all --availability-domain $ad --query "data[?\"lifecycle-state\"!='TERMINATED'].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}" 2>/dev/null
     # 2>/dev/null needed to remove message "Query returned empty result, no output to show." when only TERMINATED objects are returned
+    # when using a filter in data[] value must be between ' so cannot use ' around query using " around query and \" inside query
   done
 }
 
@@ -197,6 +221,7 @@ list_block_storage_volume_backups()
   echo -e "${COLOR_TITLE2}========== BLOCK STORAGE: Block volume backups${COLOR_NORMAL}"
   oci --profile $PROFILE bv backup list -c $lcpid --region $lr --output table --all --query "data[?\"lifecycle-state\"!='TERMINATED'].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}" 2>/dev/null
   # 2>/dev/null needed to remove message "Query returned empty result, no output to show." when only TERMINATED objects are returned
+  # when using a filter in data[] value must be between ' so cannot use ' around query using " around query and \" inside query
 }
 
 list_block_storage_volume_groups()
@@ -209,6 +234,7 @@ list_block_storage_volume_groups()
     echo -e "${COLOR_AD}== Availability-domain $ad${COLOR_NORMAL}"
     oci --profile $PROFILE bv volume-group list -c $lcpid --region $lr --output table --all --availability-domain $ad --query "data[?\"lifecycle-state\"!='TERMINATED'].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}" 2>/dev/null
     # 2>/dev/null needed to remove message "Query returned empty result, no output to show." when only TERMINATED objects are returned
+    # when using a filter in data[] value must be between ' so cannot use ' around query using " around query and \" inside query
   done
 }
 
@@ -219,6 +245,7 @@ list_block_storage_volume_group_backups()
   echo -e "${COLOR_TITLE2}========== BLOCK STORAGE: Volumes group backups${COLOR_NORMAL}"
   oci --profile $PROFILE bv volume-group-backup list -c $lcpid --region $lr --output table --all --query "data[?\"lifecycle-state\"!='TERMINATED'].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}" 2>/dev/null
   # 2>/dev/null needed to remove message "Query returned empty result, no output to show." when only TERMINATED objects are returned
+  # when using a filter in data[] value must be between ' so cannot use ' around query using " around query and \" inside query
 }
 
 list_object_storage_buckets()
@@ -350,6 +377,17 @@ list_email_delivery_approved_senders()
   # 2>/dev/null needed to remove message "Query returned empty result, no output to show."
 }
 
+list_email_delivery_suppression_list()
+{
+  local lr=$1
+  local lcpid=$2
+  # Suppression list can only exists in the root compartment
+  if [ "$lcpid" == "$TENANCYOCID" ]; then
+    echo -e "${COLOR_TITLE2}========== EMAIL DELIVERY: Suppression list${COLOR_NORMAL}"
+    oci --profile $PROFILE email suppression list -c $TENANCYOCID --region $lr --output table --all --query 'data[].{Email:"email-address"}' 
+  fi
+}
+
 list_application_integration_notifications_topics()
 {
   local lr=$1
@@ -405,6 +443,8 @@ list_region_specific_objects()
   echo -e "${COLOR_TITLE1}==================== BEGIN: objects specific to region ${COLOR_COMP}${lregion}${COLOR_NORMAL}"
 
   list_compute_instances $lregion $lcompid
+  list_compute_instance_configurations $lregion $lcompid
+  list_compute_instance_pools $lregion $lcompid
   list_compute_custom_images $lregion $lcompid
   list_compute_boot_volumes $lregion $lcompid
   list_compute_boot_volume_backups $lregion $lcompid
@@ -427,6 +467,7 @@ list_region_specific_objects()
   list_database_autonomous_backups $lregion $lcompid
   list_resource_manager_stacks $lregion $lcompid
   list_email_delivery_approved_senders $lregion $lcompid
+  list_email_delivery_suppression_list $lregion $lcompid
   list_application_integration_notifications_topics $lregion $lcompid
   list_application_integration_events_rules $lregion $lcompid
   list_application_integration_cec_instances $lregion $lcompid
@@ -445,7 +486,7 @@ get_comp_id_from_comp_name()
   then
     echo $TENANCYOCID
   else
-    oci --profile $PROFILE iam compartment list --compartment-id-in-subtree true --all --query "data [?\"name\" == '$name'].{id:id}" |jq -r '.[].id'
+    oci --profile $PROFILE iam compartment list --compartment-id-in-subtree true --all --query "data[?name == '$name'].{id:id}" |jq -r '.[].id'
   fi
 }
 
@@ -457,7 +498,7 @@ get_comp_name_from_comp_id()
   then
     echo root
   else
-    oci --profile $PROFILE iam compartment list --compartment-id-in-subtree true --all --query "data [?\"id\" == '$id'].{name:name}" |jq -r '.[].name'
+    oci --profile $PROFILE iam compartment list --compartment-id-in-subtree true --all --query "data[?id == '$id'].{name:name}" |jq -r '.[].name'
   fi
 }
 
@@ -469,8 +510,8 @@ get_comp_full_name_from_comp_id()
   then
     echo root
   else
-    short_name=`oci --profile $PROFILE iam compartment list --compartment-id-in-subtree true --all --query "data [?\"id\" == '$id'].{name:name}" |jq -r '.[].name'`
-    parent_id=`oci --profile $PROFILE iam compartment list --compartment-id-in-subtree true --all --query "data [?\"id\" == '$id'].{parentid:\"compartment-id\"}" |jq -r '.[].parentid'`
+    short_name=`oci --profile $PROFILE iam compartment list --compartment-id-in-subtree true --all --query "data[?id == '$id'].{name:name}" |jq -r '.[].name'`
+    parent_id=`oci --profile $PROFILE iam compartment list --compartment-id-in-subtree true --all --query "data[?id == '$id'].{parentid:\"compartment-id\"}" |jq -r '.[].parentid'`
     parent_full_name=`get_comp_full_name_from_comp_id $parent_id`
     echo "${parent_full_name}/${short_name}"
   fi
@@ -478,7 +519,7 @@ get_comp_full_name_from_comp_id()
 
 get_all_active_regions()
 {
-  oci --profile $PROFILE iam region-subscription list --query "data [].{Region:\"region-name\"}" |jq -r '.[].Region'
+  oci --profile $PROFILE iam region-subscription list --query 'data[].{Region:"region-name"}' |jq -r '.[].Region'
 }
 
 cleanup()
@@ -508,7 +549,7 @@ do_it_in_sub_compt()
   local lregion
 
   # get the list of ACTIVE direct sub-compartments.
-  lcptid_list=`oci --profile $PROFILE iam compartment list -c $lcompid --all --query "data [?\"lifecycle-state\" == 'ACTIVE'].{id:id}" |jq -r '.[].id'`
+  lcptid_list=`oci --profile $PROFILE iam compartment list -c $lcompid --all --query "data[?\"lifecycle-state\" == 'ACTIVE'].{id:id}" |jq -r '.[].id'`
   if [ "$lcptid_list" == "" ]; then return; fi
 
   for lcptid in $lcptid_list
