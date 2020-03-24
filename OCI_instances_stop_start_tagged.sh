@@ -17,12 +17,12 @@
 #    2019-10-11: Add support for all active regions
 #    2019-10-14: Add quiet mode option
 #    2020-03-20: change location of temporary files to /tmp + check oci exists
+#    2020-03-23: use TAG_NS and TAG_KEY in process_compartment function instead of hardcoded values
 # --------------------------------------------------------------------------------------------------------------
 
 # ---------- Tag names, key and value to look for
 # Instances tagged using this will be stopped/started.
 # Update these to match your tags.
-# IMPORTANT: also update command (look for WORKAROUND)
 TAG_NS="osc"
 TAG_KEY="stop_non_working_hours"
 TAG_VALUE="on"
@@ -70,8 +70,8 @@ process_compartment()
     if ( [ "$inst_status" == "STOPPED" ] && [ "$ACTION" == "start" ] ) || ( [ "$inst_status" == "RUNNING" ] && [ "$ACTION" == "stop" ] )
     then 
       inst_name=`oci --profile $PROFILE compute instance get --region $lregion --instance-id $inst_id | jq -r '.[]."display-name"' 2>/dev/null`
-      # WORKAROUND: cannot use variable, hardcode TAG_NS and TAG_KEY
-      ltag_value=`oci --profile $PROFILE compute instance get --region $lregion --instance-id $inst_id | jq -r '.[]."defined-tags"."osc"."stop_non_working_hours"' 2>/dev/null`
+      #ltag_value=`oci --profile $PROFILE compute instance get --region $lregion --instance-id $inst_id | jq -r '.[]."defined-tags"."osc"."stop_non_working_hours"' 2>/dev/null`
+      ltag_value=`oci --profile $PROFILE compute instance get --region $lregion --instance-id $inst_id | jq -r '.[]."defined-tags".'\"$TAG_NS\"'.'\"$TAG_KEY\"'' 2>/dev/null`
       if [ "$ltag_value" == "$TAG_VALUE" ]
       then 
         if [ $QUIET_MODE == true ]; then printf "region $lregion, cpt $lcompname: "; else printf " --> "; fi             
