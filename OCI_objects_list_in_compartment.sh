@@ -4,7 +4,8 @@
 # This script lists all objects (detailed list below) in a given compartment in a region or all active regions using OCI CLI
 #
 # Supported objects:
-# - COMPUTE                : compute instances, instance configurations, custom images, boot volumes, boot volumes backups
+# - COMPUTE                : compute instances, dedicated virtual machines hosts, instance configurations, instance pools
+#                            custom images, boot volumes, boot volumes backups
 # - BLOCK STORAGE          : block volumes, block volumes backups, volume groups, volume groups backups
 # - OBJECT STORAGE         : buckets
 # - FILE STORAGE           : file systems, mount targets
@@ -39,6 +40,7 @@
 #    2020-03-20: add support for email approved senders, email suppressions list
 #    2020-03-20: add support for compute instance configurations, compute instance pools
 #    2020-03-20: change location of temporary files to /tmp + check oci exists
+#    2020-03-24: add support for compute dedicated virtual machines hosts
 # --------------------------------------------------------------------------------------------------------------------------
 
 usage()
@@ -145,6 +147,16 @@ list_compute_instances()
   local lcpid=$2
   echo -e "${COLOR_TITLE2}========== COMPUTE: Instances${COLOR_NORMAL}"
   oci --profile $PROFILE compute instance list -c $lcpid --region $lr --output table --all --query "data[?\"lifecycle-state\"!='TERMINATED'].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}" 2>/dev/null
+  # 2>/dev/null needed to remove message "Query returned empty result, no output to show." when only TERMINATED objects are returned
+  # when using a filter in data[] value must be between ' so cannot use ' around query using " around query and \" inside query
+}
+
+list_compute_dedicated_vm_hosts()
+{
+  local lr=$1
+  local lcpid=$2
+  echo -e "${COLOR_TITLE2}========== COMPUTE: Dedicated virtual machines hosts${COLOR_NORMAL}"
+  oci --profile $PROFILE compute dedicated-vm-host list -c $lcpid --region $lr --output table --all --query "data[?\"lifecycle-state\"!='DELETED'].{Name:\"display-name\", OCID:id, Status:\"lifecycle-state\"}" 2>/dev/null
   # 2>/dev/null needed to remove message "Query returned empty result, no output to show." when only TERMINATED objects are returned
   # when using a filter in data[] value must be between ' so cannot use ' around query using " around query and \" inside query
 }
@@ -443,6 +455,7 @@ list_region_specific_objects()
   echo -e "${COLOR_TITLE1}==================== BEGIN: objects specific to region ${COLOR_COMP}${lregion}${COLOR_NORMAL}"
 
   list_compute_instances $lregion $lcompid
+  list_compute_dedicated_vm_hosts $lregion $lcompid
   list_compute_instance_configurations $lregion $lcompid
   list_compute_instance_pools $lregion $lcompid
   list_compute_custom_images $lregion $lcompid

@@ -4,7 +4,8 @@
 # This script lists all objects (detailed list below) in a given compartment in a region or all active regions using OCI CLI
 #
 # Supported objects:
-# - COMPUTE                : compute instances, custom images, boot volumes, boot volumes backups
+# - COMPUTE                : compute instances, dedicated virtual machines hosts, instance configurations, instance pools
+#                            custom images, boot volumes, boot volumes backups
 # - BLOCK STORAGE          : block volumes, block volumes backups, volume groups, volume groups backups
 # - OBJECT STORAGE         : buckets
 # - FILE STORAGE           : file systems, mount targets
@@ -26,6 +27,7 @@
 # Versions
 #    2020-01-02: Initial Version
 #    2020-03-24: add support for email approved senders, email suppressions list
+#    2020-03-24: add support for compute instance configurations, compute instance pools, compute dedicated vm hosts
 #    2020-03-24: fix bug for root compartment
 # --------------------------------------------------------------------------------------------------------------------------
 
@@ -130,6 +132,27 @@ def list_compute_instances (lcpt_ocid):
     if len(response.data) > 0:
         for instance in response.data:
             print ('{0:100s} {1:20s} {2:20s} {3:10s}'.format(instance.id, instance.display_name, instance.shape,  instance.lifecycle_state))
+
+def list_compute_dedicated_vm_hosts (lcpt_ocid):
+    print (COLOR_TITLE2+"========== COMPUTE: Dedicated virtual machines hosts "+COLOR_NORMAL)
+    response = oci.pagination.list_call_get_all_results(ComputeClient.list_dedicated_vm_hosts,compartment_id=lcpt_ocid)
+    if len(response.data) > 0:
+        for host in response.data:
+            print ('{0:100s} {1:20s} {2:20s} {3:10s}'.format(host.id, host.display_name, host.dedicated_vm_host_shape, host.lifecycle_state))
+
+def list_compute_instance_configurations (lcpt_ocid):
+    print (COLOR_TITLE2+"========== COMPUTE: Instance Configurations "+COLOR_NORMAL)
+    response = oci.pagination.list_call_get_all_results(ComputeManagementClient.list_instance_configurations,compartment_id=lcpt_ocid)
+    if len(response.data) > 0:
+        for configuration in response.data:
+            print ('{0:100s} {1:20s}'.format(configuration.id, configuration.display_name))
+
+def list_compute_instance_pools (lcpt_ocid):
+    print (COLOR_TITLE2+"========== COMPUTE: Instance Pools "+COLOR_NORMAL)
+    response = oci.pagination.list_call_get_all_results(ComputeManagementClient.list_instance_pools,compartment_id=lcpt_ocid)
+    if len(response.data) > 0:
+        for pool in response.data:
+            print ('{0:100s} {1:20s} {2:10s}'.format(pool.id, pool.display_name, pool.lifecycle_state))
 
 def list_compute_custom_images(lcpt_ocid):
     print (COLOR_TITLE2+"========== COMPUTE: Images "+COLOR_NORMAL)
@@ -358,6 +381,7 @@ def list_developer_services_functions(lcpt_ocid):
 # -- List region specific objects
 def list_region_specific_objects (cpt_ocid,cpt_name):
     global ComputeClient
+    global ComputeManagementClient
     global BlockstorageClient
     global ObjectStorageClient
     global FileStorageClient
@@ -376,7 +400,11 @@ def list_region_specific_objects (cpt_ocid,cpt_name):
 
     # Compute
     ComputeClient = oci.core.ComputeClient(config)
+    ComputeManagementClient = oci.core.ComputeManagementClient(config)
     list_compute_instances (cpt_ocid)
+    list_compute_dedicated_vm_hosts (cpt_ocid)
+    list_compute_instance_configurations (cpt_ocid)
+    list_compute_instance_pools (cpt_ocid)
     list_compute_custom_images (cpt_ocid)
  
     # Block Storage
