@@ -11,6 +11,7 @@
 # - NETWORKING             : VCN, DRG, CPE, IPsec connection, LB, public IPs, DNS zones (common to all regions)
 # - DATABASE               : DB Systems, DB Systems backups, Autonomous DB, Autonomous DB backups
 # - RESOURCE MANAGER       : Stacks
+# - EMAIL DELIVERY         : Approved senders, Suppressions list (list can only exists in root compartment)
 # - APPLICATION INTEGRATION: Notifications, Events, Content and Experience
 # - DEVELOPER SERVICES     : Container clusters (OKE), Functions applications
 # - IDENTITY               : Policies (common to all regions)
@@ -24,6 +25,8 @@
 #                 - OCI config file configured with profiles
 # Versions
 #    2020-01-02: Initial Version
+#    2020-03-24: add support for email approved senders, email suppressions list
+#    2020-03-24: fix bug for root compartment
 # --------------------------------------------------------------------------------------------------------------------------
 
 # -- import
@@ -52,10 +55,10 @@ else:
 
 # ---------- Functions
 
-# -- variables
+# ---- variables
 configfile = "~/.oci/config"    # Define config file to be used.
 
-# -- usage syntax
+# ---- usage syntax
 def usage():
     print ("Usage: {} [-a] [-r] OCI_PROFILE compartment_ocid".format(sys.argv[0]))
     print ("    or {} [-a] [-r] OCI_PROFILE compartment_name".format(sys.argv[0]))
@@ -74,7 +77,7 @@ def usage():
     print ("region      = eu-frankfurt-1")
     exit (1)
 
-# -- Networking
+# ---- List objects common to all regions
 def list_networking_dns_zones(lcpt_ocid):
     print (COLOR_TITLE2+"========== NETWORKING: DNS zones "+COLOR_NORMAL)
     response = oci.pagination.list_call_get_all_results(DnsClient.list_zones,compartment_id=lcpt_ocid)
@@ -96,7 +99,6 @@ def list_governance_tag_namespaces(lcpt_ocid):
         for tag_namespace in response.data:
             print ('{0:100s} {1:30s} {2:10s}'.format(tag_namespace.id, tag_namespace.name, tag_namespace.lifecycle_state))
 
-# -- List objects common to all regions
 def list_objects_common_to_all_regions(cpt_ocid,cpt_name):
     global DnsClient
 
@@ -120,6 +122,7 @@ def list_objects_common_to_all_regions(cpt_ocid,cpt_name):
             if (sub_compartment.lifecycle_state == "ACTIVE"):
                 list_objects_common_to_all_regions(sub_compartment.id,sub_compartment.name)
 
+# ---- List objects specific to a region
 # -- Compute
 def list_compute_instances (lcpt_ocid):
     print (COLOR_TITLE2+"========== COMPUTE: Instances "+COLOR_NORMAL)
@@ -298,6 +301,23 @@ def list_resource_manager_stacks(lcpt_ocid):
         for stack in response.data:
             print ('{0:100s} {1:30s} {2:10s}'.format(stack.id, stack.display_name, stack.lifecycle_state))
 
+# -- Email delivery
+def list_email_delivery_approved_senders(lcpt_ocid):
+    print (COLOR_TITLE2+"========== EMAIL DELIVERY: Approved senders"+COLOR_NORMAL)
+    response = oci.pagination.list_call_get_all_results(EmailClient.list_senders,compartment_id=lcpt_ocid)
+    if len(response.data) > 0:
+        for sender in response.data:
+            print ('{0:30s} {1:10s}'.format(sender.email_address, sender.lifecycle_state))
+
+def list_email_delivery_suppressions_list(lcpt_ocid):
+    # Suppressions list can only exists in the root compartment
+    if lcpt_ocid == RootCompartmentID:
+        print (COLOR_TITLE2+"========== EMAIL DELIVERY: Suppressions list"+COLOR_NORMAL)
+        response = oci.pagination.list_call_get_all_results(EmailClient.list_suppressions,compartment_id=lcpt_ocid)
+        if len(response.data) > 0:
+            for suppression in response.data:
+                print ('{0:30s}'.format(suppression.email_address))
+
 # -- Application integration
 def list_application_integration_notifications_topics (lcpt_ocid):
     print (COLOR_TITLE2+"========== APPLICATION INTEGRATION: Notifications topics"+COLOR_NORMAL)
@@ -345,6 +365,7 @@ def list_region_specific_objects (cpt_ocid,cpt_name):
     global LoadBalancerClient
     global DatabaseClient
     global ResourceManagerClient
+    global EmailClient
     global NotificationControlPlaneClient
     global EventsClient
     global OceInstanceClient
@@ -397,6 +418,11 @@ def list_region_specific_objects (cpt_ocid,cpt_name):
     ResourceManagerClient = oci.resource_manager.ResourceManagerClient(config)
     list_resource_manager_stacks (cpt_ocid)
 
+    # Email delivery
+    EmailClient = oci.email.EmailClient(config)
+    list_email_delivery_approved_senders (cpt_ocid)
+    list_email_delivery_suppressions_list (cpt_ocid)
+
     # Application integration
     NotificationControlPlaneClient = oci.ons.NotificationControlPlaneClient(config)
     list_application_integration_notifications_topics (cpt_ocid)
@@ -427,6 +453,7 @@ global ads
 global IdentityClient
 global initial_cpt_ocid
 global initial_cpt_name
+global RootCompartmentID
 
 # -- parse arguments
 all_regions = False
@@ -467,18 +494,22 @@ IdentityClient = oci.identity.IdentityClient(config)
 user = IdentityClient.get_user(config["user"]).data
 RootCompartmentID = user.compartment_id
 
-# -- get list of compartments
-response = oci.pagination.list_call_get_all_results(IdentityClient.list_compartments, RootCompartmentID,compartment_id_in_subtree=True)
-compartments = response.data
-cpt_exist = False
-for compartment in compartments:  
-    if (cpt == compartment.id) or (cpt == compartment.name):
-        initial_cpt_ocid = compartment.id
-        initial_cpt_name = compartment.name
-        cpt_exist = True
-if not(cpt_exist):
-    print ("ERROR 03: compartment '{}' does not exist !".format(cpt))
-    exit (3) 
+# -- find compartment name and compartment id
+if (cpt == "root") or (cpt == RootCompartmentID):
+    initial_cpt_name = "root"
+    initial_cpt_ocid = RootCompartmentID
+else:
+    response = oci.pagination.list_call_get_all_results(IdentityClient.list_compartments, RootCompartmentID,compartment_id_in_subtree=True)
+    compartments = response.data
+    cpt_exist = False
+    for compartment in compartments:  
+        if (cpt == compartment.id) or (cpt == compartment.name):
+            initial_cpt_ocid = compartment.id
+            initial_cpt_name = compartment.name
+            cpt_exist = True
+    if not(cpt_exist):
+        print ("ERROR 03: compartment '{}' does not exist !".format(cpt))
+        exit (3) 
 
 # -- get list of subscribed regions
 response = oci.pagination.list_call_get_all_results(IdentityClient.list_region_subscriptions, RootCompartmentID)

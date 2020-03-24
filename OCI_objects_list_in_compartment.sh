@@ -11,7 +11,7 @@
 # - NETWORKING             : VCN, DRG, CPE, IPsec connection, LB, public IPs, DNS zones (common to all regions)
 # - DATABASE               : DB Systems, DB Systems backups, Autonomous DB, Autonomous DB backups
 # - RESOURCE MANAGER       : Stacks
-# - EMAIL DELIVERY         : Approved senders, Suppression list (list can only exists in root compartment)
+# - EMAIL DELIVERY         : Approved senders, Suppressions list (list can only exists in root compartment)
 # - APPLICATION INTEGRATION: Notifications, Events, Content and Experience
 # - DEVELOPER SERVICES     : Container clusters (OKE), Functions applications
 # - IDENTITY               : Policies (common to all regions)
@@ -36,7 +36,7 @@
 #    2019-07-16: change title for DNS zone as now in Networking instead of Edge Services
 #    2019-10-02: add support for sub-compartments (-r option) + print full compartment name
 #    2020-02-01: add support for Functions applications, Notifications and Events
-#    2020-03-20: add support for email approved senders, email suppression list
+#    2020-03-20: add support for email approved senders, email suppressions list
 #    2020-03-20: add support for compute instance configurations, compute instance pools
 #    2020-03-20: change location of temporary files to /tmp + check oci exists
 # --------------------------------------------------------------------------------------------------------------------------
@@ -377,13 +377,13 @@ list_email_delivery_approved_senders()
   # 2>/dev/null needed to remove message "Query returned empty result, no output to show."
 }
 
-list_email_delivery_suppression_list()
+list_email_delivery_suppressions_list()
 {
   local lr=$1
   local lcpid=$2
-  # Suppression list can only exists in the root compartment
+  # Suppressions list can only exists in the root compartment
   if [ "$lcpid" == "$TENANCYOCID" ]; then
-    echo -e "${COLOR_TITLE2}========== EMAIL DELIVERY: Suppression list${COLOR_NORMAL}"
+    echo -e "${COLOR_TITLE2}========== EMAIL DELIVERY: Suppressions list${COLOR_NORMAL}"
     oci --profile $PROFILE email suppression list -c $TENANCYOCID --region $lr --output table --all --query 'data[].{Email:"email-address"}' 
   fi
 }
@@ -467,7 +467,7 @@ list_region_specific_objects()
   list_database_autonomous_backups $lregion $lcompid
   list_resource_manager_stacks $lregion $lcompid
   list_email_delivery_approved_senders $lregion $lcompid
-  list_email_delivery_suppression_list $lregion $lcompid
+  list_email_delivery_suppressions_list $lregion $lcompid
   list_application_integration_notifications_topics $lregion $lcompid
   list_application_integration_events_rules $lregion $lcompid
   list_application_integration_cec_instances $lregion $lcompid

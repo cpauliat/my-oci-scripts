@@ -20,6 +20,7 @@
 #
 # Versions
 #    2020-02-27: Initial Version
+#    2020-03-24: fix bug for root compartment
 # --------------------------------------------------------------------------------------------------------------------------
 
 
@@ -226,19 +227,24 @@ IdentityClient = oci.identity.IdentityClient(config)
 user = IdentityClient.get_user(config["user"]).data
 RootCompartmentID = user.compartment_id
 
-# -- get list of compartments
-response = oci.pagination.list_call_get_all_results(IdentityClient.list_compartments, RootCompartmentID,compartment_id_in_subtree=True)
-compartments = response.data
-cpt_exist = False
-for compartment in compartments:  
-    if (cpt == compartment.id) or (cpt == compartment.name):
-        initial_cpt_ocid = compartment.id
-        initial_cpt_name = compartment.name
-        cpt_exist = True
-if not(cpt_exist):
-    print ("ERROR 03: compartment '{}' does not exist !".format(cpt))
-    exit (3) 
+# -- find compartment name and compartment id
+if (cpt == "root") or (cpt == RootCompartmentID):
+    initial_cpt_name = "root"
+    initial_cpt_ocid = RootCompartmentID
+else:
+    response = oci.pagination.list_call_get_all_results(IdentityClient.list_compartments, RootCompartmentID,compartment_id_in_subtree=True)
+    compartments = response.data
+    cpt_exist = False
+    for compartment in compartments:  
+        if (cpt == compartment.id) or (cpt == compartment.name):
+            initial_cpt_ocid = compartment.id
+            initial_cpt_name = compartment.name
+            cpt_exist = True
+    if not(cpt_exist):
+        print ("ERROR 03: compartment '{}' does not exist !".format(cpt))
+        exit (3) 
 
+# -- list VCNs inside compartments with details
 list_vcns(initial_cpt_ocid,initial_cpt_name)
 
 # -- the happy end
