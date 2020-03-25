@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 
 # --------------------------------------------------------------------------------------------------------------------------
-# This script lists the preauth requests for an object storage bucket using OCI Python SDK
-# and sorts them by expired and actives requests
+# This script lists then deletes expired preauth requests for an object storage bucket using OCI Python SDK
 #
 # Note: OCI tenant and region given by an OCI CLI PROFILE
 # Author        : Christophe Pauliat
@@ -18,22 +17,6 @@
 import oci
 import sys
 import datetime
-
-# ---------- Colors for output
-# see https://misc.flogisoft.com/bash/tip_colors_and_formatting to customize
-colored_output=True
-if (colored_output):
-  COLOR_TITLE = "\033[93m"            # light yellow
-  COLOR_EXPIRED = "\033[91m"          # light red
-  COLOR_ACTIVE = "\033[32m"           # green
-  COLOR_BUCKET = "\033[96m"           # light cyan
-  COLOR_NORMAL = "\033[39m"
-else:
-  COLOR_TITLE = ""
-  COLOR_EXPIRED = ""
-  COLOR_ACTIVE = ""
-  COLOR_BUCKET = ""
-  COLOR_NORMAL = ""
 
 # ---------- Functions
 
@@ -53,7 +36,6 @@ def usage():
     print ("key_file    = /Users/cpauliat/.oci/api_key.pem")
     print ("region      = eu-frankfurt-1")
     exit (1)
-
 
 # ------------ main
 global config
@@ -99,23 +81,25 @@ if len(response.data) == 0:
 # -- Get current date and time
 now = datetime.datetime.now(datetime.timezone.utc)
 
-# -- List active requests
-print (COLOR_TITLE + "List of ACTIVE pre-authenticated requests for bucket ",end='')
-print (COLOR_BUCKET + bucket + COLOR_TITLE + ": (name, object-name, time-expires)" + COLOR_ACTIVE)
-for auth in response.data:
-    if auth.time_expires > now:
-        print ('- {:50s} {:55s} {}'.format(auth.name, auth.object_name, auth.time_expires))
-
-print ("")
-
 # -- List expired requests
-print (COLOR_TITLE + "List of EXPIRED pre-authenticated requests for bucket ",end='')
-print (COLOR_BUCKET + bucket + COLOR_TITLE + ": (name, object-name, time-expires)" + COLOR_EXPIRED)
+print ("List of expired pre-authenticated requests for bucket {:s}:".format(bucket))
 for auth in response.data:
-    if auth.time_expires <= now:
-        print ('- {:50s} {:55s} {}'.format(auth.name, auth.object_name, auth.time_expires))
+    if auth.time_expires < now:
+        print ('- {:50s} {:50s} {}'.format(auth.name, auth.object_name, auth.time_expires))
 
-print (COLOR_NORMAL)
+# -- Ask to confirm deletion
+print ("")
+answer = input ("Do you confirm deletion of those requests ? (y/n): ")
+if answer != "y":
+    print ("Deletion not confirmed. Exiting !")
+    exit (5)
+
+# -- Delete the requests
+for auth in response.data:
+    if auth.time_expires < now:
+        oci.object_storage.ObjectStorageClient.delete_preauthenticated_request(ObjectStorageClient, namespace_name=namespace, bucket_name=bucket, par_id=auth.id)
+    
+print ("Pre-authenticated requests deleted !")
 
 # -- the end
 exit (0)
