@@ -239,3 +239,13 @@ It lists the expired and actives requests
 Prerequisites :
 - Python 3 installed, OCI SDK installed and OCI config file configured with profiles
 ```
+
+### OCI_preauth_requests_delete_expired.py
+
+```
+Python 3 script to delete expired pre-authenticated requests for an object storage bucket using OCI Python SDK
+It first lists the expired requests, then asks to confirm deletion, then deletes them.
+
+Prerequisites :
+- Python 3 installed, OCI SDK installed and OCI config file configured with profiles
+```
