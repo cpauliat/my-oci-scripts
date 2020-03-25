@@ -10,7 +10,7 @@
 # - OBJECT STORAGE         : buckets
 # - FILE STORAGE           : file systems, mount targets
 # - NETWORKING             : VCN, DRG, CPE, IPsec connection, LB, public IPs, DNS zones (common to all regions)
-# - DATABASE               : DB Systems, DB Systems backups, Autonomous DB, Autonomous DB backups
+# - DATABASE               : DB Systems, DB Systems backups, Autonomous DB, Autonomous DB backups, NoSQL DB tables
 # - RESOURCE MANAGER       : Stacks
 # - EMAIL DELIVERY         : Approved senders, Suppressions list (list can only exists in root compartment)
 # - APPLICATION INTEGRATION: Notifications, Events, Content and Experience
@@ -41,6 +41,7 @@
 #    2020-03-20: add support for compute instance configurations, compute instance pools
 #    2020-03-20: change location of temporary files to /tmp + check oci exists
 #    2020-03-24: add support for compute dedicated virtual machines hosts
+#    2020-03-25: add support for NoSQL database tables
 # --------------------------------------------------------------------------------------------------------------------------
 
 usage()
@@ -372,6 +373,14 @@ list_database_autonomous_backups()
   oci --profile $PROFILE db autonomous-database-backup list -c $lcpid --region $lr --output table --all --query 'data[].{Name:"display-name", OCID:id, Status:"lifecycle-state"}'
 }
 
+list_database_nosql_tables()
+{
+  local lr=$1
+  local lcpid=$2
+  echo -e "${COLOR_TITLE2}========== DATABASE: NoSQL Database tables${COLOR_NORMAL}"
+  oci --profile $PROFILE nosql table list -c $lcpid --region $lr --output table --all --query 'data.items[].{Name:"name", OCID:id, Status:"lifecycle-state"}'
+}
+
 list_resource_manager_stacks()
 {
   local lr=$1
@@ -478,6 +487,7 @@ list_region_specific_objects()
   list_database_db_systems_backups $lregion $lcompid
   list_database_autonomous_db $lregion $lcompid
   list_database_autonomous_backups $lregion $lcompid
+  list_database_nosql_tables $lregion $lcompid
   list_resource_manager_stacks $lregion $lcompid
   list_email_delivery_approved_senders $lregion $lcompid
   list_email_delivery_suppressions_list $lregion $lcompid
