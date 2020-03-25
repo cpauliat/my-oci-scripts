@@ -229,3 +229,13 @@ Python 3 script to show detailed VCNs in a compartment using OCI Python SDK
 Prerequisites :
 - Python 3 installed, OCI SDK installed and OCI config file configured with profiles
 ```
+
+### OCI_preauth_requests_list.py
+
+```
+Python 3 script to list pre-authenticated requests for an object storage bucket using OCI Python SDK
+It lists the expired and actives requests
+
+Prerequisites :
+- Python 3 installed, OCI SDK installed and OCI config file configured with profiles
+```
