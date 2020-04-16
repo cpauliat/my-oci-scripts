@@ -72,15 +72,20 @@ except:
     print ("ERROR 03: instance with OCID '{}' not found !".format(inst_id))
     exit (3)
 
+# -- If the instance is TERMINATED, stop here
+if instance.lifecycle_state == "TERMINATED":
+    print ("ERROR 04: instance status is TERMINATED, so cannot update tags !")
+    exit (4)
+
 # -- Add tag key to tag namespace and update compute instance
 tags = instance.defined_tags
 try:
     tags[tag_ns][tag_key] = tag_value
     ComputeClient.update_instance(inst_id, oci.core.models.UpdateInstanceDetails(defined_tags=tags))
 except:
-    print ("ERROR 04: cannot add this tag key with this tag value !")
+    print ("ERROR 05: cannot add this tag key with this tag value !")
     print ("          Make sure the tag namespace, tag key and tag value are correct.")
-    exit (4)
+    exit (5)
 
 # -- the end
 exit (0)

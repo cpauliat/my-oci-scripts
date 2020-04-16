@@ -71,16 +71,26 @@ except:
     print ("ERROR 03: instance with OCID '{}' not found !".format(inst_id))
     exit (3)
 
+# -- If the instance is TERMINATED, stop here
+if instance.lifecycle_state == "TERMINATED":
+    print ("ERROR 04: instance status is TERMINATED, so cannot update tags !")
+    exit (4)
+
 # -- Remove tag key from tag namespace
 tags = instance.defined_tags
 try:
     del tags[tag_ns][tag_key]
 except:
-    print ("ERROR 04: this tag key does not exist for this compute instance !")
-    exit (3)
+    print ("ERROR 05: this tag key does not exist for this compute instance !")
+    exit (5)
 
 # -- Update compute instance
-ComputeClient.update_instance(inst_id, oci.core.models.UpdateInstanceDetails(defined_tags=tags))
+try:
+    ComputeClient.update_instance(inst_id, oci.core.models.UpdateInstanceDetails(defined_tags=tags))
+except:
+    print ("ERROR 06: cannot remove this tag from this compute instance !")
+    print ("          Make sure the instance status is correct")
+    exit (6)
 
 # -- the end
 exit (0)
