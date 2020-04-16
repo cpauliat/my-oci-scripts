@@ -42,8 +42,6 @@ def usage():
 def list_tagged_compute_instances_in_compartment (lcpt):
     if lcpt.lifecycle_state == "DELETED": return
 
-    #print ("--- DEBUG: cpt=",lcpt.name, lcpt.lifecycle_state)
-    # get the list of instances in this compartment
     response = oci.pagination.list_call_get_all_results(ComputeClient.list_instances,compartment_id=lcpt.id)
     if len(response.data) > 0:
         for instance in response.data:
