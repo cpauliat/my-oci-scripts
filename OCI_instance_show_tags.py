@@ -59,7 +59,6 @@ IdentityClient = oci.identity.IdentityClient(config)
 user = IdentityClient.get_user(config["user"]).data
 RootCompartmentID = user.compartment_id
 
-
 # -- Get Defined-tags for the compute instance
 ComputeClient = oci.core.ComputeClient(config)
 
