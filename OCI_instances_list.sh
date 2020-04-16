@@ -14,6 +14,7 @@
 #    2019-10-14: Add quiet mode option
 #    2019-12-06: Also list shape
 #    2020-03-20: change location of temporary files to /tmp + check oci exists
+#    2020-04-15: Add lifecycle_state in the quiet mode
 # --------------------------------------------------------------------------------------------------------------
 
 # -------- functions
@@ -25,7 +26,7 @@ Usage: $0 [-q] [-a] OCI_PROFILE
 
 Notes: 
 - OCI_PROFILE must exist in ~/.oci/config file (see example below)
-- If -q is provided, output is minimal (quiet mode): only stopped/started autonomous databases are displayed.
+- If -q is provided, output is minimal (quiet mode)
 - If -a is provided, the script processes all active regions instead of singe region provided in profile
 
 [EMEAOSCf]
@@ -87,15 +88,16 @@ else
   COLOR_NORMAL=""
 fi
 
+# -- quiet mode: display 1 line per compute instance with region compartment name id shape status
 quiet_display()
 {
   local lregion=$1
   local lcompname=$2
 
   # remove first 3 lines and list line to get instances details
-  cat $TMP_FILE | sed '1,3d;$d' | while read s1 inst_name s2 inst_id s3 inst_status s4
+  cat $TMP_FILE | sed '1,3d;$d' | while read s1 inst_name s2 inst_id s3 inst_shape s4 inst_status s5
   do
-    printf "%-15s %-20s %-22s %-100s %-10s\n" "$lregion" "$lcompname" "$inst_name" "$inst_id" "$inst_status"
+    printf "%-15s %-20s %-22s %-100s %-15s %-10s\n" "$lregion" "$lcompname" "$inst_name" "$inst_id" "$inst_shape" "$inst_status"
   done
 }
 # -------- main
