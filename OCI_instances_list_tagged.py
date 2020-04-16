@@ -18,26 +18,6 @@
 import oci
 import sys
 
-# ---------- Colors for output
-# see https://misc.flogisoft.com/bash/tip_colors_and_formatting to customize
-colored_output=True
-if (colored_output):
-  COLOR_TITLE0="\033[95m"             # light magenta
-  COLOR_TITLE1="\033[91m"             # light red
-  COLOR_TITLE2="\033[32m"             # green
-  COLOR_AD="\033[94m"                 # light blue
-  COLOR_COMP="\033[93m"               # light yellow
-  COLOR_BREAK="\033[91m"              # light red
-  COLOR_NORMAL="\033[39m"
-else:
-  COLOR_TITLE0=""
-  COLOR_TITLE1=""
-  COLOR_TITLE2=""
-  COLOR_AD=""
-  COLOR_COMP=""
-  COLOR_BREAK=""
-  COLOR_NORMAL=""
-
 # ---------- Functions
 
 # ---- variables
@@ -116,12 +96,18 @@ response = oci.pagination.list_call_get_all_results(IdentityClient.list_compartm
 compartments = response.data
 
 # -- ComputeClient
-ComputeClient = oci.core.ComputeClient(config)
 
 # -- list objects
-#reg = 
-for cpt in compartments:
-    list_tagged_compute_instances_in_compartment (cpt)
+if all_regions:
+    for reg in regions:
+        config["region"]=region.region_name
+        ComputeClient = oci.core.ComputeClient(config)
+        for cpt in compartments:
+            list_tagged_compute_instances_in_compartment (cpt)
+else:
+    ComputeClient = oci.core.ComputeClient(config)
+    for cpt in compartments:
+        list_tagged_compute_instances_in_compartment (cpt)
 
 # -- the end
 exit (0)
