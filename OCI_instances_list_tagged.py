@@ -49,7 +49,7 @@ def list_tagged_compute_instances_in_compartment (lcpt):
         for instance in response.data:
             try:
                 tag_value = instance.defined_tags[tag_ns][tag_key]
-                print ('{:s}, {:s}, {:s}, {:s}.{:s} = {:s}'.format(lcpt.name, instance.display_name, instance.id, tag_ns, tag_key, tag_value))
+                print ('{:s}, {:s}, {:s}, {:s}, {:s}.{:s} = {:s}'.format(config["region"], lcpt.name, instance.display_name, instance.id, tag_ns, tag_key, tag_value))
             except:
                 pass
 
