@@ -13,6 +13,8 @@
 #    2020-04-16: Initial Version
 # ----------------------------------------------------------------------------------------
 
+# TO DO: add the tag namespace to instance if not already added
+
 # -- import
 import oci
 import sys
