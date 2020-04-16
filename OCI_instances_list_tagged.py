@@ -93,8 +93,6 @@ regions = response.data
 response = oci.pagination.list_call_get_all_results(IdentityClient.list_compartments, RootCompartmentID,compartment_id_in_subtree=True)
 compartments = response.data
 
-# -- ComputeClient
-
 # -- list objects
 if all_regions:
     for region in regions:
