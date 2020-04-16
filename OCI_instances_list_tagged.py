@@ -99,7 +99,7 @@ compartments = response.data
 
 # -- list objects
 if all_regions:
-    for reg in regions:
+    for region in regions:
         config["region"]=region.region_name
         ComputeClient = oci.core.ComputeClient(config)
         for cpt in compartments:
