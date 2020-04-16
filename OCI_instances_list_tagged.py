@@ -27,6 +27,8 @@ configfile = "~/.oci/config"    # Define config file to be used.
 def usage():
     print ("Usage: {} [-a] OCI_PROFILE tag_namespace tag_key".format(sys.argv[0]))
     print ("")
+    print ("    By default, only the compute instances in the region provided in the profile are listed")
+    print ("    If -a is provided, the compute instances from all subscribed regions are listed")
     print ("")
     print ("note: OCI_PROFILE must exist in {} file (see example below)".format(configfile))
     print ("")
