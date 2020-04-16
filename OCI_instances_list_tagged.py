@@ -47,11 +47,12 @@ def list_tagged_compute_instances_in_compartment (lcpt):
     response = oci.pagination.list_call_get_all_results(ComputeClient.list_instances,compartment_id=lcpt.id)
     if len(response.data) > 0:
         for instance in response.data:
-            try:
-                tag_value = instance.defined_tags[tag_ns][tag_key]
-                print ('{:s}, {:s}, {:s}, {:s}, {:s}.{:s} = {:s}'.format(config["region"], lcpt.name, instance.display_name, instance.id, tag_ns, tag_key, tag_value))
-            except:
-                pass
+            if instance.lifecycle_state != "TERMINED":
+                try:
+                    tag_value = instance.defined_tags[tag_ns][tag_key]
+                    print ('{:s}, {:s}, {:s}, {:s}, {:s}.{:s} = {:s}'.format(config["region"], lcpt.name, instance.display_name, instance.id, tag_ns, tag_key, tag_value))
+                except:
+                    pass
 
 
 # ------------ main
