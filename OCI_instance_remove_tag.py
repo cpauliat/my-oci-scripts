@@ -80,7 +80,7 @@ except:
     exit (3)
 
 # -- Update compute instance
-response = ComputeClient.update_instance(inst_id, oci.core.models.UpdateInstanceDetails(defined_tags=tags))
+ComputeClient.update_instance(inst_id, oci.core.models.UpdateInstanceDetails(defined_tags=tags))
 
 # -- the end
 exit (0)
