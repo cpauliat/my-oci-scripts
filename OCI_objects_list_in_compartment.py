@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-# --------------------------------------------------------------------------------------------------------------------------
-# This script lists all objects (detailed list below) in a given compartment in a region or all active regions using OCI CLI
+# ---------------------------------------------------------------------------------------------------------------------------------
+# This script lists all objects (detailed list below) in a given compartment in a region or all active regions using OCI Python SDK
 #
 # Supported objects:
 # - COMPUTE                : compute instances, dedicated virtual machines hosts, instance configurations, instance pools
@@ -30,7 +30,7 @@
 #    2020-03-24: add support for compute instance configurations, compute instance pools, compute dedicated vm hosts
 #    2020-03-24: fix bug for root compartment
 #    2020-03-25: add support for NoSQL database tables
-# --------------------------------------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------------------------------------------
 
 # -- import
 import oci
