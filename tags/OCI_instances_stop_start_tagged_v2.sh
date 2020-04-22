@@ -25,6 +25,8 @@
 #    2020-03-23: use TAG_NS and TAG_KEY in process_compartment function instead of hardcoded values
 #    2020-04-15: Enhance features to enable automatic shutdown/start at a given UTC time using 2 tag keys
 #                This script now needs to be run every hour using crontab or another scheduler
+#    2020-04-22: use single instance of script for both stop and start actions to minimize number of API calls
+#                and optimize/simplify script
 # --------------------------------------------------------------------------------------------------------------
 
 # ---------- Tag names, key and value to look for
@@ -38,12 +40,12 @@ TAG_KEY_START="automatic_startup"
 usage()
 {
 cat << EOF
-Usage: $0 [-q] [-a] OCI_PROFILE start|stop [--confirm]
+Usage: $0 [-a] [--confirm_stop] [--confirm_start] OCI_PROFILE
 
 Notes: 
-- If -q is provided, output is minimal (quiet mode): only stopped/started instances are displayed.
 - If -a is provided, the script processes all active regions instead of singe region provided in profile
-- If --confirm is not provided, the instances to stop (or start) are listed but not actually stopped (or started)
+- If --confirm_stop  is not provided, the instances to stop are listed but not actually stopped
+- If --confirm_start is not provided, the instances to start are listed but not actually started
 - OCI_PROFILE must exist in ~/.oci/config file (see example below)
 
 [EMEAOSCf]
@@ -62,62 +64,62 @@ process_compartment()
   local lcompname=$2
   local lregion=$3
 
-  CHANGED_FLAG=${TMP_FILE}_changed 
-  rm -f $CHANGED_FLAG
-
   oci --profile $PROFILE compute instance list -c $lcompid --region $lregion --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Status:\"lifecycle-state\"}" > $TMP_FILE
-  if [ $QUIET_MODE == false ]; then cat $TMP_FILE; fi
   
   # if no instance found in this compartment (TMP_FILE empty), exit the function
   if [ ! -s $TMP_FILE ]; then rm -f $TMP_FILE; return; fi 
 
   cat $TMP_FILE | sed '1,3d;$d' | sed -e 's#^.*ocid1.instance#ocid1.instance#' -e 's# .*$##' | while read inst_id
   do
-    inst_status=`oci --profile $PROFILE compute instance get --region $lregion --instance-id $inst_id | jq -r '.[]."lifecycle-state"' 2>/dev/null`
-    if ( [ "$inst_status" == "STOPPED" ] && [ "$ACTION" == "start" ] ) || ( [ "$inst_status" == "RUNNING" ] && [ "$ACTION" == "stop" ] )
+    oci --profile $PROFILE compute instance get --region $lregion --instance-id $inst_id > ${TMP_FILE}_INST 2>/dev/null
+    inst_status=`cat ${TMP_FILE}_INST| jq -r '.[]."lifecycle-state"' 2>/dev/null`
+    if ( [ "$inst_status" == "STOPPED" ] || [ "$inst_status" == "RUNNING" ] )
     then 
-      inst_name=`oci --profile $PROFILE compute instance get --region $lregion --instance-id $inst_id | jq -r '.[]."display-name"' 2>/dev/null`
-      ltag_value=`oci --profile $PROFILE compute instance get --region $lregion --instance-id $inst_id | jq -r '.[]."defined-tags".'\"$TAG_NS\"'.'\"$TAG_KEY\"'' 2>/dev/null`
-      if [ "$ltag_value" == "$CURRENT_UTC_TIME" ]
+      inst_name=`cat ${TMP_FILE}_INST | jq -r '.[]."display-name"' 2>/dev/null`
+      ltag_value_stop=`cat ${TMP_FILE}_INST| jq -r '.[]."defined-tags".'\"$TAG_NS\"'.'\"$TAG_KEY_STOP\"'' 2>/dev/null`
+      ltag_value_start=`cat ${TMP_FILE}_INST| jq -r '.[]."defined-tags".'\"$TAG_NS\"'.'\"$TAG_KEY_START\"'' 2>/dev/null`
+      # Is it time to start this instance ?
+      if [ "$ltag_value_start" == "$CURRENT_UTC_TIME" ]
       then 
-        if [ $QUIET_MODE == true ]; then printf "region $lregion, cpt $lcompname: "; else printf " --> "; fi             
-        if [ $CONFIRM == true ]
+        printf "`date '+%Y/%m/%d %H:%M'`, region $lregion, cpt $lcompname: "
+        if [ $CONFIRM_START ]
         then
-          case $ACTION in
-            "start") echo "`date '+%Y/%m/%d %H:%M'`: STARTING instance $inst_name ($inst_id)"
-                     oci --profile $PROFILE compute instance action --region $lregion --instance-id $inst_id --action START >/dev/null 2>&1
-                     ;;
-            "stop")  echo "`date '+%Y/%m/%d %H:%M'`: STOPPING instance $inst_name ($inst_id)"
-                     oci --profile $PROFILE compute instance action --region $lregion --instance-id $inst_id --action SOFTSTOP >/dev/null 2>&1
-                     ;;
-          esac
-          touch $CHANGED_FLAG
+          echo "STARTING instance $inst_name ($inst_id)"
+          oci --profile $PROFILE compute instance action --region $lregion --instance-id $inst_id --action START >/dev/null 2>&1
         else
-          case $ACTION in
-            "start")  echo "Instance $inst_name ($inst_id) SHOULD BE STARTED --> re-run script with --confirm to actually start instances"  ;;
-            "stop")   echo "Instance $inst_name ($inst_id) SHOULD BE STOPPED --> re-run script with --confirm to actually stop instances"  ;;
-          esac
+          echo "Instance $inst_name ($inst_id) SHOULD BE STARTED --> re-run script with --confirm_start to actually start instances" 
+        fi
+      # Is it time to stop this instance ?
+      elif [ "$ltag_value_stop" == "$CURRENT_UTC_TIME" ]
+      then 
+        printf "`date '+%Y/%m/%d %H:%M'`, region $lregion, cpt $lcompname: "
+        if [ $CONFIRM_STOP ]
+        then
+          echo "STOPPING instance $inst_name ($inst_id)"
+          oci --profile $PROFILE compute instance action --region $lregion --instance-id $inst_id --action SOFTSTOP >/dev/null 2>&1
+        else
+          echo "Instance $inst_name ($inst_id) SHOULD BE STOPPED --> re-run script with --confirm_stop to actually stop instances"
         fi
       fi
     fi
+    rm -f ${TMP_FILE}_INST
   done
-
-  if [ -f $CHANGED_FLAG ]
-  then
-    rm -f $CHANGED_FLAG
-    if [ $QUIET_MODE == false ]; then 
-      oci --profile $PROFILE compute instance list -c $lcompid --region $lregion --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Status:\"lifecycle-state\"}" 
-    fi
-  fi
-  
   rm -f $TMP_FILE
+}
+
+# -- Exit script with return code
+my_exit()
+{
+  CR=$1   # return code
+  echo "`date '+%Y/%m/%d %H:%M'`: END SCRIPT LABEL=$LABEL"
+  exit $CR
 }
 
 # -- Get the current region from the profile
 get_region_from_profile()
 {
   egrep "^\[|^region" ${OCI_CONFIG_FILE} | fgrep -A 1 "[${PROFILE}]" |grep "^region" > $TMP_FILE 2>&1
-  if [ $? -ne 0 ]; then echo "ERROR: region not found in OCI config file $OCI_CONFIG_FILE for profile $PROFILE !"; cleanup; exit 5; fi
+  if [ $? -ne 0 ]; then echo "ERROR: region not found in OCI config file $OCI_CONFIG_FILE for profile $PROFILE !"; cleanup; my_exit 5; fi
   awk -F'=' '{ print $2 }' $TMP_FILE | sed 's# ##g'
 }
 
@@ -129,49 +131,27 @@ get_all_active_regions()
 
 # -------- main
 
+# -- variables
 OCI_CONFIG_FILE=~/.oci/config
-OCI=$HOME/bin/oci
-
 ALL_REGIONS=false
-CONFIRM=false
-QUIET_MODE=false
+CONFIRM_STOP=false
+CONFIRM_START=false
+TMP_FILE=/tmp/tmp_$$
+LABEL=$$
+LOCK_FILE=/tmp/`basename $0`.lock
 
-if [ "$1" == "-q" ]; then QUIET_MODE=true; shift; fi
+# -- args parsing
 if [ "$1" == "-a" ]; then ALL_REGIONS=true; shift; fi
+if [ "$1" == "--confirm_stop" ]; then CONFIRM_STOP=true; shift; fi
+if [ "$1" == "--confirm_start" ]; then CONFIRM_START=true; shift; fi
 
-case $# in 
-  2) PROFILE=$1
-     ACTION=$2
-     ;;
-  3) PROFILE=$1
-     ACTION=$2
-     if [ "$3" != "--confirm" ]; then usage; fi
-     CONFIRM=true
-     ;;
-  *) usage 
-     ;;
-esac
+if [ $# -ne 1 ]; then usage; fi
+PROFILE=$1
 
 if [ "$PROFILE" == "-h" ] || [ "PROFILE" == "--help" ]; then usage; fi
-if [ "$ACTION" != "start" ] && [ "$ACTION" != "stop" ]; then usage; fi
 
-TMP_FILE=/tmp/tmp_$$
-
-LABEL=$$
-
-echo "`date '+%Y/%m/%d %H:%M'`: BEGIN SCRIPT LABEL=$LABEL action $ACTION"
-
-# -- If this script is already running with same action, exit with an error message
-LOCK_FILE=/tmp/`basename $0`_${ACTION}.lock
-echo "DEBUG: lockfile=|$LOCK_FILE|"
-
-if [ -f $LOCK_FILE ];
-  then
-    echo "ERROR: lock file detected, meaning another instance of this script is already running."
-    exit 99
-  else
-    touch $LOCK_FILE
-  fi
+# -- starting
+echo "`date '+%Y/%m/%d %H:%M'`: BEGIN SCRIPT LABEL=$LABEL"
 
 # -- Get current time in UTC timezone in format "HH:00 UTC"
 # -- This will be compared to tag values
@@ -179,24 +159,29 @@ CURRENT_UTC_TIME=`TZ=UTC date '+%H:00_UTC'`
 
 # -- Check if oci is installed
 which oci > /dev/null 2>&1
-if [ $? -ne 0 ]; then echo "ERROR: oci not found !"; exit 2; fi
+if [ $? -ne 0 ]; then echo "ERROR: oci not found !"; my_exit 2; fi
 
 # -- Check if jq is installed
 which jq > /dev/null 2>&1
-if [ $? -ne 0 ]; then echo "ERROR: jq not found !"; exit 2; fi
+if [ $? -ne 0 ]; then echo "ERROR: jq not found !"; my_exit 3; fi
 
 # -- Check if the PROFILE exists
 grep "\[$PROFILE\]" $OCI_CONFIG_FILE > /dev/null 2>&1
-if [ $? -ne 0 ]; then echo "ERROR: PROFILE $PROFILE does not exist in file $OCI_CONFIG_FILE !"; exit 3; fi
+if [ $? -ne 0 ]; then echo "ERROR: PROFILE $PROFILE does not exist in file $OCI_CONFIG_FILE !"; my_exit 4; fi
+
+# -- If this script is already running, exit with an error message
+echo "DEBUG: lockfile=|$LOCK_FILE|"
+
+if [ -f $LOCK_FILE ];
+  then
+    echo "ERROR: lock file detected, meaning another instance of this script is already running."
+    my_exit 99 false
+  else
+    touch $LOCK_FILE
+  fi
 
 # -- get tenancy OCID from OCI PROFILE
 TENANCYOCID=`egrep "^\[|ocid1.tenancy" $OCI_CONFIG_FILE|sed -n -e "/\[$PROFILE\]/,/tenancy/p"|tail -1| awk -F'=' '{ print $2 }' | sed 's/ //g'`
-
-# -- set the tag key according to action
-case $ACTION in
-  "start") TAG_KEY=$TAG_KEY_START ;;
-  "stop")  TAG_KEY=$TAG_KEY_STOP  ;;
-esac
 
 # -- set the list of regions
 if [ $ALL_REGIONS == false ]
@@ -209,36 +194,18 @@ fi
 # -- process required regions list
 for region in $REGIONS_LIST
 do
-  if [ $QUIET_MODE == false ]
-  then
-    echo -e "==================== REGION ${region}"
-  fi
-
   # -- list instances in the root compartment
-  if [ $QUIET_MODE == false ]
-  then
-    echo
-    echo "Compartment root, OCID=$TENANCYOCID"
-  fi
   process_compartment $TENANCYOCID root $region
 
   # -- list instances compartment by compartment (excluding root compartment but including all subcompartments). Only ACTIVE compartments
   oci --profile $PROFILE iam compartment list -c $TENANCYOCID --compartment-id-in-subtree true --all --query "data [?\"lifecycle-state\" == 'ACTIVE']" 2>/dev/null| egrep "^ *\"name|^ *\"id"|awk -F'"' '{ print $4 }' | while read compid
   do
     read compname
-    if [ $QUIET_MODE == false ]
-    then
-      echo
-      echo "Compartment $compname, OCID=$compid"
-    fi
     process_compartment $compid $compname $region
   done
 done
 
-echo "`date '+%Y/%m/%d %H:%M'`: END SCRIPT LABEL=$LABEL action $ACTION"
-
+# -- the end
 rm -f $TMP_FILE
 rm -f $LOCK_FILE
-
-# -- the end
-exit 0
+my_exit 0
