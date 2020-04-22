@@ -70,7 +70,7 @@ process_compartment()
   if [ ! -s $TMP_FILE ]; then rm -f $TMP_FILE; return; fi 
 
   # otherwise, we look at each compute instance
-  for inst_id in `cat $TMP_FILE``
+  for inst_id in `cat $TMP_FILE`
   do
     oci --profile $PROFILE compute instance get --region $lregion --instance-id $inst_id > ${TMP_FILE}_INST 2>/dev/null
     inst_status=`cat ${TMP_FILE}_INST| jq -r '.[]."lifecycle-state"' 2>/dev/null`
