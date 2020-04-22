@@ -63,9 +63,7 @@ process_compartment()
   local lcompid=$1
   local lcompname=$2
   local lregion=$3
-
-  echo "DEBUG: Cpt = $lcompname"
-  
+ 
   # find compute instances in this compartment
   oci --profile $PROFILE compute instance list -c $lcompid --region $lregion | jq -r '.data[].id' > $TMP_FILE
   
@@ -186,8 +184,6 @@ if [ $ALL_REGIONS == true ]; then
 else
     REGIONS_LIST=`get_region_from_profile`
 fi
-
-echo "DEBUG: REGION_LIST = $REGIONS_LIST"
 
 # -- process required regions list
 for region in $REGIONS_LIST
