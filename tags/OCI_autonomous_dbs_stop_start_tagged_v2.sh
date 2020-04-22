@@ -159,6 +159,18 @@ LABEL=$$
 
 echo "`date '+%Y/%m/%d %H:%M'`: BEGIN SCRIPT LABEL=$LABEL action $ACTION"
 
+# -- If this script is already running, exit with an error message
+LOCK_FILE=/tmp/`basename $0`.lock
+echo "DEBUG: lockfile=|$LOCK_FILE|"
+
+if [ -f $LOCK_FILE ];
+  then
+    echo "ERROR: lock file detected, meaning another instance of this script is already running."
+    exit 99
+  else
+    touch $LOCK_FILE
+  fi
+
 # -- Get current time in UTC timezone in format "HH:00 UTC"
 # -- This will be compared to tag values
 CURRENT_UTC_TIME=`TZ=UTC date '+%H:00_UTC'`
@@ -224,4 +236,7 @@ done
 echo "`date '+%Y/%m/%d %H:%M'`: END SCRIPT LABEL=$LABEL action $ACTION"
 
 rm -f $TMP_FILE
+rm -f $LOCK_FILE
+
+# -- the end
 exit 0
