@@ -165,8 +165,8 @@ LABEL=$$
 
 echo "`date '+%Y/%m/%d %H:%M'`: BEGIN SCRIPT LABEL=$LABEL action $ACTION"
 
-# -- If this script is already running, exit with an error message
-LOCK_FILE=/tmp/`basename $0`.lock
+# -- If this script is already running with same action, exit with an error message
+LOCK_FILE=/tmp/`basename $0`_${ACTION}.lock
 echo "DEBUG: lockfile=|$LOCK_FILE|"
 
 if [ -f $LOCK_FILE ];
