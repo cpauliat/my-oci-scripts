@@ -64,6 +64,9 @@ process_compartment()
   local lcompname=$2
   local lregion=$3
 
+  echo "DEBUG: Cpt = $lcompname"
+  
+  # find compute instances in this compartment
   oci --profile $PROFILE compute instance list -c $lcompid --region $lregion | jq -r '.data[].id' > $TMP_FILE
   
   # if no instance found in this compartment (TMP_FILE empty), exit the function
@@ -72,6 +75,7 @@ process_compartment()
   # otherwise, we look at each compute instance
   for inst_id in `cat $TMP_FILE`
   do
+    echo "   DEBUG: inst=$inst_id"
     oci --profile $PROFILE compute instance get --region $lregion --instance-id $inst_id > ${TMP_FILE}_INST 2>/dev/null
     inst_status=`cat ${TMP_FILE}_INST| jq -r '.[]."lifecycle-state"' 2>/dev/null`
     inst_name=`cat ${TMP_FILE}_INST  | jq -r '.[]."display-name"' 2>/dev/null`
@@ -81,7 +85,7 @@ process_compartment()
     # Is it time to start this instance ?
     if [ "$inst_status" == "STOPPED" ] && [ "$ltag_value_start" == "$CURRENT_UTC_TIME" ]; then
         printf "`date '+%Y/%m/%d %H:%M'`, region $lregion, cpt $lcompname: "
-        if [ $CONFIRM_START ]; then
+        if [ $CONFIRM_START == true ]; then
             echo "STARTING instance $inst_name ($inst_id)"
             oci --profile $PROFILE compute instance action --region $lregion --instance-id $inst_id --action START >/dev/null 2>&1
         else
@@ -91,7 +95,7 @@ process_compartment()
     # Is it time to stop this instance ?
     elif [ "$inst_status" == "RUNNING" ] && [ "$ltag_value_stop" == "$CURRENT_UTC_TIME" ]; then
         printf "`date '+%Y/%m/%d %H:%M'`, region $lregion, cpt $lcompname: "
-        if [ $CONFIRM_STOP ]; then
+        if [ $CONFIRM_STOP == true ]; then
             echo "STOPPING instance $inst_name ($inst_id)"
             oci --profile $PROFILE compute instance action --region $lregion --instance-id $inst_id --action SOFTSTOP >/dev/null 2>&1
         else
@@ -177,12 +181,14 @@ fi
 TENANCYOCID=`egrep "^\[|ocid1.tenancy" $OCI_CONFIG_FILE|sed -n -e "/\[$PROFILE\]/,/tenancy/p"|tail -1| awk -F'=' '{ print $2 }' | sed 's/ //g'`
 
 # -- set the list of regions
-if [ $ALL_REGIONS ]; then
+if [ $ALL_REGIONS == true ]; then
     REGIONS_LIST=`get_all_active_regions`
 else
     REGIONS_LIST=`get_region_from_profile`
 fi
- 
+
+echo "DEBUG: REGION_LIST = $REGIONS_LIST"
+
 # -- process required regions list
 for region in $REGIONS_LIST
 do
