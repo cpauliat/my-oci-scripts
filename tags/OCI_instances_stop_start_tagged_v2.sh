@@ -109,7 +109,7 @@ process_compartment()
 my_exit()
 {
   CR=$1   # return code
-  echo "`date '+%Y/%m/%d %H:%M'`: END SCRIPT LABEL=$LABEL"
+  echo "`date '+%Y/%m/%d %H:%M'`: END SCRIPT PID=$PID"
   exit $CR
 }
 
@@ -135,7 +135,7 @@ ALL_REGIONS=false
 CONFIRM_STOP=false
 CONFIRM_START=false
 TMP_FILE=/tmp/tmp_$$
-LABEL=$$
+PID=$$
 LOCK_FILE=/tmp/`basename $0`.lock
 
 # -- args parsing
@@ -149,7 +149,7 @@ PROFILE=$1
 if [ "$PROFILE" == "-h" ] || [ "PROFILE" == "--help" ]; then usage; fi
 
 # -- starting
-echo "`date '+%Y/%m/%d %H:%M'`: BEGIN SCRIPT LABEL=$LABEL"
+echo "`date '+%Y/%m/%d %H:%M'`: BEGIN SCRIPT PID=$PID"
 
 # -- Get current time in UTC timezone in format "HH:00 UTC"
 # -- This will be compared to tag values
