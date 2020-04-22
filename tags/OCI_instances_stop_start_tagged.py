@@ -25,6 +25,7 @@
 # -- import
 import oci
 import sys
+import os
 from datetime import datetime
 
 # ---------- Tag names, key and value to look for
@@ -66,7 +67,7 @@ def process_compartment(lcompid, lcompname):
     # region 
     region = config["region"]
 
-    print ("DEBUG: cpt={:s}".format(lcompname))
+    #print ("DEBUG: cpt={:s}".format(lcompname))
 
     # find compute instances in this compartment
     ComputeClient = oci.core.ComputeClient(config)
@@ -84,7 +85,7 @@ def process_compartment(lcompid, lcompname):
                     tag_value_stop  = "none"
                     tag_value_start = "none"
                 
-                print ("    DEBUG: inst={:s}".format(instance.id))
+                #print ("    DEBUG: tag_value_stop={:s} tag_value_start={:s} inst={:s}".format(tag_value_stop, tag_value_start, instance.id))
                 # Is it time to start this instance ?
                 if instance.lifecycle_state == "STOPPED" and tag_value_start == current_utc_time:
                     print ("{:s}, {:s}, {:s}: ".format(datetime.utcnow().strftime("%T"), region, lcompname),end='')
@@ -152,7 +153,12 @@ else:
     usage()
 
 # -- get UTC time (format 10:00_UTC, 11:00_UTC ...)
-current_utc_time = datetime.utcnow().strftime("%H")+".00_UTC"
+current_utc_time = datetime.utcnow().strftime("%H")+":00_UTC"
+#print ("DEBUG:  ",current_utc_time)
+
+# -- starting
+pid=os.getpid()
+print ("{:s}: BEGIN SCRIPT PID={:d}".format(datetime.utcnow().strftime("%Y/%m/%d %T"),pid))
 
 # -- load profile from config file
 try:
@@ -185,4 +191,5 @@ else:
             if cpt.lifecycle_state == "ACTIVE": process_compartment(cpt.id, cpt.name)
 
 # -- the end
+print ("{:s}: END SCRIPT PID={:d}".format(datetime.utcnow().strftime("%Y/%m/%d %T"),pid))
 exit (0)
