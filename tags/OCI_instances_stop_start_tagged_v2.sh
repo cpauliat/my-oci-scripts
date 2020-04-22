@@ -81,23 +81,21 @@ process_compartment()
     # Is it time to start this instance ?
     if [ "$inst_status" == "STOPPED" ] && [ "$ltag_value_start" == "$CURRENT_UTC_TIME" ]; then
         printf "`date '+%Y/%m/%d %H:%M'`, region $lregion, cpt $lcompname: "
-        if [ $CONFIRM_START ]
-        then
-          echo "STARTING instance $inst_name ($inst_id)"
-          oci --profile $PROFILE compute instance action --region $lregion --instance-id $inst_id --action START >/dev/null 2>&1
+        if [ $CONFIRM_START ]; then
+            echo "STARTING instance $inst_name ($inst_id)"
+            oci --profile $PROFILE compute instance action --region $lregion --instance-id $inst_id --action START >/dev/null 2>&1
         else
-          echo "Instance $inst_name ($inst_id) SHOULD BE STARTED --> re-run script with --confirm_start to actually start instances" 
+            echo "Instance $inst_name ($inst_id) SHOULD BE STARTED --> re-run script with --confirm_start to actually start instances" 
         fi
 
     # Is it time to stop this instance ?
     elif [ "$inst_status" == "RUNNING" ] && [ "$ltag_value_stop" == "$CURRENT_UTC_TIME" ]; then
         printf "`date '+%Y/%m/%d %H:%M'`, region $lregion, cpt $lcompname: "
-        if [ $CONFIRM_STOP ]
-        then
-          echo "STOPPING instance $inst_name ($inst_id)"
-          oci --profile $PROFILE compute instance action --region $lregion --instance-id $inst_id --action SOFTSTOP >/dev/null 2>&1
+        if [ $CONFIRM_STOP ]; then
+            echo "STOPPING instance $inst_name ($inst_id)"
+            oci --profile $PROFILE compute instance action --region $lregion --instance-id $inst_id --action SOFTSTOP >/dev/null 2>&1
         else
-          echo "Instance $inst_name ($inst_id) SHOULD BE STOPPED --> re-run script with --confirm_stop to actually stop instances"
+            echo "Instance $inst_name ($inst_id) SHOULD BE STOPPED --> re-run script with --confirm_stop to actually stop instances"
         fi
     fi
     rm -f ${TMP_FILE}_INST
@@ -168,25 +166,21 @@ grep "\[$PROFILE\]" $OCI_CONFIG_FILE > /dev/null 2>&1
 if [ $? -ne 0 ]; then echo "ERROR: PROFILE $PROFILE does not exist in file $OCI_CONFIG_FILE !"; my_exit 4; fi
 
 # -- If this script is already running, exit with an error message
-echo "DEBUG: lockfile=|$LOCK_FILE|"
-
-if [ -f $LOCK_FILE ];
-  then
+if [ -f $LOCK_FILE ]; then
     echo "ERROR: lock file detected, meaning another instance of this script is already running."
     my_exit 99 false
-  else
+else
     touch $LOCK_FILE
-  fi
+fi
 
 # -- get tenancy OCID from OCI PROFILE
 TENANCYOCID=`egrep "^\[|ocid1.tenancy" $OCI_CONFIG_FILE|sed -n -e "/\[$PROFILE\]/,/tenancy/p"|tail -1| awk -F'=' '{ print $2 }' | sed 's/ //g'`
 
 # -- set the list of regions
-if [ $ALL_REGIONS == false ]
-then
-  REGIONS_LIST=`get_region_from_profile`
+if [ $ALL_REGIONS ]; then
+    REGIONS_LIST=`get_all_active_regions`
 else
-  REGIONS_LIST=`get_all_active_regions`
+    REGIONS_LIST=`get_region_from_profile`
 fi
  
 # -- process required regions list
