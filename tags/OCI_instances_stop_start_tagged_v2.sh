@@ -64,23 +64,22 @@ process_compartment()
   local lcompname=$2
   local lregion=$3
 
-  oci --profile $PROFILE compute instance list -c $lcompid --region $lregion --output table --query "data [*].{InstanceName:\"display-name\", InstanceOCID:id, Status:\"lifecycle-state\"}" > $TMP_FILE
+  oci --profile $PROFILE compute instance list -c $lcompid --region $lregion | jq -r '.data[].id' > $TMP_FILE
   
   # if no instance found in this compartment (TMP_FILE empty), exit the function
   if [ ! -s $TMP_FILE ]; then rm -f $TMP_FILE; return; fi 
 
-  cat $TMP_FILE | sed '1,3d;$d' | sed -e 's#^.*ocid1.instance#ocid1.instance#' -e 's# .*$##' | while read inst_id
+  # otherwise, we look at each compute instance
+  for inst_id in `cat $TMP_FILE``
   do
     oci --profile $PROFILE compute instance get --region $lregion --instance-id $inst_id > ${TMP_FILE}_INST 2>/dev/null
     inst_status=`cat ${TMP_FILE}_INST| jq -r '.[]."lifecycle-state"' 2>/dev/null`
-    if ( [ "$inst_status" == "STOPPED" ] || [ "$inst_status" == "RUNNING" ] )
-    then 
-      inst_name=`cat ${TMP_FILE}_INST | jq -r '.[]."display-name"' 2>/dev/null`
-      ltag_value_stop=`cat ${TMP_FILE}_INST| jq -r '.[]."defined-tags".'\"$TAG_NS\"'.'\"$TAG_KEY_STOP\"'' 2>/dev/null`
-      ltag_value_start=`cat ${TMP_FILE}_INST| jq -r '.[]."defined-tags".'\"$TAG_NS\"'.'\"$TAG_KEY_START\"'' 2>/dev/null`
-      # Is it time to start this instance ?
-      if [ "$ltag_value_start" == "$CURRENT_UTC_TIME" ]
-      then 
+    inst_name=`cat ${TMP_FILE}_INST  | jq -r '.[]."display-name"' 2>/dev/null`
+    ltag_value_stop=`cat  ${TMP_FILE}_INST| jq -r '.[]."defined-tags".'\"$TAG_NS\"'.'\"$TAG_KEY_STOP\"''  2>/dev/null`
+    ltag_value_start=`cat ${TMP_FILE}_INST| jq -r '.[]."defined-tags".'\"$TAG_NS\"'.'\"$TAG_KEY_START\"'' 2>/dev/null`
+
+    # Is it time to start this instance ?
+    if [ "$inst_status" == "STOPPED" ] && [ "$ltag_value_start" == "$CURRENT_UTC_TIME" ]; then
         printf "`date '+%Y/%m/%d %H:%M'`, region $lregion, cpt $lcompname: "
         if [ $CONFIRM_START ]
         then
@@ -89,9 +88,9 @@ process_compartment()
         else
           echo "Instance $inst_name ($inst_id) SHOULD BE STARTED --> re-run script with --confirm_start to actually start instances" 
         fi
-      # Is it time to stop this instance ?
-      elif [ "$ltag_value_stop" == "$CURRENT_UTC_TIME" ]
-      then 
+
+    # Is it time to stop this instance ?
+    elif [ "$inst_status" == "RUNNING" ] && [ "$ltag_value_stop" == "$CURRENT_UTC_TIME" ]; then
         printf "`date '+%Y/%m/%d %H:%M'`, region $lregion, cpt $lcompname: "
         if [ $CONFIRM_STOP ]
         then
@@ -100,7 +99,6 @@ process_compartment()
         else
           echo "Instance $inst_name ($inst_id) SHOULD BE STOPPED --> re-run script with --confirm_stop to actually stop instances"
         fi
-      fi
     fi
     rm -f ${TMP_FILE}_INST
   done
