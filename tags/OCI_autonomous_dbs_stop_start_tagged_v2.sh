@@ -155,7 +155,9 @@ if [ "$ACTION" != "start" ] && [ "$ACTION" != "stop" ]; then usage; fi
 
 TMP_FILE=/tmp/tmp_$$
 
-echo "`date '+%Y/%m/%d %H:%M'`: BEGIN SCRIPT action $ACTION"
+LABEL=$$
+
+echo "`date '+%Y/%m/%d %H:%M'`: BEGIN SCRIPT LABEL=$LABEL action $ACTION"
 
 # -- Get current time in UTC timezone in format "HH:00 UTC"
 # -- This will be compared to tag values
@@ -219,7 +221,7 @@ do
   done
 done
 
-echo "`date '+%Y/%m/%d %H:%M'`: END SCRIPT action $ACTION"
+echo "`date '+%Y/%m/%d %H:%M'`: END SCRIPT LABEL=$LABEL action $ACTION"
 
 rm -f $TMP_FILE
 exit 0
