@@ -96,7 +96,7 @@ def process_compartment(lcpt):
                         print ("Autonomous DB {:s} ({:s}) SHOULD BE STARTED --> re-run script with --confirm_start to actually start databases".format(adb.display_name, adb.id))
 
                 # Is it time to stop this autonomous db ?
-                elif adb.lifecycle_state == "RUNNING" and tag_value_stop == current_utc_time:
+                elif adb.lifecycle_state == "AVAILABLE" and tag_value_stop == current_utc_time:
                     print ("{:s}, {:s}, {:s}: ".format(datetime.utcnow().strftime("%T"), region, lcpt.name),end='')
                     if confirm_stop:
                         print ("STOPPING autonomous db {:s} ({:s})".format(adb.display_name, adb.id))
