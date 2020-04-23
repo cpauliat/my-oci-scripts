@@ -60,18 +60,19 @@ def usage():
     exit (1)
 
 # ---- Check compute instances in a compartment
-def process_compartment(lcompid, lcompname):
+def process_compartment(lcpt):
     global config
     global current_utc_time
+    global ComputeClient
+
+    # exit function if compartent is deleted
+    if lcpt.lifecycle_state == "DELETED": return
 
     # region 
     region = config["region"]
 
-    #print ("DEBUG: cpt={:s}".format(lcompname))
-
     # find compute instances in this compartment
-    ComputeClient = oci.core.ComputeClient(config)
-    response = oci.pagination.list_call_get_all_results(ComputeClient.list_instances,compartment_id=lcompid)
+    response = oci.pagination.list_call_get_all_results(ComputeClient.list_instances,compartment_id=lcpt.id)
 
     # for each instance, check if it needs to be stopped or started 
     if len(response.data) > 0:
@@ -85,10 +86,9 @@ def process_compartment(lcompid, lcompname):
                     tag_value_stop  = "none"
                     tag_value_start = "none"
                 
-                #print ("    DEBUG: tag_value_stop={:s} tag_value_start={:s} inst={:s}".format(tag_value_stop, tag_value_start, instance.id))
                 # Is it time to start this instance ?
                 if instance.lifecycle_state == "STOPPED" and tag_value_start == current_utc_time:
-                    print ("{:s}, {:s}, {:s}: ".format(datetime.utcnow().strftime("%T"), region, lcompname),end='')
+                    print ("{:s}, {:s}, {:s}: ".format(datetime.utcnow().strftime("%T"), region, lcpt.name),end='')
                     if confirm_start:
                         print ("STARTING instance {:s} ({:s})".format(instance.display_name, instance.id))
                         ComputeClient.instance_action(instance.id, "START")
@@ -97,7 +97,7 @@ def process_compartment(lcompid, lcompname):
 
                 # Is it time to stop this instance ?
                 elif instance.lifecycle_state == "RUNNING" and tag_value_stop == current_utc_time:
-                    print ("{:s}, {:s}, {:s}: ".format(datetime.utcnow().strftime("%T"), region, lcompname),end='')
+                    print ("{:s}, {:s}, {:s}: ".format(datetime.utcnow().strftime("%T"), region, lcpt.name),end='')
                     if confirm_stop:
                         print ("STOPPING instance {:s} ({:s})".format(instance.display_name, instance.id))
                         ComputeClient.instance_action(instance.id, "SOFTSTOP")
@@ -154,7 +154,6 @@ else:
 
 # -- get UTC time (format 10:00_UTC, 11:00_UTC ...)
 current_utc_time = datetime.utcnow().strftime("%H")+":00_UTC"
-#print ("DEBUG:  ",current_utc_time)
 
 # -- starting
 pid=os.getpid()
@@ -182,13 +181,15 @@ regions = response.data
 
 # -- do the job
 if not(all_regions):
+    ComputeClient = oci.core.ComputeClient(config)
     for cpt in compartments:
-        if cpt.lifecycle_state == "ACTIVE": process_compartment(cpt.id, cpt.name)
+        process_compartment(cpt)
 else:
     for region in regions:
         config["region"]=region.region_name
+        ComputeClient = oci.core.ComputeClient(config)
         for cpt in compartments:
-            if cpt.lifecycle_state == "ACTIVE": process_compartment(cpt.id, cpt.name)
+            process_compartment(cpt)
 
 # -- the end
 print ("{:s}: END SCRIPT PID={:d}".format(datetime.utcnow().strftime("%Y/%m/%d %T"),pid))
