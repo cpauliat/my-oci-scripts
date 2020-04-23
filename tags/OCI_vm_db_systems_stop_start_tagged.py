@@ -91,7 +91,7 @@ def process_compartment(lcpt):
                 dbnode = response.data[0]
 
                 # Is it time to start this autonomous db ?
-                if dbs.lifecycle_state == "STOPPED" and tag_value_start == current_utc_time:
+                if dbnode.lifecycle_state == "STOPPED" and tag_value_start == current_utc_time:
                     print ("{:s}, {:s}, {:s}: ".format(datetime.utcnow().strftime("%T"), region, lcpt.name),end='')
                     if confirm_start:
                         print ("STARTING DB node for {:s} ({:s})".format(dbs.display_name, dbs.id))
@@ -100,7 +100,7 @@ def process_compartment(lcpt):
                         print ("DB node for DB system {:s} ({:s}) SHOULD BE STARTED --> re-run script with --confirm_start to actually start databases".format(dbs.display_name, dbs.id))
 
                 # Is it time to stop this autonomous db ?
-                elif dbs.lifecycle_state == "RUNNING" and tag_value_stop == current_utc_time:
+                elif dbnode.lifecycle_state == "AVAILABLE" and tag_value_stop == current_utc_time:
                     print ("{:s}, {:s}, {:s}: ".format(datetime.utcnow().strftime("%T"), region, lcpt.name),end='')
                     if confirm_stop:
                         print ("STOPPING DB node for {:s} ({:s})".format(dbs.display_name, dbs.id))
