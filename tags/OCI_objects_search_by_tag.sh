@@ -48,8 +48,8 @@ if [ $? -ne 0 ]; then echo "ERROR: oci not found !"; exit 2; fi
 
 # -- Search
 oci --profile $PROFILE search resource structured-search \
-  --query-text "query all resources where (definedTags.namespace = '$TAG_NS' \
-  && definedTags.key = '$TAG_KEY' \
-  && definedTags.value = '$TAG_VALUE')" \
-  --output table \
-  --query "data.items[*] | sort_by(@,&\"resource-type\") [].{Name:\"display-name\",Type:\"resource-type\",ID:identifier}"
+    --query-text "query all resources where (definedTags.namespace = '$TAG_NS' \
+                && definedTags.key = '$TAG_KEY' \
+                && definedTags.value = '$TAG_VALUE')" \
+    --output table \
+    --query "data.items[*] | sort_by(@,&\"resource-type\") [].{Name:\"display-name\",Type:\"resource-type\",ID:identifier}"
