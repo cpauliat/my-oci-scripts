@@ -11,9 +11,9 @@
 # prerequisites : - Python 3 with OCI Python SDK installed
 #                 - OCI config file configured with profiles
 # Versions
-#    2018-10-18: Initial Version
+#    2019-10-18: Initial Version
+#    2020-04-24: minor code enhancements
 # --------------------------------------------------------------------------------------------------------------
-
 
 # -- import
 import oci
@@ -28,12 +28,11 @@ COLOR_CYAN="\033[96m"
 COLOR_BLUE="\033[94m"
 COLOR_GREY="\033[90m"
 
-# ---------- Functions
-# -- variables
+# ---------- variables
 configfile = "~/.oci/config"    # Define config file to be used.
 flag=[0,0,0,0,0,0,0,0,0,0]
 
-# -- functions
+# ---------- functions
 def usage():
     print ("Usage: {} [-d] OCI_PROFILE".format(sys.argv[0]))
     print ("")
@@ -112,10 +111,10 @@ def list_compartments(parent_id, level):
         list_compartments(cid, level+1)
         i += 1
 
-# -- main
+# ---------- main
 LIST_DELETED=False
-global compartments
 
+# -- parsing arguments
 if (len(sys.argv) != 2) and (len(sys.argv) != 3):
     usage()
 
@@ -128,6 +127,7 @@ elif (len(sys.argv) == 3):
     else:
         usage()
     
+# -- get OCI Config
 try:
     config = oci.config.from_file(configfile,profile)
 
@@ -135,12 +135,12 @@ except:
     print ("ERROR: profile '{}' not found in config file {} !".format(profile,configfile))
     exit (2)
 
-identity = oci.identity.IdentityClient(config)
-user = identity.get_user(config["user"]).data
+IdentityClient = oci.identity.IdentityClient(config)
+user = IdentityClient.get_user(config["user"]).data
 RootCompartmentID = user.compartment_id
 
-# get list of compartments with all sub-compartments
-response = oci.pagination.list_call_get_all_results(identity.list_compartments,RootCompartmentID,compartment_id_in_subtree=True)
+# -- get list of compartments with all sub-compartments
+response = oci.pagination.list_call_get_all_results(IdentityClient.list_compartments,RootCompartmentID,compartment_id_in_subtree=True)
 compartments = response.data
 
 list_compartments(RootCompartmentID,0)
