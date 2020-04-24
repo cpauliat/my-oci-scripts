@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # ----------------------------------------------------------------------------------------
-# This script removes a defined tag key (using tag namespace) from a DB system
+# This script adds a defined tag key and value (using tag namespace) to a database system
 #
 # Note: OCI tenant and region given by an OCI CLI PROFILE
 # Author        : Christophe Pauliat
@@ -12,6 +12,8 @@
 # Versions
 #    2020-04-24: Initial Version
 # ----------------------------------------------------------------------------------------
+
+# TO DO: add the tag namespace to db system if not already added
 
 # -- import
 import oci
@@ -24,7 +26,7 @@ configfile = "~/.oci/config"    # Define config file to be used.
 
 # ---- usage syntax
 def usage():
-    print ("Usage: {} OCI_PROFILE db_system_ocid tag_namespace tag_key".format(sys.argv[0]))
+    print ("Usage: {} OCI_PROFILE db_system_ocid tag_namespace tag_key tag_value".format(sys.argv[0]))
     print ("")
     print ("")
     print ("note: OCI_PROFILE must exist in {} file (see example below)".format(configfile))
@@ -41,11 +43,12 @@ def usage():
 global config
 
 # -- parse arguments
-if len(sys.argv) == 5:
+if len(sys.argv) == 6:
     profile  = sys.argv[1]
     dbs_id   = sys.argv[2] 
     tag_ns   = sys.argv[3]
     tag_key  = sys.argv[4]
+    tag_value= sys.argv[5]
 else:
     usage()
 
@@ -76,21 +79,15 @@ if dbs.lifecycle_state == "TERMINATED":
     print ("ERROR 04: db system status is TERMINATED, so cannot update tags !")
     exit (4)
 
-# -- Remove tag key from tag namespace
+# -- Add tag key to tag namespace and update compute instance
 tags = dbs.defined_tags
 try:
-    del tags[tag_ns][tag_key]
-except:
-    print ("ERROR 05: this tag key does not exist for this db system !")
-    exit (5)
-
-# -- Update db system
-try:
+    tags[tag_ns][tag_key] = tag_value
     DatabaseClient.update_db_system(dbs_id, oci.database.models.UpdateDbSystemDetails(defined_tags=tags))
 except:
-    print ("ERROR 06: cannot remove this tag from this db system !")
-    print (sys.exc_info()[1].message)
-    exit (6)
+    print ("ERROR 05: cannot add this tag key with this tag value !")
+    print ("          Make sure the tag namespace, tag key and tag value are correct.")
+    exit (5)
 
 # -- the end
 exit (0)
