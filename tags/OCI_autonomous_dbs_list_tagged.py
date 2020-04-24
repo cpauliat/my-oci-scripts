@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
 # --------------------------------------------------------------------------------------------------------------------------
-# This script looks for all autonomous databases in a tenant and region (all compartments)
-# and list the tag values for the ones having specific tag namespace and tag key
-#
+# This script looks for autonomous databases in all compartments in an OCI tenant in one region or all subscribed regions
+# and lists the tag values for the ones having specific tag namespace and tag key
+# 
 # Note: OCI tenant and region given by an OCI CLI PROFILE
 # Author        : Christophe Pauliat
 # Platforms     : MacOS / Linux
@@ -11,7 +11,8 @@
 # prerequisites : - Python 3 with OCI Python SDK installed
 #                 - OCI config file configured with profiles
 # Versions
-#    2020-04-22: Initial Version
+#    2020-04-16: Initial Version
+#    2020-04-24: rewrite of the script using OCI search (much faster)
 # --------------------------------------------------------------------------------------------------------------------------
 
 # -- import
@@ -40,23 +41,25 @@ def usage():
     print ("region      = eu-frankfurt-1")
     exit (1)
 
-# -- Autonomous DB
-def list_tagged_autonomous_databases_in_compartment (lcpt):
-    if lcpt.lifecycle_state == "DELETED": return
+# ---- Get the name of compartment from its id
+def get_cpt_name_from_id(cpt_id):
+    global compartments
+    for c in compartments:
+        if (c.id == cpt_id):
+            return c.name
 
-    response = oci.pagination.list_call_get_all_results(DatabaseClient.list_autonomous_databases,compartment_id=lcpt.id)
-    if len(response.data) > 0:
-        for adb in response.data:
-            if adb.lifecycle_state != "TERMINED":
-                try:
-                    tag_value = adb.defined_tags[tag_ns][tag_key]
-                    print ('{:s}, {:s}, {:s}, {:s}, {:s}.{:s} = {:s}'.format(config["region"], lcpt.name, adb.display_name, adb.id, tag_ns, tag_key, tag_value))
-                except:
-                    pass
+# ---- Search resources in all compartments in a region
+def search_resources():
+    global config
+    SearchClient = oci.resource_search.ResourceSearchClient(config)
 
+    response = SearchClient.search_resources(oci.resource_search.models.StructuredSearchDetails(type="Structured", query=query))
+    for item in response.data.items:
+        cpt_name = get_cpt_name_from_id(item.compartment_id)
+        tag = tag_ns+"."+tag_key+" = "+item.defined_tags[tag_ns][tag_key]
+        print ("{:s}, {:s}, {:s}, {:s}, {:s}".format(config['region'], cpt_name, item.display_name, item.identifier, tag))
 
 # ------------ main
-global config
 
 # -- parse arguments
 all_regions = False
@@ -79,7 +82,6 @@ else:
 # -- load profile from config file
 try:
     config = oci.config.from_file(configfile,profile)
-
 except:
     print ("ERROR 02: profile '{}' not found in config file {} !".format(profile,configfile))
     exit (2)
@@ -96,17 +98,18 @@ regions = response.data
 response = oci.pagination.list_call_get_all_results(IdentityClient.list_compartments, RootCompartmentID,compartment_id_in_subtree=True)
 compartments = response.data
 
-# -- list objects
+# -- Query (see https://docs.cloud.oracle.com/en-us/iaas/Content/Search/Concepts/querysyntax.htm)
+query = "query autonomousdatabase resources where (definedTags.namespace = '{:s}' && definedTags.key = '{:s}')".format(tag_ns, tag_key)
+
+# -- Get the resources
+print ("Region, Compartment, Display Name, OCID, Tag")
+
 if all_regions:
     for region in regions:
         config["region"]=region.region_name
-        DatabaseClient = oci.database.DatabaseClient(config)
-        for cpt in compartments:
-            list_tagged_autonomous_databases_in_compartment (cpt)
+        search_resources()
 else:
-    DatabaseClient = oci.database.DatabaseClient(config)
-    for cpt in compartments:
-        list_tagged_autonomous_databases_in_compartment (cpt)
+    search_resources()
 
 # -- the end
 exit (0)

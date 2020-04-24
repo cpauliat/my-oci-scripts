@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # --------------------------------------------------------------------------------------------------------------------------
-# This script looks for compute instances in all compartments in an OCI tenant in one region or all subscribed regions
+# This script looks for database systems in all compartments in an OCI tenant in one region or all subscribed regions
 # and lists the tag values for the ones having specific tag namespace and tag key
 # 
 # Note: OCI tenant and region given by an OCI CLI PROFILE
@@ -28,8 +28,8 @@ configfile = "~/.oci/config"    # Define config file to be used.
 def usage():
     print ("Usage: {} [-a] OCI_PROFILE tag_namespace tag_key".format(sys.argv[0]))
     print ("")
-    print ("    By default, only the compute instances in the region provided in the profile are listed")
-    print ("    If -a is provided, the compute instances from all subscribed regions are listed")
+    print ("    By default, only the database systems in the region provided in the profile are listed")
+    print ("    If -a is provided, the database systems from all subscribed regions are listed")
     print ("")
     print ("note: OCI_PROFILE must exist in {} file (see example below)".format(configfile))
     print ("")
@@ -99,7 +99,7 @@ response = oci.pagination.list_call_get_all_results(IdentityClient.list_compartm
 compartments = response.data
 
 # -- Query (see https://docs.cloud.oracle.com/en-us/iaas/Content/Search/Concepts/querysyntax.htm)
-query = "query instance resources where (definedTags.namespace = '{:s}' && definedTags.key = '{:s}')".format(tag_ns, tag_key)
+query = "query dbsystem resources where (definedTags.namespace = '{:s}' && definedTags.key = '{:s}')".format(tag_ns, tag_key)
 
 # -- Get the resources
 print ("Region, Compartment, Display Name, OCID, Tag")
