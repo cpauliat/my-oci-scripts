@@ -11,6 +11,7 @@
 #                 - OCI config file configured with profiles
 # Versions
 #    2020-04-16: Initial Version
+#    2020-04-25: display error message using sys.exc_info in case of error
 # ----------------------------------------------------------------------------------------
 
 # TO DO: add the tag namespace to instance if not already added
@@ -86,7 +87,7 @@ try:
     ComputeClient.update_instance(inst_id, oci.core.models.UpdateInstanceDetails(defined_tags=tags))
 except:
     print ("ERROR 05: cannot add this tag key with this tag value !")
-    print ("          Make sure the tag namespace, tag key and tag value are correct.")
+    print (sys.exc_info()[1].message)
     exit (5)
 
 # -- the end

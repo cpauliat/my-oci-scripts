@@ -74,11 +74,6 @@ except:
     print ("ERROR 03: db system with OCID '{}' not found !".format(dbs_id))
     exit (3)
 
-# -- If the db system is TERMINATED, stop here
-if dbs.lifecycle_state == "TERMINATED":
-    print ("ERROR 04: db system status is TERMINATED, so cannot update tags !")
-    exit (4)
-
 # -- Add tag key to tag namespace and update compute instance
 tags = dbs.defined_tags
 try:
@@ -86,7 +81,7 @@ try:
     DatabaseClient.update_db_system(dbs_id, oci.database.models.UpdateDbSystemDetails(defined_tags=tags))
 except:
     print ("ERROR 05: cannot add this tag key with this tag value !")
-    print ("          Make sure the tag namespace, tag key and tag value are correct.")
+    print (sys.exc_info()[1].message)
     exit (5)
 
 # -- the end

@@ -11,6 +11,7 @@
 #                 - OCI config file configured with profiles
 # Versions
 #    2020-04-22: Initial Version
+#    2020-04-25: display error message using sys.exc_info in case of error
 # ----------------------------------------------------------------------------------------
 
 # TO DO: add the tag namespace to autonomous DB if not already added
@@ -86,8 +87,7 @@ try:
     DatabaseClient.update_autonomous_database(adb_id, oci.database.models.UpdateAutonomousDatabaseDetails(defined_tags=tags))
 except:
     print ("ERROR 05: cannot add this tag key with this tag value !")
-    print ("          Make sure the tag namespace, tag key and tag value are correct.")
-    print ("          Make sure the autonomous DB status is correct")
+    print (sys.exc_info()[1].message)
     exit (5)
 
 # -- the end

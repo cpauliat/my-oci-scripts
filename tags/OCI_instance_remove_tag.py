@@ -11,6 +11,7 @@
 #                 - OCI config file configured with profiles
 # Versions
 #    2020-04-16: Initial Version
+#    2020-04-25: display error message using sys.exc_info in case of error
 # ----------------------------------------------------------------------------------------
 
 # -- import
@@ -89,7 +90,7 @@ try:
     ComputeClient.update_instance(inst_id, oci.core.models.UpdateInstanceDetails(defined_tags=tags))
 except:
     print ("ERROR 06: cannot remove this tag from this compute instance !")
-    print ("          Make sure the instance status is correct")
+    print (sys.exc_info()[1].message)
     exit (6)
 
 # -- the end

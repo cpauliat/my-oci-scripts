@@ -71,11 +71,6 @@ except:
     print ("ERROR 03: db system with OCID '{}' not found !".format(dbs_id))
     exit (3)
 
-# -- If the db system is TERMINATED, stop here
-if dbs.lifecycle_state == "TERMINATED":
-    print ("ERROR 04: db system status is TERMINATED, so cannot update tags !")
-    exit (4)
-
 # -- Remove tag key from tag namespace
 tags = dbs.defined_tags
 try:
