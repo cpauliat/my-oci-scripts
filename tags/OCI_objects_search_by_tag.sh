@@ -5,7 +5,7 @@
 # it looks in all compartments in a OCI tenant in a region using OCI CLI
 # Note: OCI tenant and region given by an OCI CLI PROFILE
 #
-# Author        : Christophe Pauliat, with help from Matthieu Bordonne
+# Authors       : Matthieu Bordonne and Christophe Pauliat
 # Platforms     : MacOS / Linux
 # prerequisites : OCI CLI installed, OCI config file configured with profiles and jq JSON parser
 #
