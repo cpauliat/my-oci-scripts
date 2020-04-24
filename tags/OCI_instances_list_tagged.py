@@ -3,7 +3,7 @@
 # --------------------------------------------------------------------------------------------------------------------------
 # This script looks for all compute instances in a tenant and region (all compartments)
 # and list the tag values for the ones having specific tag namespace and tag key
-#
+# 
 # Note: OCI tenant and region given by an OCI CLI PROFILE
 # Author        : Christophe Pauliat
 # Platforms     : MacOS / Linux
@@ -12,6 +12,7 @@
 #                 - OCI config file configured with profiles
 # Versions
 #    2020-04-16: Initial Version
+#    2020-04-24: rewrite of the script using OCI search (much faster)
 # --------------------------------------------------------------------------------------------------------------------------
 
 # -- import
@@ -40,20 +41,23 @@ def usage():
     print ("region      = eu-frankfurt-1")
     exit (1)
 
-# -- Compute
-def list_tagged_compute_instances_in_compartment (lcpt):
-    if lcpt.lifecycle_state == "DELETED": return
+# ---- Get the name of compartment from its id
+def get_cpt_name_from_id(cpt_id):
+    global compartments
+    for c in compartments:
+        if (c.id == cpt_id):
+            return c.name
 
-    response = oci.pagination.list_call_get_all_results(ComputeClient.list_instances,compartment_id=lcpt.id)
-    if len(response.data) > 0:
-        for instance in response.data:
-            if instance.lifecycle_state != "TERMINED":
-                try:
-                    tag_value = instance.defined_tags[tag_ns][tag_key]
-                    print ('{:s}, {:s}, {:s}, {:s}, {:s}.{:s} = {:s}'.format(config["region"], lcpt.name, instance.display_name, instance.id, tag_ns, tag_key, tag_value))
-                except:
-                    pass
+# ---- Search resources in all compartments in a region
+def search_instances():
+    global config
+    SearchClient = oci.resource_search.ResourceSearchClient(config)
 
+    response = SearchClient.search_resources(oci.resource_search.models.StructuredSearchDetails(type="Structured", query=query))
+    for item in response.data.items:
+        cpt_name = get_cpt_name_from_id(item.compartment_id)
+        tag = tag_ns+"."+tag_key+" = "+item.defined_tags[tag_ns][tag_key]
+        print ("{:s}, {:s}, {:s}, {:s}, {:s}".format(config['region'], cpt_name, item.display_name, item.identifier, tag))
 
 # ------------ main
 global config
@@ -79,7 +83,6 @@ else:
 # -- load profile from config file
 try:
     config = oci.config.from_file(configfile,profile)
-
 except:
     print ("ERROR 02: profile '{}' not found in config file {} !".format(profile,configfile))
     exit (2)
@@ -96,17 +99,18 @@ regions = response.data
 response = oci.pagination.list_call_get_all_results(IdentityClient.list_compartments, RootCompartmentID,compartment_id_in_subtree=True)
 compartments = response.data
 
-# -- list objects
+# -- Query (see https://docs.cloud.oracle.com/en-us/iaas/Content/Search/Concepts/querysyntax.htm)
+query = "query instance resources where (definedTags.namespace = '{:s}' && definedTags.key = '{:s}')".format(tag_ns, tag_key)
+
+# -- Get the resources
+print ("Region, Compartment, Display Name, OCID, Tag")
+
 if all_regions:
     for region in regions:
         config["region"]=region.region_name
-        ComputeClient = oci.core.ComputeClient(config)
-        for cpt in compartments:
-            list_tagged_compute_instances_in_compartment (cpt)
+        search_instances()
 else:
-    ComputeClient = oci.core.ComputeClient(config)
-    for cpt in compartments:
-        list_tagged_compute_instances_in_compartment (cpt)
+    search_instances()
 
 # -- the end
 exit (0)
