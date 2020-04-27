@@ -47,6 +47,7 @@ def get_cpt_name_from_id(cpt_id):
     for c in compartments:
         if (c.id == cpt_id):
             return c.name
+    return "root"
 
 # ---- Search resources in all compartments in a region
 def search_resources():
