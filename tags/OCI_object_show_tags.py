@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 
-# --------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------
 # This script show defined tags for an OCI resource/object
 #
 # Supported resource types:
 # - COMPUTE            : instance, custom image, boot volume
-# - BLOCK STORAGE      : block volume
+# - BLOCK STORAGE      : block volume, block volume backup
 # - DATABASE           : dbsystem, autonomous database
 # - OBJECT STORAGE     : bucket
-# - NETWORKING         : vcn, subnet, security list
+# - NETWORKING         : vcn, subnet, route table, Internet gateway, DRG, network security group
+#                        security list, DHCP options, LPG, NAT gateway, service gateway
 # 
 # Note: OCI tenant and region given by an OCI CLI PROFILE
 # Author        : Christophe Pauliat
@@ -20,7 +21,7 @@
 #    2020-04-28: Initial Version
 #
 # TO DO: add support for more resource types
-# --------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------
 
 # -- import
 import oci
@@ -54,7 +55,6 @@ def show_tags_from_compute_instance(inst_id):
 
     ComputeClient = oci.core.ComputeClient(config)
 
-    # Get Defined-tags for the compute instance
     try:
         response = ComputeClient.get_instance(inst_id)
         instance = response.data
@@ -68,7 +68,6 @@ def show_tags_from_custom_image(image_id):
 
     ComputeClient = oci.core.ComputeClient(config)
 
-    # Get Defined-tags for the custom image
     try:
         response = ComputeClient.get_image(image_id)
         image = response.data
@@ -82,7 +81,6 @@ def show_tags_from_boot_volume(bootvol_id):
 
     BlockstorageClient = oci.core.BlockstorageClient(config)
 
-    # Get Defined-tags for the boot volume
     try:
         response = BlockstorageClient.get_boot_volume(bootvol_id)
         bootvol = response.data
@@ -97,7 +95,6 @@ def show_tags_from_block_volume(bkvol_id):
 
     BlockstorageClient = oci.core.BlockstorageClient(config)
 
-    # Get Defined-tags for the boot volume
     try:
         response = BlockstorageClient.get_volume(bkvol_id)
         bkvol = response.data
@@ -106,13 +103,25 @@ def show_tags_from_block_volume(bkvol_id):
         print ("ERROR 03: block volume with OCID '{}' not found !".format(bkvol_id))
         exit (3)
 
+def show_tags_from_block_volume_backup(bkvolbkup_id):
+    global config
+
+    BlockstorageClient = oci.core.BlockstorageClient(config)
+
+    try:
+        response = BlockstorageClient.get_volume_backup(bkvolbkup_id)
+        bkvol_bkup = response.data
+        print (bkvol_bkup.defined_tags)
+    except:
+        print ("ERROR 03: block volume backup with OCID '{}' not found !".format(bkvolbkup_id))
+        exit (3)
+
 # -- database
 def show_tags_from_db_system(dbs_id):
     global config
 
     DatabaseClient = oci.database.DatabaseClient(config)
 
-    # Get Defined-tags for the db system
     try:
         response = DatabaseClient.get_db_system(dbs_id)
         dbs = response.data
@@ -126,7 +135,6 @@ def show_tags_from_autonomous_db(adb_id):
 
     DatabaseClient = oci.database.DatabaseClient(config)
 
-    # Get Defined-tags for the autonomous DB
     try:
         response = DatabaseClient.get_autonomous_database(adb_id)
         adb = response.data
@@ -146,7 +154,6 @@ def show_tags_from_bucket(bucket_id):
     response = ObjectStorageClient.get_namespace()
     namespace = response.data
 
-    # Get Defined-tags for the bucket
     try:
         response = ObjectStorageClient.get_bucket(namespace, bucket_name)
         bucket = response.data
@@ -161,7 +168,6 @@ def show_tags_from_vcn(vcn_id):
 
     VirtualNetworkClient = oci.core.VirtualNetworkClient(config)
 
-    # Get Defined-tags for the VCN
     try:
         response = VirtualNetworkClient.get_vcn(vcn_id)
         vcn = response.data
@@ -175,7 +181,6 @@ def show_tags_from_subnet(subnet_id):
 
     VirtualNetworkClient = oci.core.VirtualNetworkClient(config)
 
-    # Get Defined-tags for the subnet
     try:
         response = VirtualNetworkClient.get_subnet(subnet_id)
         subnet = response.data
@@ -184,12 +189,63 @@ def show_tags_from_subnet(subnet_id):
         print ("ERROR 03: Subnet with OCID '{}' not found !".format(subnet_id))
         exit (3)
 
+def show_tags_from_route_table(rt_id):
+    global config
+
+    VirtualNetworkClient = oci.core.VirtualNetworkClient(config)
+
+    try:
+        response = VirtualNetworkClient.get_route_table(rt_id)
+        rt = response.data
+        print (rt.defined_tags)
+    except:
+        print ("ERROR 03: Route table with OCID '{}' not found !".format(rt_id))
+        exit (3)
+
+def show_tags_from_internet_gateway(ig_id):
+    global config
+
+    VirtualNetworkClient = oci.core.VirtualNetworkClient(config)
+
+    try:
+        response = VirtualNetworkClient.get_internet_gateway(ig_id)
+        ig = response.data
+        print (ig.defined_tags)
+    except:
+        print ("ERROR 03: Internet gateway with OCID '{}' not found !".format(ig_id))
+        exit (3)
+
+def show_tags_from_dynamic_routing_gateway(drg_id):
+    global config
+
+    VirtualNetworkClient = oci.core.VirtualNetworkClient(config)
+
+    try:
+        response = VirtualNetworkClient.get_drg(drg_id)
+        drg = response.data
+        print (drg.defined_tags)
+    except:
+        print ("ERROR 03: Dynamic routing gateway with OCID '{}' not found !".format(drg_id))
+        exit (3)
+
+def show_tags_from_network_security_group(nsg_id):
+    global config
+
+    VirtualNetworkClient = oci.core.VirtualNetworkClient(config)
+
+    try:
+        response = VirtualNetworkClient.get_network_security_group(nsg_id)
+        nsg = response.data
+        print (nsg.defined_tags)
+    except:
+        print ("ERROR 03: Network security group with OCID '{}' not found !".format(nsg_id))
+        exit (3)
+
 def show_tags_from_security_list(seclist_id):
     global config
 
     VirtualNetworkClient = oci.core.VirtualNetworkClient(config)
 
-    # Get Defined-tags for the security list
     try:
         response = VirtualNetworkClient.get_security_list(seclist_id)
         seclist = response.data
@@ -198,18 +254,56 @@ def show_tags_from_security_list(seclist_id):
         print ("ERROR 03: Security list with OCID '{}' not found !".format(seclist_id))
         exit (3)
 
-def show_tags_from_route_table(rt_id):
+def show_tags_from_dhcp_options(do_id):
     global config
 
     VirtualNetworkClient = oci.core.VirtualNetworkClient(config)
 
-    # Get Defined-tags for the route table
     try:
-        response = VirtualNetworkClient.get_route_table(rt_id)
-        rt = response.data
-        print (rt.defined_tags)
+        response = VirtualNetworkClient.get_dhcp_options(do_id)
+        do = response.data
+        print (do.defined_tags)
     except:
-        print ("ERROR 03: Route table with OCID '{}' not found !".format(rt_id))
+        print ("ERROR 03: DHCP options with OCID '{}' not found !".format(do_id))
+        exit (3)
+
+def show_tags_from_local_peering_gateway(lpg_id):
+    global config
+
+    VirtualNetworkClient = oci.core.VirtualNetworkClient(config)
+
+    try:
+        response = VirtualNetworkClient.get_local_peering_gateway(lpg_id)
+        lpg = response.data
+        print (lpg.defined_tags)
+    except:
+        print ("ERROR 03: Local peering gateway with OCID '{}' not found !".format(lpg_id))
+        exit (3)
+
+def show_tags_from_nat_gateway(ng_id):
+    global config
+
+    VirtualNetworkClient = oci.core.VirtualNetworkClient(config)
+
+    try:
+        response = VirtualNetworkClient.get_nat_gateway(ng_id)
+        ng = response.data
+        print (ng.defined_tags)
+    except:
+        print ("ERROR 03: NAT gateway with OCID '{}' not found !".format(ng_id))
+        exit (3)
+
+def show_tags_from_service_gateway(sg_id):
+    global config
+
+    VirtualNetworkClient = oci.core.VirtualNetworkClient(config)
+
+    try:
+        response = VirtualNetworkClient.get_service_gateway(sg_id)
+        sg = response.data
+        print (sg.defined_tags)
+    except:
+        print ("ERROR 03: Service gateway with OCID '{}' not found !".format(sg_id))
         exit (3)
 
 # ------------ main
@@ -237,21 +331,29 @@ RootCompartmentID = user.compartment_id
 obj_type = obj_id.split(".")[1].lower()
 
 # compute
-if   obj_type == "instance":           show_tags_from_compute_instance(obj_id)
-elif obj_type == "image":              show_tags_from_custom_image(obj_id)
-elif obj_type == "bootvolume":         show_tags_from_boot_volume(obj_id)
+if   obj_type == "instance":             show_tags_from_compute_instance(obj_id)
+elif obj_type == "image":                show_tags_from_custom_image(obj_id)
+elif obj_type == "bootvolume":           show_tags_from_boot_volume(obj_id)
 # block storage
-elif obj_type == "volume":             show_tags_from_block_volume(obj_id)
+elif obj_type == "volume":               show_tags_from_block_volume(obj_id)
+elif obj_type == "volumebackup":         show_tags_from_block_volume_backup(obj_id)
 # database
-elif obj_type == "dbsystem":           show_tags_from_db_system(obj_id)
-elif obj_type == "autonomousdatabase": show_tags_from_autonomous_db(obj_id)
+elif obj_type == "dbsystem":             show_tags_from_db_system(obj_id)
+elif obj_type == "autonomousdatabase":   show_tags_from_autonomous_db(obj_id)
 # object storage
-elif obj_type == "bucket":             show_tags_from_bucket(obj_id)
+elif obj_type == "bucket":               show_tags_from_bucket(obj_id)
 # networking
-elif obj_type == "vcn":                show_tags_from_vcn(obj_id)
-elif obj_type == "subnet":             show_tags_from_subnet(obj_id)
-elif obj_type == "securitylist":       show_tags_from_security_list(obj_id)
-elif obj_type == "routetable":         show_tags_from_route_table(obj_id)
+elif obj_type == "vcn":                  show_tags_from_vcn(obj_id)
+elif obj_type == "subnet":               show_tags_from_subnet(obj_id)
+elif obj_type == "routetable":           show_tags_from_route_table(obj_id)
+elif obj_type == "internetgateway":      show_tags_from_internet_gateway(obj_id)
+elif obj_type == "drg":                  show_tags_from_dynamic_routing_gateway(obj_id)
+elif obj_type == "networksecuritygroup": show_tags_from_network_security_group(obj_id)
+elif obj_type == "securitylist":         show_tags_from_security_list(obj_id)
+elif obj_type == "dhcpoptions":          show_tags_from_dhcp_options(obj_id)
+elif obj_type == "localpeeringgateway":  show_tags_from_local_peering_gateway(obj_id)
+elif obj_type == "natgateway":           show_tags_from_nat_gateway(obj_id)
+elif obj_type == "servicegateway":       show_tags_from_service_gateway(obj_id)
 else: print ("SORRY: resource type {:s} is not yet supported by this script !".format(obj_type)) 
 
 # -- the end
