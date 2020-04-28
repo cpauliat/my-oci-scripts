@@ -38,7 +38,6 @@ def usage():
     exit (1)
 
 # ------------ main
-global config
 
 # -- parse arguments
 if len(sys.argv) == 3:

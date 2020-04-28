@@ -90,7 +90,7 @@ def add_tag_db_system(dbs_id, ltag_ns, ltag_key, ltag_value):
         print (sys.exc_info()[1].message)
         exit (5)
 
-def add_tag_autonomous_db(abd_id, ltag_ns, ltag_key, ltag_value):
+def add_tag_autonomous_db(adb_id, ltag_ns, ltag_key, ltag_value):
     global config
 
     # Get Defined-tags for the autonomous DB

@@ -196,7 +196,7 @@ def remove_tag_from_db_system(dbs_id, ltag_ns, ltag_key):
         print (sys.exc_info()[1].message)
         exit (6)
 
-def remove_tag_from_autonomous_db(abd_id, ltag_ns, ltag_key):
+def remove_tag_from_autonomous_db(adb_id, ltag_ns, ltag_key):
     global config
 
     DatabaseClient = oci.database.DatabaseClient(config)
@@ -406,7 +406,7 @@ obj_type = obj_id.split(".")[1].lower()
 
 # compute
 if   obj_type == "instance":           remove_tag_from_compute_instance(obj_id, tag_ns, tag_key)
-if   obj_type == "image":              remove_tag_from_custom_image(obj_id, tag_ns, tag_key)
+elif obj_type == "image":              remove_tag_from_custom_image(obj_id, tag_ns, tag_key)
 elif obj_type == "bootvolume":         remove_tag_from_boot_volume(obj_id, tag_ns, tag_key)
 # block storage
 elif obj_type == "volume":             remove_tag_from_block_volume(obj_id, tag_ns, tag_key)
