@@ -15,6 +15,7 @@
 #                 - OCI config file configured with profiles
 # Versions
 #    2020-04-27: Initial Version
+#    2020-05-04: fixed bug if tag namespace not already used for this object
 #
 # TO DO: add support for more resource types
 # --------------------------------------------------------------------------------------------
@@ -45,6 +46,13 @@ def usage():
 
 # ---- specific functions to add tag to objects
 
+def update_tags(ltags):
+    if tag_ns in ltags:     # tag namespace already used in this object
+        ltags[tag_ns][tag_key] = tag_value        
+    else:                   # tag namespace not yet used in this object
+        ltags[tag_ns] = { tag_key : tag_value }   
+    return (ltags)
+
 def add_tag_compute_instance(inst_id, ltag_ns, ltag_key, ltag_value):
     global config
 
@@ -58,9 +66,8 @@ def add_tag_compute_instance(inst_id, ltag_ns, ltag_key, ltag_value):
         exit (3)
 
     # Add tag key to tag namespace and update compute instance
-    tags = instance.defined_tags
+    tags = update_tags(instance.defined_tags)
     try:
-        tags[ltag_ns][ltag_key] = ltag_value
         ComputeClient.update_instance(inst_id, oci.core.models.UpdateInstanceDetails(defined_tags=tags))
     except:
         print ("ERROR 05: cannot add this tag key with this tag value !")
@@ -81,9 +88,8 @@ def add_tag_db_system(dbs_id, ltag_ns, ltag_key, ltag_value):
         exit (3)
 
     # Add tag key to tag namespace and update compute instance
-    tags = dbs.defined_tags
+    tags = update_tags(dbs.defined_tags)
     try:
-        tags[ltag_ns][ltag_key] = ltag_value
         DatabaseClient.update_db_system(dbs_id, oci.database.models.UpdateDbSystemDetails(defined_tags=tags))
     except:
         print ("ERROR 05: cannot add this tag key with this tag value !")
@@ -104,9 +110,8 @@ def add_tag_autonomous_db(adb_id, ltag_ns, ltag_key, ltag_value):
         exit (3)
 
     # Add tag key to tag namespace and update autonomous DB
-    tags = adb.defined_tags
+    tags = update_tags(adb.defined_tags)
     try:
-        tags[ltag_ns][ltag_key] = ltag_value
         DatabaseClient.update_autonomous_database(adb_id, oci.database.models.UpdateAutonomousDatabaseDetails(defined_tags=tags))
     except:
         print ("ERROR 05: cannot add this tag key with this tag value !")
