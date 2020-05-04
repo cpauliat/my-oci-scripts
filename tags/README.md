@@ -2,21 +2,18 @@
 The scripts in this folder works with defined tags
 
 ### OCI_instances_stop_start_tagged.py
-
 ```
 Python 3 script to start or stop OCI compute instances tagged with a specific value 
 in a region or in all active regions using OCI CLI (all compartments)
 ```
 
 ### OCI_autonomous_dbs_stop_start_tagged.py
-
 ```
 Python 3 script to start or stop OCI compute instances tagged with a specific value 
 in a region or in all active regions using OCI CLI (all compartments)
 ```
 
 ### OCI_vm_db_mv sytems_stop_start_tagged.py
-
 ```
 Python 3 script to start or stop database systems node tagged with a specific value 
 in a region or in all active regions using OCI CLI (all compartments)
