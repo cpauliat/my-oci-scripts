@@ -145,41 +145,6 @@ Prerequisites :
 - OCI user needs enough privileges to read all objects in all compartments
 ```
 
-### OCI_instances_stop_start_tagged.sh
-
-```
-Bash script to start or stop OCI compute instances tagged with a specific value 
-in a region or in all active regions using OCI CLI (all compartments)
-
-Prerequisites :
-- jq installed, OCI CLI installed and OCI config file configured with profiles
-- OCI user needs enough privileges
-```
-
-### OCI_autonomous_dbs_stop_start_tagged.sh
-
-```
-Bash script to start or stop OCI compute instances tagged with a specific value 
-in a region or in all active regions using OCI CLI (all compartments)
-
-Prerequisites :
-- jq installed, OCI CLI installed and OCI config file configured with profiles
-- OCI user needs enough privileges
-```
-
-### OCI_vm_db_mv sytems_stop_start_tagged.sh
-
-```
-Bash script to start or stop database systems node tagged with a specific value 
-in a region or in all active regions using OCI CLI (all compartments)
-
-Prerequisites :
-- jq installed, OCI CLI installed and OCI config file configured with profiles
-- OCI user needs enough privileges
-
-Note: supports only non RAC VM.Standard* database systems
-```
-
 ### OCI_free_tier_instances_delete.sh
 
 ```
