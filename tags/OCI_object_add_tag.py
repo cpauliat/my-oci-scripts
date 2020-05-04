@@ -53,7 +53,7 @@ def update_tags(ltags):
         ltags[tag_ns] = { tag_key : tag_value }   
     return (ltags)
 
-def add_tag_compute_instance(inst_id, ltag_ns, ltag_key, ltag_value):
+def add_tag_compute_instance(inst_id):
     global config
 
     # Get Defined-tags for the compute instance
@@ -74,7 +74,7 @@ def add_tag_compute_instance(inst_id, ltag_ns, ltag_key, ltag_value):
         print (sys.exc_info()[1].message)
         exit (5)
 
-def add_tag_db_system(dbs_id, ltag_ns, ltag_key, ltag_value):
+def add_tag_db_system(dbs_id):
     global config
 
     # Get Defined-tags for the db system
@@ -96,7 +96,7 @@ def add_tag_db_system(dbs_id, ltag_ns, ltag_key, ltag_value):
         print (sys.exc_info()[1].message)
         exit (5)
 
-def add_tag_autonomous_db(adb_id, ltag_ns, ltag_key, ltag_value):
+def add_tag_autonomous_db(adb_id):
     global config
 
     # Get Defined-tags for the autonomous DB
@@ -145,9 +145,9 @@ RootCompartmentID = user.compartment_id
 # -- Get the resource type from OCID
 obj_type = obj_id.split(".")[1].lower()
 
-if   obj_type == "instance":           add_tag_compute_instance(obj_id, tag_ns, tag_key, tag_value)
-elif obj_type == "dbsystem":           add_tag_db_system(obj_id, tag_ns, tag_key, tag_value)
-elif obj_type == "autonomousdatabase": add_tag_autonomous_db(obj_id, tag_ns, tag_key, tag_value)
+if   obj_type == "instance":           add_tag_compute_instance(obj_id)
+elif obj_type == "dbsystem":           add_tag_db_system(obj_id)
+elif obj_type == "autonomousdatabase": add_tag_autonomous_db(obj_id)
 else: print ("SORRY: resource type {:s} is not yet supported by this script !".format(obj_type)) 
 
 # -- the end
