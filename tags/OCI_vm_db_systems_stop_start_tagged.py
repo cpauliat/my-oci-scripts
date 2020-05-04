@@ -13,6 +13,8 @@
 # This script looks in all compartments in a OCI tenant in a region using OCI Python SDK
 # Note: OCI tenant and region given by an OCI CLI PROFILE
 #
+# IMPORTANT: DOES NOT SUPPORT RAC VM DB SYSTEMS
+#
 # Author        : Christophe Pauliat
 # Platforms     : MacOS / Linux
 #
