@@ -11,6 +11,7 @@
 # - FILE STORAGE           : file systems, mount targets
 # - NETWORKING             : VCN, DRG, CPE, IPsec connection, LB, public IPs, DNS zones (common to all regions)
 # - DATABASE               : DB Systems, DB Systems backups, Autonomous DB, Autonomous DB backups, NoSQL DB tables
+# - DATA SAFE              : Private endpoints
 # - RESOURCE MANAGER       : Stacks
 # - EMAIL DELIVERY         : Approved senders, Suppressions list (list can only exists in root compartment)
 # - APPLICATION INTEGRATION: Notifications, Events, Content and Experience
@@ -30,6 +31,7 @@
 #    2020-03-24: add support for compute instance configurations, compute instance pools, compute dedicated vm hosts
 #    2020-03-24: fix bug for root compartment
 #    2020-03-25: add support for NoSQL database tables
+#    2020-06-22: add support for Data Safe private endpoints
 # ---------------------------------------------------------------------------------------------------------------------------------
 
 # -- import
@@ -324,6 +326,14 @@ def list_database_nosql_database_tables(lcpt_ocid):
         for table in response.data:
             print ('{0:100s} {1:30s} {2:10s}'.format(table.id, table.name, table.lifecycle_state))
 
+# -- Data Safe
+def list_data_safe_private_endpoints(lcpt_ocid):
+    print (COLOR_TITLE2+"========== DATA SAFE: Private endpoints"+COLOR_NORMAL)
+    response = oci.pagination.list_call_get_all_results(DataSafeClient.list_data_safe_private_endpoints,compartment_id=lcpt_ocid)
+    if len(response.data) > 0:
+        for endpt in response.data:
+            print ('{0:100s} {1:30s} {2:10s}'.format(endpt.id, endpt.display_name, endpt.lifecycle_state))
+
 # -- Resource manager
 def list_resource_manager_stacks(lcpt_ocid):
     print (COLOR_TITLE2+"========== RESOURCE MANAGER: Stacks"+COLOR_NORMAL)
@@ -397,6 +407,7 @@ def list_region_specific_objects (cpt_ocid,cpt_name):
     global LoadBalancerClient
     global DatabaseClient
     global NoSQLClient
+    global DataSafeClient
     global ResourceManagerClient
     global EmailClient
     global NotificationControlPlaneClient
@@ -452,6 +463,10 @@ def list_region_specific_objects (cpt_ocid,cpt_name):
     list_database_autonomous_backups (cpt_ocid)
     NoSQLClient = oci.nosql.NosqlClient(config)
     list_database_nosql_database_tables (cpt_ocid)
+
+    # Data Safe
+    DataSafeClient = oci.data_safe.DataSafeClient(config)
+    list_data_safe_private_endpoints (cpt_ocid)
 
     # Resource Manager
     ResourceManagerClient = oci.resource_manager.ResourceManagerClient(config)
