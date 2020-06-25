@@ -1,5 +1,5 @@
 # my-oci-scripts
-Scripts I developed for OCI (Oracle Cloud Infrastructure) using OCI CLI or OCI Python SDK
+Scripts I developed for OCI (Oracle Cloud Infrastructure) using OCI CLI, OCI Python SDK or OCI Go SDK
 with precious help from Matthieu Bordonne
 
 ### OCI_generate_api_keys.sh
@@ -32,7 +32,18 @@ Note: by default, only active compartments are listed.
       optionally (-d) deleted compartments can also be listed
 
 prerequisites :
-- Python 3 installed, OCI SDK installed and OCI config file configured with profiles
+- Python 3 installed, OCI SDK for Python installed and OCI config file configured with profiles
+- OCI user needs enough privileges to read the compartments list
+```
+
+### OCI_compartments_list.go
+
+```
+Go source code to display the names and IDs of all compartments and subcompartments
+in a OCI tenant using OCI Go SDK (deleted compartments also listed)
+
+prerequisites :
+- Go installed, OCI SDK for Go installed and OCI config file configured with profiles
 - OCI user needs enough privileges to read the compartments list
 ```
 
@@ -47,6 +58,13 @@ Similar to OCI_compartments_list.sh with formatted output
 
 ```
 Similar to OCI_compartments_list.py with formatted output
+Much faster than OCI_compartments_list_formatted.sh
+```
+
+### OCI_compartments_list_formatted.go
+
+```
+Similar to OCI_compartments_list.go with formatted output
 Much faster than OCI_compartments_list_formatted.sh
 ```
 
@@ -127,7 +145,7 @@ Supported objects:
 - IDENTITY           : Policies
 
 Prerequisites :
-- Python 3 installed, OCI SDK installed and OCI config file configured with profiles
+- Python 3 installed, OCI SDK for Python installed and OCI config file configured with profiles
 - OCI user needs enough privileges to read all objects in the compartment
 ```
 
@@ -192,7 +210,7 @@ Prerequisites :
 Python 3 script to show detailed VCNs in a compartment using OCI Python SDK
 
 Prerequisites :
-- Python 3 installed, OCI SDK installed and OCI config file configured with profiles
+- Python 3 installed, OCI SDK for Python installed and OCI config file configured with profiles
 ```
 
 ### OCI_preauth_requests_list.py
@@ -202,7 +220,7 @@ Python 3 script to list pre-authenticated requests for an object storage bucket 
 It lists the expired and actives requests
 
 Prerequisites :
-- Python 3 installed, OCI SDK installed and OCI config file configured with profiles
+- Python 3 installed, OCI SDK for Python installed and OCI config file configured with profiles
 ```
 
 ### OCI_preauth_requests_delete_expired.py
@@ -212,5 +230,5 @@ Python 3 script to delete expired pre-authenticated requests for an object stora
 It first lists the expired requests, then asks to confirm deletion, then deletes them.
 
 Prerequisites :
-- Python 3 installed, OCI SDK installed and OCI config file configured with profiles
+- Python 3 installed, OCI SDK for Python installed and OCI config file configured with profiles
 ```
