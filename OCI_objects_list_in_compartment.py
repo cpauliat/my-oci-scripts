@@ -32,6 +32,7 @@
 #    2020-03-24: fix bug for root compartment
 #    2020-03-25: add support for NoSQL database tables
 #    2020-06-22: add support for Data Safe private endpoints
+#    2020-07-07: fix minor bug for functions applications
 # ---------------------------------------------------------------------------------------------------------------------------------
 
 # -- import
@@ -390,11 +391,15 @@ def list_developer_services_oke(lcpt_ocid):
             print ('{0:100s} {1:30s} {2:10s}'.format(cluster.id, cluster.name, cluster.lifecycle_state))
 
 def list_developer_services_functions(lcpt_ocid):
-    print (COLOR_TITLE2+"========== Functions applications"+COLOR_NORMAL)
-    response = oci.pagination.list_call_get_all_results(FunctionsManagementClient.list_applications,compartment_id=lcpt_ocid)
-    if len(response.data) > 0:
-        for app in response.data:
-            print ('{0:100s} {1:30s} {2:10s}'.format(app.id, app.display_name, app.lifecycle_state))
+    print (COLOR_TITLE2+"========== DEVELOPER SERVICES: Functions applications"+COLOR_NORMAL)
+    #  Error "Authorization failed or requested resource not found" when no functions applications are present 
+    try:
+        response = oci.pagination.list_call_get_all_results(FunctionsManagementClient.list_applications,compartment_id=lcpt_ocid)
+        if len(response.data) > 0:
+            for app in response.data:
+                print ('{0:100s} {1:30s} {2:10s}'.format(app.id, app.display_name, app.lifecycle_state))
+    except:
+        pass
 
 # -- List region specific objects
 def list_region_specific_objects (cpt_ocid,cpt_name):
