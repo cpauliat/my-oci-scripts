@@ -23,6 +23,7 @@ Usage: $0 operation [parameters]
 
 Supported operations:
 - set_credentials idcs_instance client_ID client_secret        (prerequisite to all operations)
+                  If using IDCS users in OCI, look at client ID and client secret for application COMPUTEBAREMETAL
 - list_users
 - list_users_long           also gives creation date and creator
 - list_groups
