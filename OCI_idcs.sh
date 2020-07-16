@@ -13,6 +13,7 @@
 # Versions
 #    2020-01-06: Initial Version
 #    2020-01-07: Optimize requests for list_users_in_group() and list_groups_of_user()
+#    2020-07-16: Add message to set_credentials operation
 # --------------------------------------------------------------------------------------------------------------------------
 
 usage()
@@ -100,6 +101,11 @@ set_credentials()
 
   echo "IDCS_INSTANCE=$idcs_instance" > $CREDENTIALS_FILE
   echo "BASE64CODE=$base64code" >> $CREDENTIALS_FILE
+
+  echo "Credentials File $CREDENTIALS_FILE created or updated with following content:"
+  echo
+  cat $CREDENTIALS_FILE
+  echo
 }
 
 # ---- get auth_token
