@@ -73,6 +73,8 @@ fatal_error()
       ;; 
   6)  echo "ERROR 6: group name not found !" >&2
       ;; 
+  7)  echo "ERROR 7: invalid credentials, cannot create auth token !" >&2
+      ;; 
   99) echo "ERROR 99: jq not installed !" >&2
       ;;
   esac
@@ -102,8 +104,7 @@ set_credentials()
   echo "IDCS_INSTANCE=$idcs_instance" > $CREDENTIALS_FILE
   echo "BASE64CODE=$base64code" >> $CREDENTIALS_FILE
 
-  echo "Credentials File $CREDENTIALS_FILE created or updated with following content:"
-  echo
+  echo "-------- Credentials File $CREDENTIALS_FILE created or updated with following content:"
   cat $CREDENTIALS_FILE
   echo
 }
@@ -111,11 +112,20 @@ set_credentials()
 # ---- get auth_token
 get_auth_token()
 {
-  curl -i -X POST \
+  TMP=`curl -i -X POST \
      -H "Authorization: Basic $BASE64CODE" \
      -H "Content-Type: application/x-www-form-urlencoded;charset=UTF-8" \
       $IDCS_END_POINT/oauth2/v1/token \
-     -d "grant_type=client_credentials&scope=urn:opc:idm:__myscopes__" 2>/dev/null | tail -1 | jq -r '.access_token' > $TOKEN_FILE
+     -d "grant_type=client_credentials&scope=urn:opc:idm:__myscopes__" 2>/dev/null | tail -1 `
+
+  echo $TMP | egrep -i "error|invalid" 
+  if [ $? -eq 0 ]; then
+    fatal_error 7 
+  else
+    echo $TMP | jq -r '.access_token' > $TOKEN_FILE
+    #echo "Get Auth Token:"
+    #cat $TOKEN_FILE
+  fi
 }
 
 # ---- initialize script
@@ -539,7 +549,7 @@ shift
 case "$operation" in 
 "set_credentials")        set_credentials "$@" ;; 
 "list_users")             init; list_users "$@" ;;
-"list_users_long")             init; list_users_long "$@" ;;
+"list_users_long")        init; list_users_long "$@" ;;
 "list_groups")            init; list_groups "$@" ;;
 "list_users_in_group")    init; list_users_in_group "$@" ;;
 "list_groups_of_user")    init; list_groups_of_user "$@" ;;
