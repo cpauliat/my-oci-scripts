@@ -17,6 +17,7 @@
 # - APPLICATION INTEGRATION: Notifications, Events, Content and Experience
 # - DEVELOPER SERVICES     : Container clusters (OKE), Functions applications
 # - IDENTITY               : Policies (common to all regions)
+# - SECURITY               : Vaults
 # - GOVERNANCE             : Tags namespaces (common to all regions)
 #
 # Note: OCI tenant and region given by an OCI CLI PROFILE
@@ -33,6 +34,7 @@
 #    2020-03-25: add support for NoSQL database tables
 #    2020-06-22: add support for Data Safe private endpoints
 #    2020-07-07: fix minor bug for functions applications
+#    2020-08-10: add support for Security Vaults
 # ---------------------------------------------------------------------------------------------------------------------------------
 
 # -- import
@@ -129,6 +131,7 @@ def list_objects_common_to_all_regions(cpt_ocid,cpt_name):
                 list_objects_common_to_all_regions(sub_compartment.id,sub_compartment.name)
 
 # ---- List objects specific to a region
+
 # -- Compute
 def list_compute_instances (lcpt_ocid):
     print (COLOR_TITLE2+"========== COMPUTE: Instances "+COLOR_NORMAL)
@@ -401,6 +404,14 @@ def list_developer_services_functions(lcpt_ocid):
     except:
         pass
 
+# -- Security
+def list_security_vaults(lcpt_ocid):
+    print (COLOR_TITLE2+"========== SECURITY: Vaults"+COLOR_NORMAL)
+    response = oci.pagination.list_call_get_all_results(VaultsClient.list_secrets,compartment_id=lcpt_ocid)
+    if len(response.data) > 0:
+        for secret in response.data:
+            print ('{0:100s} {1:100s} {2:30s} {3:10s}'.format(secret.vault_id, secret.id, secret.secret_name, secret.lifecycle_state))
+
 # -- List region specific objects
 def list_region_specific_objects (cpt_ocid,cpt_name):
     global ComputeClient
@@ -420,6 +431,7 @@ def list_region_specific_objects (cpt_ocid,cpt_name):
     global OceInstanceClient
     global ContainerEngineClient
     global FunctionsManagementClient
+    global VaultsClient
 
     print (COLOR_TITLE1+"==================== BEGIN: objects specific to region "+COLOR_COMP+config["region"]+COLOR_TITLE1+" in compartment "+COLOR_COMP+"{} ".format(cpt_name)+COLOR_NORMAL)
 
@@ -495,6 +507,10 @@ def list_region_specific_objects (cpt_ocid,cpt_name):
     list_developer_services_oke (cpt_ocid)
     FunctionsManagementClient = oci.functions.FunctionsManagementClient(config)
     list_developer_services_functions (cpt_ocid)
+
+    # Security
+    VaultsClient = oci.vault.VaultsClient(config)  
+    list_security_vaults (cpt_ocid)
 
     print (COLOR_TITLE1+"==================== END: objects specific to region "+COLOR_COMP+config["region"]+COLOR_TITLE1+" in compartment "+COLOR_COMP+"{} ".format(cpt_name)+COLOR_NORMAL)
 
