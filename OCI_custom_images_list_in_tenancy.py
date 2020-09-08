@@ -90,7 +90,7 @@ for region in regions:
 
     for item in response.data.items:
         cpt_name = get_cpt_name_from_id(item.compartment_id)
-        if item.resource_type == "Image" and item.lifecycle_state == "AVAILABLE":
+        if item.resource_type == "Image" and item.lifecycle_state == "Available":
             print ("{:s}, {:s}, {:s}, {:s}, {:s}, {:s}".format(config["region"], cpt_name, item.display_name, item.identifier, item.time_created.strftime("%Y-%m-%d"), item.defined_tags["osc"]["created-by"]))
 
 # -- the end
