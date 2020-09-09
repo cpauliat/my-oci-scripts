@@ -92,6 +92,8 @@ for region in regions:
         cpt_name = get_cpt_name_from_id(item.compartment_id)
         if item.resource_type == "Image" and item.lifecycle_state == "Available":
             print ("{:s}, {:s}, {:s}, {:s}, {:s}, {:s}".format(config["region"], cpt_name, item.display_name, item.identifier, item.time_created.strftime("%Y-%m-%d"), item.defined_tags["osc"]["created-by"]))
+#        if item.resource_type == "Image":
+#            print ("{:s}, {:s}, {:s}, {:s}, {:s}, {:s}, {:s}".format(config["region"], cpt_name, item.display_name, item.identifier, item.time_created.strftime("%Y-%m-%d"), item.defined_tags["osc"]["created-by"], item.lifecycle_state))
 
 # -- the end
 exit (0)
