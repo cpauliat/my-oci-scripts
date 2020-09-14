@@ -2,14 +2,15 @@
 
 # --------------------------------------------------------------------------------------------------------------
 # This script looks for free tier compute instances in an OCI tenant (in home region) and delete them if found
-# Note: OCI tenant and region given by an OCI CLI PROFILE
+#
 # Author        : Christophe Pauliat
 # Platforms     : MacOS / Linux
 # prerequisites : jq (JSON parser) installed, OCI CLI 2.6.11+ installed and OCI config file configured with profiles
 #
+# THIS SCRIPT MUST BE EXECUTED FROM AN OCI COMPUTE INSTANCE WITH INSTANCE PRINCIPAL PERMISSIONS
+#
 # Versions
-#    2019-11-13: Initial Version
-#    2020-03-20: change location of temporary files to /tmp + check oci exists
+#    2020-09-09: Initial Version
 # --------------------------------------------------------------------------------------------------------------
 
 # -------- functions
@@ -17,32 +18,31 @@
 usage()
 {
 cat << EOF
-Usage: $0 OCI_PROFILE [--confirm]
+Usage: $0 [--confirm]
 
 Notes: 
-- OCI_PROFILE must exist in ~/.oci/config file (see example below)
 - If --confirm is provided, found compute instances are deleted, otherwise only listed.
 
-[EMEAOSCf]
-tenancy     = ocid1.tenancy.oc1..aaaaaaaaw7e6nkszrry6d5hxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-user        = ocid1.user.oc1..aaaaaaaayblfepjieoxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-fingerprint = 19:1d:7b:3a:17:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx
-key_file    = /Users/cpauliat/.oci/api_key.pem
-region      = eu-frankfurt-1
 EOF
   exit 1
 }
 
-# -- Get the home region from the profile
-get_home_region_from_profile()
+# -- Get the tenancy OCID
+get_tenancy_ocid()
 {
-  oci --profile $PROFILE iam region-subscription list --query "data[].{home:\"is-home-region\",name:\"region-name\"}" | jq -r '.[] |  select(.home == true) | .name'
+  oci iam compartment list --query 'data[].{id:"compartment-id"}' | jq -r '.[] | .id' | uniq
+}
+
+# -- Get the home region 
+get_home_region()
+{
+  oci iam region-subscription list --query "data[].{home:\"is-home-region\",name:\"region-name\"}" | jq -r '.[] |  select(.home == true) | .name'
 }
 
 # -- Get list of compartment IDs for active compartments (excluding root)
 get_comp_ids()
 {
-  oci --profile $PROFILE iam compartment list --compartment-id-in-subtree true --all --query "data [?\"lifecycle-state\" == 'ACTIVE']" 2>/dev/null| egrep "^ *\"id"|awk -F'"' '{ print $4 }'
+  oci iam compartment list --compartment-id-in-subtree true --all --query "data [?\"lifecycle-state\" == 'ACTIVE']" 2>/dev/null| egrep "^ *\"id"|awk -F'"' '{ print $4 }'
 }
 
 cleanup()
@@ -68,13 +68,13 @@ look_for_free_instances()
   
   #echo "DEBUG: comp $lcompid"
 
-  oci --profile $PROFILE compute instance list -c $lcompid --region $HOME_REGION --all \
+  oci compute instance list -c $lcompid --region $HOME_REGION --all \
        --query "data [?"shape" == 'VM.Standard.E2.1.Micro' && \"lifecycle-state\" != 'TERMINATED'].{InstanceOCID:id}" 2>/dev/null | jq -r '.[].InstanceOCID' | \
   while read id
   do  
     if [ $CONFIRM == true ]; then 
       echo "`date '+%Y/%m/%d %H:%M'`: TERMINATING free compute instance $id in compartment $lcompid"
-      oci --profile $PROFILE compute instance terminate --instance-id $id --force    # this also deletes the boot volume
+      oci compute instance terminate --instance-id $id --force    # this also deletes the boot volume
     else
       echo "`date '+%Y/%m/%d %H:%M'`: FOUND free compute instance $id in compartment $lcompid but not terminated since --confirm not provided"
     fi
@@ -83,15 +83,14 @@ look_for_free_instances()
 
 # -------- main
 
-OCI_CONFIG_FILE=~/.oci/config
+export OCI_CLI_AUTH="instance_principal"
 CONFIRM=false
 TMP_FILE=/tmp/tmp_$$
 
 case $# in
-1) PROFILE=$1
+0) CONFIRM=false
    ;;
-2) PROFILE=$1
-   if [ "$2" == "--confirm" ]; then CONFIRM=true; else usage; fi
+1) if [ "$1" == "--confirm" ]; then CONFIRM=true; else usage; fi
    ;;
 *) usage
    ;;
@@ -110,15 +109,11 @@ if [ $? -ne 0 ]; then echo "ERROR: oci not found !"; exit 2; fi
 which jq > /dev/null 2>&1
 if [ $? -ne 0 ]; then echo "ERROR: jq not found !"; exit 2; fi
 
-# -- Check if the PROFILE exists
-grep "\[$PROFILE\]" $OCI_CONFIG_FILE > /dev/null 2>&1
-if [ $? -ne 0 ]; then echo "ERROR: PROFILE $PROFILE does not exist in file $OCI_CONFIG_FILE !"; exit 3; fi
+# -- get tenancy OCID
+TENANCY_OCID=`get_tenancy_ocid`
 
-# -- get tenancy OCID from OCI PROFILE (root compartment)
-TENANCY_OCID=`egrep "^\[|ocid1.tenancy" $OCI_CONFIG_FILE|sed -n -e "/\[$PROFILE\]/,/tenancy/p"|tail -1| awk -F'=' '{ print $2 }' | sed 's/ //g'`
-
-# -- get home region from OCI PROFILE
-HOME_REGION=`get_home_region_from_profile`
+# -- get home region
+HOME_REGION=`get_home_region`
 
 # -- Check in root compartment
 look_for_free_instances $TENANCY_OCID 
