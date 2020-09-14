@@ -5,7 +5,7 @@
 #
 # Author        : Christophe Pauliat
 # Platforms     : MacOS / Linux
-# prerequisites : jq (JSON parser) installed, OCI CLI 2.6.11+ installed and OCI config file configured with profiles
+# prerequisites : jq (JSON parser) installed, OCI CLI 2.6.11+ installed 
 #
 # THIS SCRIPT MUST BE EXECUTED FROM AN OCI COMPUTE INSTANCE WITH INSTANCE PRINCIPAL PERMISSIONS
 #
