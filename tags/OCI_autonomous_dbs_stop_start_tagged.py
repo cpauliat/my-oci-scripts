@@ -18,8 +18,7 @@
 # prerequisites : - Python 3 with OCI Python SDK installed
 #                 - OCI config file configured with profiles
 #                 - OCI user with enough privileges to be able to read, stop and start compute instances (policy example below)
-#                       allow group osc_stop_and_start to read instances in tenancy
-#                       allow group osc_stop_and_start to manage instances in tenancy where request.operation = 'InstanceAction'
+#                       allow group osc_stop_and_start to use autonomous-databases in tenancy
 # Versions
 #    2020-04-23: Initial Version
 #    2020-09-17: bug fix (root compartment was ignored)
