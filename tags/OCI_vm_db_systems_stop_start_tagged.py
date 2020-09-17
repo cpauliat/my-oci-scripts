@@ -20,8 +20,12 @@
 #
 # prerequisites : - Python 3 with OCI Python SDK installed
 #                 - OCI config file configured with profiles
+#                 - OCI user with enough privileges to be able to read, stop and start compute instances (policy example below)
+#                       allow group osc_stop_and_start to read instances in tenancy
+#                       allow group osc_stop_and_start to manage instances in tenancy where request.operation = 'InstanceAction'
 # Versions
 #    2020-04-23: Initial Version
+#    2020-09-17: bug fix (root compartment was ignored)
 # ---------------------------------------------------------------------------------------------------------------------------------
 
 # -- import
@@ -44,7 +48,7 @@ configfile = "~/.oci/config"    # Define config file to be used.
 
 # ---- usage syntax
 def usage():
-    print ("Usage: {} [-a] [--confirm_stop] [--confirm_start] OCI_FILE".format(sys.argv[0]))
+    print ("Usage: {} [-a] [--confirm_stop] [--confirm_start] OCI_PROFILE".format(sys.argv[0]))
     print ("")
     print ("Notes:")
     print ("    If -a is provided, the script processes all active regions instead of singe region provided in profile")
@@ -186,14 +190,21 @@ response = oci.pagination.list_call_get_all_results(IdentityClient.list_region_s
 regions = response.data
 
 # -- do the job
+class root_cpt:
+    name="root"
+    id=RootCompartmentID
+    lifecycle_state="AVAILABLE"
+
 if not(all_regions):
     DatabaseClient = oci.database.DatabaseClient(config)
+    process_compartment(root_cpt)
     for cpt in compartments:
         process_compartment(cpt)
 else:
     for region in regions:
         config["region"]=region.region_name
         DatabaseClient = oci.database.DatabaseClient(config)
+        process_compartment(root_cpt)
         for cpt in compartments:
             process_compartment(cpt)
 
