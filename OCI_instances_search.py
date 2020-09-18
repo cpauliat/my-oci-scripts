@@ -90,7 +90,7 @@ print ("Region, Compartment, Name, OCID, Status")
 # -- Query (see https://docs.cloud.oracle.com/en-us/iaas/Content/Search/Concepts/querysyntax.htm)
 query = "query instance resources"
 
-# -- Run the search query/queries to get the list of compute instances
+# -- Run the search query/queries
 if not(all_regions):
     #response = oci.pagination.list_call_get_all_results(SearchClient.search_resources, oci.resource_search.models.StructuredSearchDetails(query))
     SearchClient = oci.resource_search.ResourceSearchClient(config)
