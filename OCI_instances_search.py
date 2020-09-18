@@ -91,10 +91,9 @@ print ("Region, Compartment, Name, OCID, Status")
 query = "query instance resources"
 
 # -- Run the search query/queries to get the list of compute instances
-SearchClient = oci.resource_search.ResourceSearchClient(config)
-
 if not(all_regions):
     #response = oci.pagination.list_call_get_all_results(SearchClient.search_resources, oci.resource_search.models.StructuredSearchDetails(query))
+    SearchClient = oci.resource_search.ResourceSearchClient(config)
     response = SearchClient.search_resources(oci.resource_search.models.StructuredSearchDetails(type="Structured", query=query))
     for item in response.data.items:
         cpt_name = get_cpt_name_from_id(item.compartment_id)
@@ -102,6 +101,7 @@ if not(all_regions):
 else:
     for region in regions:
         config["region"]=region.region_name
+        SearchClient = oci.resource_search.ResourceSearchClient(config)
         response = SearchClient.search_resources(oci.resource_search.models.StructuredSearchDetails(type="Structured", query=query))
         for item in response.data.items:
             cpt_name = get_cpt_name_from_id(item.compartment_id)
