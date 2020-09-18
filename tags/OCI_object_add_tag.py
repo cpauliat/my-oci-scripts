@@ -15,8 +15,9 @@
 #                 - OCI config file configured with profiles
 # Versions
 #    2020-04-27: Initial Version
-#    2020-05-04: fixed bug if tag namespace not already used for this object
+#    2020-05-04: Fix bug if tag namespace not already used for this object
 #    2020-05-04: Simplify code
+#    2020-09-18: Fix bug for automous database
 #
 # TO DO: add support for more resource types
 # --------------------------------------------------------------------------------------------
@@ -77,7 +78,7 @@ def add_tag_db_system(dbs_id):
 def add_tag_autonomous_db(adb_id):
     DatabaseClient = oci.database.DatabaseClient(config)
     try:
-        response = DatabaseClient.get_db_system(dbs_id)
+        response = DatabaseClient.get_autonomous_database(adb_id)
         tags = update_tags(response.data.defined_tags)
         DatabaseClient.update_autonomous_database(adb_id, oci.database.models.UpdateAutonomousDatabaseDetails(defined_tags=tags))
     except:
