@@ -38,7 +38,7 @@ def usage():
     print ("region      = eu-frankfurt-1")
     exit (1)
 
-# -- Get the name of of compartment from its id
+# -- Get the name of a compartment from its id
 def get_cpt_name_from_id(cpt_id):
     global compartments
     for c in compartments:
