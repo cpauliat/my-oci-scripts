@@ -27,7 +27,7 @@ Usage: $0 [-q] [-a] OCI_PROFILE
 Notes: 
 - OCI_PROFILE must exist in ~/.oci/config file (see example below)
 - If -q is provided, output is minimal (quiet mode)
-- If -a is provided, the script processes all active regions instead of singe region provided in profile
+- If -a is provided, the script processes all active regions instead of single region provided in profile
 
 [EMEAOSCf]
 tenancy     = ocid1.tenancy.oc1..aaaaaaaaw7e6nkszrry6d5hxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
