@@ -37,13 +37,26 @@ def usage():
     print ("region      = eu-frankfurt-1")
     exit (1)
 
-# -- Get the name of a compartment from its id
+# -- Get the complete name of a compartment from its id, including parent and grand-parent..
 def get_cpt_name_from_id(cpt_id):
     global compartments
+
+    if cpt_id == RootCompartmentID:
+        return "root"
+
+    name=""
     for c in compartments:
         if (c.id == cpt_id):
-            return c.name
-    return "root"
+            name=c.name
+    
+            # if the cpt is a direct child of root compartment, return name
+            if c.compartment_id == RootCompartmentID:
+                return name
+            # otherwise, find name of parent and add it as a prefix to name
+            else:
+                name = get_cpt_name_from_id(c.compartment_id)+":"+name
+                return name
+
 
 # ---------- main
 
