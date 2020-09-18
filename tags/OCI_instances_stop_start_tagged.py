@@ -23,6 +23,7 @@
 # Versions
 #    2020-04-22: Initial Version
 #    2020-09-17: bug fix (root compartment was ignored)
+#    2020-09-18: Add a retry strategy for ComputeClient.instance_action to avoid errors "TooManyRequest HTTP 429"
 # ---------------------------------------------------------------------------------------------------------------------------------
 
 # -- import
@@ -94,7 +95,7 @@ def process_compartment(lcpt):
                     print ("{:s}, {:s}, {:s}: ".format(datetime.utcnow().strftime("%T"), region, lcpt.name),end='')
                     if confirm_start:
                         print ("STARTING instance {:s} ({:s})".format(instance.display_name, instance.id))
-                        ComputeClient.instance_action(instance.id, "START")
+                        ComputeClient.instance_action(instance.id, "START", retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
                     else:
                         print ("Instance {:s} ({:s}) SHOULD BE STARTED --> re-run script with --confirm_start to actually start instances".format(instance.display_name, instance.id))
 
@@ -103,7 +104,7 @@ def process_compartment(lcpt):
                     print ("{:s}, {:s}, {:s}: ".format(datetime.utcnow().strftime("%T"), region, lcpt.name),end='')
                     if confirm_stop:
                         print ("STOPPING instance {:s} ({:s})".format(instance.display_name, instance.id))
-                        ComputeClient.instance_action(instance.id, "SOFTSTOP")
+                        ComputeClient.instance_action(instance.id, "SOFTSTOP", retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
                     else:
                         print ("Instance {:s} ({:s}) SHOULD BE STOPPED --> re-run script with --confirm_stop to actually stop instances".format(instance.display_name, instance.id))
 
