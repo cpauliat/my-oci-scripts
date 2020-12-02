@@ -167,7 +167,7 @@ def search_exa_infra (lconfig):
             list_vm_clusters (lconfig, item.identifier)
         else:
             print ("")
-            print (COLOR_GREY+"EXADATA INFRASTRUCTURE: "+COLOR_BLUE+f"{item.display_name:40s} "+COLOR_RED+f"{item.lifecycle_state:45s}"+COLOR_GREY)
+            print (COLOR_GREY+"EXADATA INFRASTRUCTURE: "+COLOR_BLUE+f"{item.display_name:40s} "+COLOR_RED+f"{item.lifecycle_state:45s}"+COLOR_GREY,end="")
             if show_ocids:
                 print (f"{item.identifier} ")
             else:
