@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # ---------------------------------------------------------------------------------------------------------------
-# This script lists all Exadata Infrastructure for Exadata Cloud at Customer in a OCI tenant using OCI Python SDK 
+# This script lists all Exadata Infrastructure for Exadata DB systems in a OCI tenant using OCI Python SDK 
 # It looks in all compartments in the region given by profile or in all subscribed regions
 # Note: OCI tenant given by an OCI CLI PROFILE
 #
@@ -10,7 +10,7 @@
 # prerequisites : - Python 3 with OCI Python SDK installed
 #                 - OCI config file configured with profiles
 # Versions
-#    2020-01-12: Initial Version
+#    2020-04-12: Initial Version
 # ---------------------------------------------------------------------------------------------------------------
 
 
@@ -126,9 +126,9 @@ def list_vm_clusters(lconfig, exa_infra_id):
     SearchClient = oci.resource_search.ResourceSearchClient(lconfig)
     response = SearchClient.search_resources(oci.resource_search.models.StructuredSearchDetails(type="Structured", query=query))
     for item in response.data.items:
-        response2 = DatabaseClient.get_vm_cluster(item.identifier)
+        response2 = DatabaseClient.get_cloud_vm_cluster(item.identifier)
         vm_cluster = response2.data
-        if vm_cluster.exadata_infrastructure_id == exa_infra_id:
+        if vm_cluster.cloud_exadata_infrastructure_id == exa_infra_id:
             print ("          VM cluster  : "+COLOR_RED+f"{item.display_name:40s} ",end="")
             if item.lifecycle_state  == "AVAILABLE":
                 print (COLOR_GREEN, end="")
@@ -147,7 +147,7 @@ def search_exa_infra (lconfig):
     Search Exadata Infrastructures in all compartments in a region 
     """
     # Query (see https://docs.cloud.oracle.com/en-us/iaas/Content/Search/Concepts/querysyntax.htm)
-    query = "query exadatainfrastructure resources"
+    query = "query cloudexadatainfrastructure resources"
 
     region = config["region"]
 
