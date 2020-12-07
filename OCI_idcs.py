@@ -8,6 +8,7 @@
 #
 # Prerequisites: 
 # - Python 3 installed
+# - Python modules: requests, columnar
 # - IDCS OAuth2 application created with Client ID and Client secret available
 #
 # Versions
