@@ -46,7 +46,8 @@ show_ocids = False  # or True
 def usage():
     print ("Usage: {} [-a] OCI_PROFILE".format(sys.argv[0]))
     print ("")
-    print ("    If -a is provided, the script search in all active regions instead of single region provided in profile")
+    print ("    -i: also display OCIDs")
+    print ("    -a: search in all active regions instead of single region provided in profile")
     print ("")
     print ("note: OCI_PROFILE must exist in {} file (see example below)".format(configfile))
     print ("")
@@ -87,7 +88,7 @@ def list_databases(lconfig, ldbh_id, lcpt_id):
     DatabaseClient = oci.database.DatabaseClient(lconfig)
     response = DatabaseClient.list_databases(compartment_id=lcpt_id, db_home_id=ldbh_id)
     for db in response.data:
-        print ("                   DB : "+COLOR_BLUE+f"{db.db_name:20s} "+COLOR_NORMAL+f"{db.db_workload:20s}", end="")
+        print ("                   DB : "+COLOR_BLUE+f"{db.db_name:25s} "+COLOR_NORMAL+f"{db.db_workload:15s}", end="")
         if db.lifecycle_state == "AVAILABLE":
             print (COLOR_GREEN, end="")
         else:
@@ -107,7 +108,7 @@ def list_dbhomes(lconfig, lvm_cluster_id, lcpt_id):
     response = DatabaseClient.list_db_homes(lcpt_id)
     for dbh in response.data:
         if dbh.vm_cluster_id == lvm_cluster_id:
-            print ("              DB home : "+COLOR_CYAN+f"{dbh.display_name:20s} "+COLOR_YELLOW+f"{dbh.db_version:20s}"+COLOR_NORMAL+f"{dbh.db_home_location:45s} ",end="")
+            print ("              DB home : "+COLOR_CYAN+f"{dbh.display_name:25s} "+COLOR_YELLOW+f"{dbh.db_version:15s}"+COLOR_NORMAL+f"{dbh.db_home_location:45s} ",end="")
             if show_ocids:
                 print (f"{dbh.id} ")
             else:
@@ -128,17 +129,19 @@ def list_vm_clusters(lconfig, exa_infra_id):
     for item in response.data.items:
         response2 = DatabaseClient.get_cloud_vm_cluster(item.identifier)
         vm_cluster = response2.data
+        cpt_name = get_cpt_name_from_id(item.compartment_id)
         if vm_cluster.cloud_exadata_infrastructure_id == exa_infra_id:
-            print ("          VM cluster  : "+COLOR_RED+f"{item.display_name:40s} ",end="")
-            if item.lifecycle_state  == "AVAILABLE":
-                print (COLOR_GREEN, end="")
+            if vm_cluster.lifecycle_state == "AVAILABLE":
+                COLOR_STATUS = COLOR_GREEN
             else:
-                print (COLOR_RED, end="")
-            print (f"{item.lifecycle_state:45s} "+COLOR_NORMAL, end="")
+                COLOR_STATUS = COLOR_YELLOW
+            print ("          VM cluster  : "+COLOR_RED+f"{vm_cluster.display_name:25s} "+COLOR_YELLOW+f"{vm_cluster.cpu_core_count:3} OCPUs      ",end="")
+            print (COLOR_STATUS+f"{vm_cluster.lifecycle_state:45s} "+COLOR_NORMAL, end="")
             if show_ocids:
-                print (COLOR_NORMAL+f"{item.identifier} ")
+                print (COLOR_NORMAL+f"{vm_cluster.id} ")
             else:
                 print ("")
+            print ("                  cpt : "+COLOR_GREEN+f"{cpt_name} "+COLOR_NORMAL)
             list_dbhomes (lconfig, vm_cluster.id, vm_cluster.compartment_id)
 
 
@@ -151,48 +154,56 @@ def search_exa_infra (lconfig):
 
     region = config["region"]
 
+    DatabaseClient = oci.database.DatabaseClient(lconfig)
+
     SearchClient = oci.resource_search.ResourceSearchClient(lconfig)
     response = SearchClient.search_resources(oci.resource_search.models.StructuredSearchDetails(type="Structured", query=query))
     for item in response.data.items:
-        cpt_name = get_cpt_name_from_id(item.compartment_id)
         if item.lifecycle_state != "TERMINATED":
+            response2 = DatabaseClient.get_cloud_exadata_infrastructure(item.identifier)
+            exa_infra = response2.data
+            cpt_name = get_cpt_name_from_id(item.compartment_id)
+            if exa_infra.lifecycle_state == "TERMINATED":
+                continue
+            elif exa_infra.lifecycle_state == "AVAILABLE":
+                COLOR_STATUS = COLOR_GREEN
+            else:
+                COLOR_STATUS = COLOR_YELLOW
             print ("")
-            print ("EXADATA INFRASTRUCTURE: "+COLOR_RED+f"{item.display_name:40s} "+COLOR_YELLOW+f"{item.lifecycle_state:45s} "+COLOR_NORMAL,end="")
+            print ("EXADATA INFRASTRUCTURE: "+COLOR_RED+f"{exa_infra.display_name:40s} "+COLOR_STATUS+f"{exa_infra.lifecycle_state:45s} "+COLOR_NORMAL,end="")
             if show_ocids:
-                print (f"{item.identifier} ")
+                print (f"{exa_infra.id} ")
             else:
                 print ("")
             print ("          region      : "+COLOR_CYAN+f"{region}"+COLOR_NORMAL)
             print ("          compartment : "+COLOR_GREEN+f"{cpt_name}"+COLOR_NORMAL)
-            list_vm_clusters (lconfig, item.identifier)
-        else:
-            print ("")
-            print (COLOR_GREY+"EXADATA INFRASTRUCTURE: "+COLOR_BLUE+f"{item.display_name:40s} "+COLOR_RED+f"{item.lifecycle_state:45s}"+COLOR_GREY,end="")
-            if show_ocids:
-                print (f"{item.identifier} ")
-            else:
-                print ("")
-            print ("          region      : "+COLOR_BLUE+f"{region}"+COLOR_GREY)
-            print ("          compartment : "+COLOR_BLUE+f"{cpt_name}"+COLOR_NORMAL)     
+            list_vm_clusters (lconfig, exa_infra.id)
 
 # ---------- main
 
 # -- parse arguments
 all_regions=False
 
-if (len(sys.argv) != 2) and (len(sys.argv) != 3):
+if (len(sys.argv) != 2) and (len(sys.argv) != 3) and (len(sys.argv) != 4):
     usage()
 
-if (len(sys.argv) == 2):
+if len(sys.argv) == 2:
     profile = sys.argv[1] 
-elif (len(sys.argv) == 3):
+elif len(sys.argv) == 3:
     profile = sys.argv[2]
     if (sys.argv[1] == "-a"):
-        all_regions=True
+        all_regions = True
+    elif (sys.argv[1] == "-i"):
+        show_ocids = True
     else:
         usage()
-    
-#print ("profile = {}".format(profile))
+elif len(sys.argv) == 4:
+    profile = sys.argv[3]
+    if ((sys.argv[1] == "-a") and (sys.argv[2] == "-i")) or ((sys.argv[1] == "-i") and (sys.argv[2] == "-a")):
+        all_regions = True
+        show_ocids = True
+    else:
+        usage()  
 
 # -- get info from profile
 try:
