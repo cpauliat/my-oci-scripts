@@ -103,7 +103,7 @@ def list_dbhomes(lsigner, lvm_cluster_id, lcpt_id):
                 print (f"{dbh.id} ")
             else:
                 print ("")
-            list_databases (lconfig, dbh.id, lcpt_id)
+            list_databases (lsigner, dbh.id, lcpt_id)
 
 def list_vm_clusters(lsigner, exa_infra_id):
     """
