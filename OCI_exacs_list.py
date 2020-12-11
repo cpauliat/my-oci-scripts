@@ -10,7 +10,7 @@
 # prerequisites : - Python 3 with OCI Python SDK installed
 #                 - OCI config file configured with profiles
 # Versions
-#    2020-04-12: Initial Version
+#    2020-12-04: Initial Version
 # ---------------------------------------------------------------------------------------------------------------
 
 
@@ -44,7 +44,7 @@ show_ocids = False  # or True
 
 # -- functions
 def usage():
-    print ("Usage: {} [-a] OCI_PROFILE".format(sys.argv[0]))
+    print ("Usage: {} [-a] [-i] OCI_PROFILE".format(sys.argv[0]))
     print ("")
     print ("    -i: also display OCIDs")
     print ("    -a: search in all active regions instead of single region provided in profile")
