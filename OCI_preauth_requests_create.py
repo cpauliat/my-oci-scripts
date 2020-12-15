@@ -18,22 +18,6 @@ import oci
 import sys
 import datetime
 
-# ---------- Colors for output
-# see https://misc.flogisoft.com/bash/tip_colors_and_formatting to customize
-colored_output=True
-if (colored_output):
-  COLOR_TITLE = "\033[93m"            # light yellow
-  COLOR_EXPIRED = "\033[91m"          # light red
-  COLOR_ACTIVE = "\033[32m"           # green
-  COLOR_BUCKET = "\033[96m"           # light cyan
-  COLOR_NORMAL = "\033[39m"
-else:
-  COLOR_TITLE = ""
-  COLOR_EXPIRED = ""
-  COLOR_ACTIVE = ""
-  COLOR_BUCKET = ""
-  COLOR_NORMAL = ""
-
 # ---------- Functions
 
 # ---- variables
@@ -59,12 +43,6 @@ def usage():
 
 
 # ------------ main
-global config
-global ads
-global IdentityClient
-global initial_cpt_ocid
-global initial_cpt_name
-global RootCompartmentID
 
 # -- parse arguments
 if len(sys.argv) != 7: 
