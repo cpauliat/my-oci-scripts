@@ -11,7 +11,7 @@
 # prerequisites : - Python 3 with OCI Python SDK installed
 #                 - OCI config file configured with profiles
 # Versions
-#    2020-15-12: Initial Version
+#    2020-17-12: Initial Version
 # ---------------------------------------------------------------------------------------------------------------------------------
 
 # -- import
