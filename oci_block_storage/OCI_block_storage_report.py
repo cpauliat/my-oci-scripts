@@ -12,6 +12,7 @@
 #                 - OCI config file configured with profiles
 # Versions
 #    2020-17-12: Initial Version
+#    2020-22-12: Add support for all subscribed regions and add optional details
 # ---------------------------------------------------------------------------------------------------------------------------------
 
 # -- import
@@ -83,11 +84,98 @@ def get_cpt_name_from_id(cpt_id):
                 name = get_cpt_name_from_id(c.compartment_id)+":"+name
                 return name
 
+# -- Build the block storage report for one region then display it
+def get_report_for_region():
+    print ("--------------------------------------------------------------------------------------------------------------")
+
+    # Query (see https://docs.cloud.oracle.com/en-us/iaas/Content/Search/Concepts/querysyntax.htm)
+    query_block_volume = "query volume resources"
+    query_boot_volume  = "query bootvolume resources"
+
+    # Clients
+    gb_used = {}
+    SearchClient = oci.resource_search.ResourceSearchClient(config)
+    BlockstorageClient = oci.core.BlockstorageClient(config)
+    total_gb_used = 0
+
+    # Run the search query to get list of BLOCK volumes then for each volume, use get_volume() to get size
+    # Finally store the result in a dictionary
+    if details:
+        print (f"REGION {config['region']}: LIST OF BLOCK VOLUMES:")
+
+    response = SearchClient.search_resources(oci.resource_search.models.StructuredSearchDetails(type="Structured", query=query_block_volume))
+    for item in response.data.items:
+        if item.lifecycle_state != "TERMINATED":
+            # as size is not returned by the query search, we need to get the size of each block volume.
+            response2 = BlockstorageClient.get_volume(item.identifier)
+            vol = response2.data
+            if gb_used.get(item.compartment_id) == None:
+                gb_used[item.compartment_id] = vol.size_in_gbs
+            else:
+                gb_used[item.compartment_id] += vol.size_in_gbs
+            if details:
+                print (f"- {vol.id}, {vol.size_in_gbs:5d} GBs, {vol.display_name}")
+            total_gb_used += vol.size_in_gbs
+
+    # Run the search query to get list of BOOT volumes then for each volume, use get_boot_volume() to get size
+    # Finally store the result in the same dictionary
+    if details:
+        print ("")
+        print (f"REGION {config['region']}: LIST OF BOOT VOLUMES:")
+
+    response = SearchClient.search_resources(oci.resource_search.models.StructuredSearchDetails(type="Structured", query=query_boot_volume))
+    for item in response.data.items:
+        if item.lifecycle_state != "TERMINATED":
+            # as size is not returned by the query search, we need to get the size of each boot volume.
+            response2 = BlockstorageClient.get_boot_volume(item.identifier)
+            vol = response2.data
+            if gb_used.get(item.compartment_id) == None:
+                gb_used[item.compartment_id] = vol.size_in_gbs
+            else:
+                gb_used[item.compartment_id] += vol.size_in_gbs
+            if details:
+                print (f"- {vol.id}, {vol.size_in_gbs:5d} GBs, {vol.display_name}")
+            total_gb_used += vol.size_in_gbs
+
+    # sort the dictionary by descending total size 
+    gb_used_sorted = dict(sorted(gb_used.items(), key=operator.itemgetter(1), reverse=True))
+
+    # display the result
+    if details:
+        print ("")
+
+    print (f"REGION {config['region']}: BLOCK STORAGE CONSUMPTION (boot volumes and block volumes) PER COMPARTMENT ",end="")
+    print (f"Total =  {total_gb_used} GBs = {total_gb_used/1024:.1f} TBs")
+    for cpt_id in gb_used_sorted.keys():
+        cpt_name = get_cpt_name_from_id(cpt_id)
+        gb = gb_used_sorted[cpt_id]
+        print (f"- {gb:6d} GBs, {cpt_name} ")
+    print ("")
+
+
 # ------------ main
 
 # -- parse arguments
+all_regions = False
+details     = False
+
 if len(sys.argv) == 2:
-    profile  = sys.argv[1] 
+    profile  = sys.argv[1]
+elif len(sys.argv) == 3:
+    profile  = sys.argv[2]
+    if sys.argv[1] == "-a":
+        all_regions = True
+    elif sys.argv[1] == "-v":
+        details = True
+    else:
+        usage ()
+elif len(sys.argv) == 4:
+    profile  = sys.argv[3]
+    if (sys.argv[1] == "-a" and sys.argv[2] == "-v") or (sys.argv[1] == "-v" and sys.argv[2] == "-a"):
+        all_regions = True
+        details     = True
+    else:
+        usage ()
 else:
     usage()
 
@@ -111,69 +199,13 @@ regions = response.data
 response = oci.pagination.list_call_get_all_results(IdentityClient.list_compartments,RootCompartmentID,compartment_id_in_subtree=True)
 compartments = response.data
 
-# -- Query (see https://docs.cloud.oracle.com/en-us/iaas/Content/Search/Concepts/querysyntax.htm)
-query_block_volume = "query volume resources"
-query_boot_volume  = "query bootvolume resources"
-
-# -- Clients
-gb_used = {}
-SearchClient = oci.resource_search.ResourceSearchClient(config)
-BlockstorageClient = oci.core.BlockstorageClient(config)
-details = False
-total_gb_used = 0
-
-# -- Run the search query to get list of BLOCK volumes then for each volume, use get_volume() to get size
-# -- Finally store the result in a dictionary
-if details:
-    print ("LIST OF BLOCK VOLUMES:")
-
-response = SearchClient.search_resources(oci.resource_search.models.StructuredSearchDetails(type="Structured", query=query_block_volume))
-for item in response.data.items:
-    if item.lifecycle_state != "TERMINATED":
-        # as size is not returned by the query search, we need to get the size of each block volume.
-        response2 = BlockstorageClient.get_volume(item.identifier)
-        vol = response2.data
-        if gb_used.get(item.compartment_id) == None:
-            gb_used[item.compartment_id] = vol.size_in_gbs
-        else:
-            gb_used[item.compartment_id] += vol.size_in_gbs
-        if details:
-            print (f"- {vol.id}, {vol.size_in_gbs:5d} GBs, {vol.display_name}")
-        total_gb_used += vol.size_in_gbs
-
-# -- Run the search query to get list of BOOT volumes then for each volume, use get_boot_volume() to get size
-# -- Finally store the result in the same dictionary
-if details:
-    print ("")
-    print ("LIST OF BOOT VOLUMES:")
-
-response = SearchClient.search_resources(oci.resource_search.models.StructuredSearchDetails(type="Structured", query=query_boot_volume))
-for item in response.data.items:
-    if item.lifecycle_state != "TERMINATED":
-        # as size is not returned by the query search, we need to get the size of each boot volume.
-        response2 = BlockstorageClient.get_boot_volume(item.identifier)
-        vol = response2.data
-        if gb_used.get(item.compartment_id) == None:
-            gb_used[item.compartment_id] = vol.size_in_gbs
-        else:
-            gb_used[item.compartment_id] += vol.size_in_gbs
-        if details:
-            print (f"- {vol.id}, {vol.size_in_gbs:5d} GBs, {vol.display_name}")
-        total_gb_used += vol.size_in_gbs
-
-# -- sort the dictionary by descending total size 
-gb_used_sorted = dict(sorted(gb_used.items(), key=operator.itemgetter(1), reverse=True))
-
-# -- display the result
-if details:
-    print ("")
-
-print (f"BLOCK STORAGE CONSUMPTION (boot volumes and block volumes) PER COMPARTMENT IN REGION {config['region']}: ",end="")
-print (f"Total =  {total_gb_used} GBs = {total_gb_used/1024:.1f} TBs")
-for cpt_id in gb_used_sorted.keys():
-    cpt_name = get_cpt_name_from_id(cpt_id)
-    gb = gb_used_sorted[cpt_id]
-    print (f"- {gb:6d} GBs, {cpt_name} ")
+# -- Build and print block storage reports for regions
+if not(all_regions):
+    get_report_for_region()
+else:
+    for region in regions:
+        config["region"] = region.region_name
+        get_report_for_region()
 
 # -- the end
 exit (0)
