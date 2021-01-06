@@ -63,7 +63,6 @@ def get_cpt_name_from_id(cpt_id):
     """
     Get the complete name of a compartment from its id, including parent and grand-parent..
     """
-    global compartments
 
     if cpt_id == RootCompartmentID:
         return "root"

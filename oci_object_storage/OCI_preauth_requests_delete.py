@@ -39,12 +39,6 @@ def usage():
     exit (1)
 
 # ------------ main
-global config
-global ads
-global IdentityClient
-global initial_cpt_ocid
-global initial_cpt_name
-global RootCompartmentID
 
 # -- parse arguments
 if len(sys.argv) != 3: 

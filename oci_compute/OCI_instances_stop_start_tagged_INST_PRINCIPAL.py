@@ -52,9 +52,6 @@ def usage():
 
 # ---- Check compute instances in a compartment
 def process_compartment(lcpt):
-    global signer
-    global current_utc_time
-    global ComputeClient
 
     # exit function if compartent is deleted
     if lcpt.lifecycle_state == "DELETED": return
@@ -98,10 +95,6 @@ def process_compartment(lcpt):
 
   
 # ------------ main
-global signer
-global ads
-global IdentityClient
-global RootCompartmentID
 
 # -- parse arguments
 all_regions   = False

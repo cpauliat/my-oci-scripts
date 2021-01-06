@@ -40,14 +40,12 @@ def usage():
 
 # -- Get the name of a compartment from its id
 def get_cpt_name_from_id(cpt_id):
-    global compartments
     for c in compartments:
         if (c.id == cpt_id):
             return c.name
     return "root"
 
 # ------------ main
-global config
 
 # -- parse arguments
 if len(sys.argv) == 5:

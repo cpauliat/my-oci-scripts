@@ -51,8 +51,6 @@ def usage():
 
 # -- compute
 def show_tags_from_compute_instance(inst_id):
-    global config
-
     ComputeClient = oci.core.ComputeClient(config)
 
     try:
@@ -64,8 +62,6 @@ def show_tags_from_compute_instance(inst_id):
         exit (3)
 
 def show_tags_from_custom_image(image_id):
-    global config
-
     ComputeClient = oci.core.ComputeClient(config)
 
     try:
@@ -77,8 +73,6 @@ def show_tags_from_custom_image(image_id):
         exit (3)
 
 def show_tags_from_boot_volume(bootvol_id):
-    global config
-
     BlockstorageClient = oci.core.BlockstorageClient(config)
 
     try:
@@ -91,8 +85,6 @@ def show_tags_from_boot_volume(bootvol_id):
 
 # -- block storage
 def show_tags_from_block_volume(bkvol_id):
-    global config
-
     BlockstorageClient = oci.core.BlockstorageClient(config)
 
     try:
@@ -104,8 +96,6 @@ def show_tags_from_block_volume(bkvol_id):
         exit (3)
 
 def show_tags_from_block_volume_backup(bkvolbkup_id):
-    global config
-
     BlockstorageClient = oci.core.BlockstorageClient(config)
 
     try:
@@ -118,8 +108,6 @@ def show_tags_from_block_volume_backup(bkvolbkup_id):
 
 # -- database
 def show_tags_from_db_system(dbs_id):
-    global config
-
     DatabaseClient = oci.database.DatabaseClient(config)
 
     try:
@@ -131,8 +119,6 @@ def show_tags_from_db_system(dbs_id):
         exit (3)
 
 def show_tags_from_autonomous_db(adb_id):
-    global config
-
     DatabaseClient = oci.database.DatabaseClient(config)
 
     try:
@@ -145,7 +131,6 @@ def show_tags_from_autonomous_db(adb_id):
 
 # -- object storage     # DOES NOT WORK
 def show_tags_from_bucket(bucket_id):
-    global config
     bucket_name = "HOW-TO-GET-IT-FROM-BUCKET-ID-?"
 
     ObjectStorageClient = oci.object_storage.ObjectStorageClient(config)
@@ -164,8 +149,6 @@ def show_tags_from_bucket(bucket_id):
 
 # -- networking
 def show_tags_from_vcn(vcn_id):
-    global config
-
     VirtualNetworkClient = oci.core.VirtualNetworkClient(config)
 
     try:
@@ -177,8 +160,6 @@ def show_tags_from_vcn(vcn_id):
         exit (3)
 
 def show_tags_from_subnet(subnet_id):
-    global config
-
     VirtualNetworkClient = oci.core.VirtualNetworkClient(config)
 
     try:
@@ -190,8 +171,6 @@ def show_tags_from_subnet(subnet_id):
         exit (3)
 
 def show_tags_from_route_table(rt_id):
-    global config
-
     VirtualNetworkClient = oci.core.VirtualNetworkClient(config)
 
     try:
@@ -203,8 +182,6 @@ def show_tags_from_route_table(rt_id):
         exit (3)
 
 def show_tags_from_internet_gateway(ig_id):
-    global config
-
     VirtualNetworkClient = oci.core.VirtualNetworkClient(config)
 
     try:
@@ -216,8 +193,6 @@ def show_tags_from_internet_gateway(ig_id):
         exit (3)
 
 def show_tags_from_dynamic_routing_gateway(drg_id):
-    global config
-
     VirtualNetworkClient = oci.core.VirtualNetworkClient(config)
 
     try:
@@ -229,8 +204,6 @@ def show_tags_from_dynamic_routing_gateway(drg_id):
         exit (3)
 
 def show_tags_from_network_security_group(nsg_id):
-    global config
-
     VirtualNetworkClient = oci.core.VirtualNetworkClient(config)
 
     try:
@@ -242,8 +215,6 @@ def show_tags_from_network_security_group(nsg_id):
         exit (3)
 
 def show_tags_from_security_list(seclist_id):
-    global config
-
     VirtualNetworkClient = oci.core.VirtualNetworkClient(config)
 
     try:
@@ -255,8 +226,6 @@ def show_tags_from_security_list(seclist_id):
         exit (3)
 
 def show_tags_from_dhcp_options(do_id):
-    global config
-
     VirtualNetworkClient = oci.core.VirtualNetworkClient(config)
 
     try:
@@ -268,8 +237,6 @@ def show_tags_from_dhcp_options(do_id):
         exit (3)
 
 def show_tags_from_local_peering_gateway(lpg_id):
-    global config
-
     VirtualNetworkClient = oci.core.VirtualNetworkClient(config)
 
     try:
@@ -281,8 +248,6 @@ def show_tags_from_local_peering_gateway(lpg_id):
         exit (3)
 
 def show_tags_from_nat_gateway(ng_id):
-    global config
-
     VirtualNetworkClient = oci.core.VirtualNetworkClient(config)
 
     try:
@@ -294,8 +259,6 @@ def show_tags_from_nat_gateway(ng_id):
         exit (3)
 
 def show_tags_from_service_gateway(sg_id):
-    global config
-
     VirtualNetworkClient = oci.core.VirtualNetworkClient(config)
 
     try:

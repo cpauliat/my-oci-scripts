@@ -64,7 +64,6 @@ def usage():
 
 # -- Get the complete name of a compartment from its id, including parent and grand-parent..
 def get_cpt_name_from_id(cpt_id):
-    global compartments
 
     if cpt_id == RootCompartmentID:
         return "root"

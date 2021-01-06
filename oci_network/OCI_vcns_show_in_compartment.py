@@ -193,11 +193,6 @@ def list_vcns (cpt_ocid,cpt_name):
                             print (COLOR_CYAN+"                destination  {:18s} {:s}".format(rule.destination,rule_details(rule))+COLOR_NORMAL)
 
 # ------------ main
-global config
-global IdentityClient
-global initial_cpt_ocid
-global initial_cpt_name
-global display_ocid
 
 # -- parse arguments
 

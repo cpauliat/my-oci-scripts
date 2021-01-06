@@ -523,12 +523,6 @@ def list_region_specific_objects (cpt_ocid,cpt_name):
                 list_region_specific_objects(sub_compartment.id,sub_compartment.name)
 
 # ------------ main
-global config
-global ads
-global IdentityClient
-global initial_cpt_ocid
-global initial_cpt_name
-global RootCompartmentID
 
 # -- parse arguments
 all_regions = False

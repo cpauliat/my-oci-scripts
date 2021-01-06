@@ -50,8 +50,6 @@ def usage():
 
 # -- compute
 def remove_tag_from_compute_instance(inst_id, ltag_ns, ltag_key):
-    global config
-
     ComputeClient = oci.core.ComputeClient(config)
 
     # Get Defined-tags for the compute instance
@@ -79,8 +77,6 @@ def remove_tag_from_compute_instance(inst_id, ltag_ns, ltag_key):
         exit (6)
 
 def remove_tag_from_custom_image(image_id, ltag_ns, ltag_key):
-    global config
-
     ComputeClient = oci.core.ComputeClient(config)
 
     # Get Defined-tags for the custom image
@@ -108,8 +104,6 @@ def remove_tag_from_custom_image(image_id, ltag_ns, ltag_key):
         exit (6)
 
 def remove_tag_from_boot_volume(bootvol_id, ltag_ns, ltag_key):
-    global config
-
     BlockstorageClient = oci.core.BlockstorageClient(config)
 
     # Get Defined-tags for the boot volume
@@ -138,8 +132,6 @@ def remove_tag_from_boot_volume(bootvol_id, ltag_ns, ltag_key):
 
 # -- block storage
 def remove_tag_from_block_volume(bkvol_id, ltag_ns, ltag_key):
-    global config
-
     BlockstorageClient = oci.core.BlockstorageClient(config)
 
     # Get Defined-tags for the boot volume
@@ -168,8 +160,6 @@ def remove_tag_from_block_volume(bkvol_id, ltag_ns, ltag_key):
 
 # -- database
 def remove_tag_from_db_system(dbs_id, ltag_ns, ltag_key):
-    global config
-
     DatabaseClient = oci.database.DatabaseClient(config)
 
     # Get Defined-tags for the db system
@@ -197,8 +187,6 @@ def remove_tag_from_db_system(dbs_id, ltag_ns, ltag_key):
         exit (6)
 
 def remove_tag_from_autonomous_db(adb_id, ltag_ns, ltag_key):
-    global config
-
     DatabaseClient = oci.database.DatabaseClient(config)
 
     # Get Defined-tags for the autonomous DB
@@ -227,7 +215,6 @@ def remove_tag_from_autonomous_db(adb_id, ltag_ns, ltag_key):
 
 # -- object storage
 def remove_tag_from_bucket(bucket_id, ltag_ns, ltag_key):
-    global config
     bucket_name = "HOW-TO-GET-IT-FROM-BUCKET-ID-?"
 
     ObjectStorageClient = oci.object_storage.ObjectStorageClient(config)
@@ -262,8 +249,6 @@ def remove_tag_from_bucket(bucket_id, ltag_ns, ltag_key):
 
 # -- networking
 def remove_tag_from_vcn(vcn_id, ltag_ns, ltag_key):
-    global config
-
     VirtualNetworkClient = oci.core.VirtualNetworkClient(config)
 
     # Get Defined-tags for the VCN
@@ -291,8 +276,6 @@ def remove_tag_from_vcn(vcn_id, ltag_ns, ltag_key):
         exit (6)
 
 def remove_tag_from_subnet(subnet_id, ltag_ns, ltag_key):
-    global config
-
     VirtualNetworkClient = oci.core.VirtualNetworkClient(config)
 
     # Get Defined-tags for the subnet
@@ -320,8 +303,6 @@ def remove_tag_from_subnet(subnet_id, ltag_ns, ltag_key):
         exit (6)
 
 def remove_tag_from_security_list(seclist_id, ltag_ns, ltag_key):
-    global config
-
     VirtualNetworkClient = oci.core.VirtualNetworkClient(config)
 
     # Get Defined-tags for the security list
@@ -349,8 +330,6 @@ def remove_tag_from_security_list(seclist_id, ltag_ns, ltag_key):
         exit (6)
 
 def remove_tag_from_route_table(rt_id, ltag_ns, ltag_key):
-    global config
-
     VirtualNetworkClient = oci.core.VirtualNetworkClient(config)
 
     # Get Defined-tags for the route table

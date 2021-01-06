@@ -63,9 +63,6 @@ def usage():
 
 # ---- Check autonomous databases in a compartment
 def process_compartment(lcpt):
-    global config
-    global current_utc_time
-    global DatabaseClient
 
     # exit function if compartent is deleted
     if lcpt.lifecycle_state == "DELETED": return
@@ -108,10 +105,6 @@ def process_compartment(lcpt):
 
   
 # ------------ main
-global config
-global ads
-global IdentityClient
-global RootCompartmentID
 
 # -- parse arguments
 all_regions   = False

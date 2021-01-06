@@ -45,9 +45,6 @@ def list_compute_images():
 
 
 # ------------ main
-global config
-global IdentityClient
-global RootCompartmentID
 
 # -- parse arguments
 if len(sys.argv) == 2:
