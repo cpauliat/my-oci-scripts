@@ -23,6 +23,7 @@
 # 
 # Versions
 #    2020-09-09: Initial Version
+#    2021-01-08: bug fix (ignore DB system if not in AVAILABLE status)
 # ---------------------------------------------------------------------------------------------------------------------------------
 
 # -- import
@@ -66,7 +67,8 @@ def process_compartment(lcpt):
     # for each instance, check if it needs to be stopped or started 
     if len(response.data) > 0:
         for dbs in response.data:
-            if dbs.lifecycle_state != "TERMINED":
+            # process VM DB system only if available (DBS is AVAILABLE even if DB nodes are stopped)
+            if dbs.lifecycle_state == "AVAILABLE":
                 # get the tags
                 try:
                     tag_value_stop  = dbs.defined_tags[tag_ns][tag_key_stop]

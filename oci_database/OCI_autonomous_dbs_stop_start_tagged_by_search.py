@@ -1,19 +1,16 @@
 #!/usr/bin/env python3
 
 # ---------------------------------------------------------------------------------------------------------------------------------
-# This script looks for VM database systems with a specific tag key and stop (or start) them if the 
+# This script looks for autonomous databases with a specific tag key and stop (or start) them if the 
 #     tag value for the tag key matches the current time.
-# You can use it to automatically stop some VM database systems during non working hours
+# You can use it to automatically stop some autonomous databases during non working hours
 #     and start them again at the beginning of working hours to save cloud credits
-# This script needs to be executed every hour during working days by an external scheduler 
-#     (cron table on Linux for example)
-# You can add the 2 tag keys to the default tags for root compartment so that every new VM database system 
-#     get those 2 tag keys with default value ("off" or a specific UTC time)
+# This script needs to be executed every hour during working days by an external scheduler  (cron table on Linux for example)
+# You can add the 2 tag keys to the default tags for root compartment so that every new autonomous 
+#     database get those 2 tag keys with default value ("off" or a specific UTC time)
 #
 # This script looks in all compartments in a OCI tenant in a region using OCI Python SDK
 # Note: OCI tenant and region given by an OCI CLI PROFILE
-#
-# IMPORTANT: DOES NOT SUPPORT RAC VM DB SYSTEMS
 #
 # Author        : Christophe Pauliat
 # Platforms     : MacOS / Linux
@@ -21,12 +18,11 @@
 # prerequisites : - Python 3 with OCI Python SDK installed
 #                 - OCI config file configured with profiles
 #                 - OCI user with enough privileges to be able to read, stop and start compute instances (policy example below)
-#                       allow group osc_stop_and_start to inspect db-systems in tenancy
-#                       allow group osc_stop_and_start to manage db-nodes in tenancy
+#                       allow group osc_stop_and_start to use autonomous-databases in tenancy
 # Versions
 #    2020-04-23: Initial Version
 #    2020-09-17: bug fix (root compartment was ignored)
-#    2021-01-08: bug fix (ignore DB system if not in AVAILABLE status)
+#    2021-01-08: Use a search query to accelerate the script
 # ---------------------------------------------------------------------------------------------------------------------------------
 
 # -- import
@@ -36,7 +32,7 @@ import os
 from datetime import datetime
 
 # ---------- Tag names, key and value to look for
-# VM DB systems tagged using this will be stopped/started.
+# Autonomous DBs tagged using this will be stopped/started.
 # Update these to match your tags.
 tag_ns        = "osc"
 tag_key_stop  = "automatic_shutdown"
@@ -53,8 +49,8 @@ def usage():
     print ("")
     print ("Notes:")
     print ("    If -a is provided, the script processes all active regions instead of singe region provided in profile")
-    print ("    If --confirm_stop  is not provided, the VM database systems to stop are listed but not actually stopped")
-    print ("    If --confirm_start is not provided, the VM database systems to start are listed but not actually started")
+    print ("    If --confirm_stop  is not provided, the autonomous databases to stop are listed but not actually stopped")
+    print ("    If --confirm_start is not provided, the autonomous databases to start are listed but not actually started")
     print ("")
     print ("note: OCI_PROFILE must exist in {} file (see example below)".format(configfile))
     print ("")
@@ -66,52 +62,61 @@ def usage():
     print ("region      = eu-frankfurt-1")
     exit (1)
 
-# ---- Check VM database systems in a compartment
-def process_compartment(lcpt):
+# ---- Get the complete name of a compartment from its id, including parent and grand-parent..
+def get_cpt_name_from_id(cpt_id):
+    if cpt_id == RootCompartmentID:
+        return "root"
 
-    # exit function if compartent is deleted
-    if lcpt.lifecycle_state == "DELETED": return
+    name=""
+    for c in compartments:
+        if (c.id == cpt_id):
+            name=c.name
+    
+            # if the cpt is a direct child of root compartment, return name
+            if c.compartment_id == RootCompartmentID:
+                return name
+            # otherwise, find name of parent and add it as a prefix to name
+            else:
+                name = get_cpt_name_from_id(c.compartment_id)+":"+name
+                return name
 
-    # region 
-    region = config["region"]
+# ---- If needed, stop or start the autonomous database
+def process_adb (adb_id, lcpt_name):
 
-    # find VM database systems in this compartment
-    response = oci.pagination.list_call_get_all_results(DatabaseClient.list_db_systems,compartment_id=lcpt.id)
- 
-    # for each instance, check if it needs to be stopped or started 
-    if len(response.data) > 0:
-        for dbs in response.data:
-            # process VM DB system only if available (DBS is AVAILABLE even if DB nodes are stopped)
-            if dbs.lifecycle_state == "AVAILABLE":
-                # get the tags
-                try:
-                    tag_value_stop  = dbs.defined_tags[tag_ns][tag_key_stop]
-                    tag_value_start = dbs.defined_tags[tag_ns][tag_key_start]
-                except:
-                    tag_value_stop  = "none"
-                    tag_value_start = "none"
-                
-                # get the DB node 
-                response = DatabaseClient.list_db_nodes(compartment_id=lcpt.id, db_system_id=dbs.id)
-                dbnode = response.data[0]
+    region  = config["region"] 
+    #print (f"DEBUG: {region} {lcpt_name} {adb_id}")
 
-                # Is it time to start this autonomous db ?
-                if dbnode.lifecycle_state == "STOPPED" and tag_value_start == current_utc_time:
-                    print ("{:s}, {:s}, {:s}: ".format(datetime.utcnow().strftime("%T"), region, lcpt.name),end='')
-                    if confirm_start:
-                        print ("STARTING DB node for {:s} ({:s})".format(dbs.display_name, dbs.id))
-                        DatabaseClient.db_node_action(dbnode.id, "START")
-                    else:
-                        print ("DB node for DB system {:s} ({:s}) SHOULD BE STARTED --> re-run script with --confirm_start to actually start databases".format(dbs.display_name, dbs.id))
+    # get details about autonomous database from regular API 
+    DatabaseClient = oci.database.DatabaseClient(config)
+    response = DatabaseClient.get_autonomous_database (adb_id)
+    adb = response.data
 
-                # Is it time to stop this autonomous db ?
-                elif dbnode.lifecycle_state == "AVAILABLE" and tag_value_stop == current_utc_time:
-                    print ("{:s}, {:s}, {:s}: ".format(datetime.utcnow().strftime("%T"), region, lcpt.name),end='')
-                    if confirm_stop:
-                        print ("STOPPING DB node for {:s} ({:s})".format(dbs.display_name, dbs.id))
-                        DatabaseClient.db_node_action(dbnode.id, "STOP")
-                    else:
-                        print ("DB node for DB system {:s} ({:s}) SHOULD BE STOPPED --> re-run script with --confirm_start to actually stop databases".format(dbs.display_name, dbs.id))
+    if adb.lifecycle_state != "TERMINED":
+        # get the tags
+        try:
+            tag_value_stop  = adb.defined_tags[tag_ns][tag_key_stop]
+            tag_value_start = adb.defined_tags[tag_ns][tag_key_start]
+        except:
+            tag_value_stop  = "none"
+            tag_value_start = "none"
+        
+        # Is it time to start this autonomous db ?
+        if adb.lifecycle_state == "STOPPED" and tag_value_start == current_utc_time:
+            print ("{:s}, {:s}, {:s}: ".format(datetime.utcnow().strftime("%T"), region, lcpt.name),end='')
+            if confirm_start:
+                print ("STARTING autonomous db {:s} ({:s})".format(adb.display_name, adb.id))
+                DatabaseClient.start_autonomous_database(adb.id)
+            else:
+                print ("Autonomous DB {:s} ({:s}) SHOULD BE STARTED --> re-run script with --confirm_start to actually start databases".format(adb.display_name, adb.id))
+
+        # Is it time to stop this autonomous db ?
+        elif adb.lifecycle_state == "AVAILABLE" and tag_value_stop == current_utc_time:
+            print ("{:s}, {:s}, {:s}: ".format(datetime.utcnow().strftime("%T"), region, lcpt.name),end='')
+            if confirm_stop:
+                print ("STOPPING autonomous db {:s} ({:s})".format(adb.display_name, adb.id))
+                DatabaseClient.stop_autonomous_database(adb.id)
+            else:
+                print ("Autonomous DB {:s} ({:s}) SHOULD BE STOPPED --> re-run script with --confirm_start to actually stop databases".format(adb.display_name, adb.id))
 
   
 # ------------ main
@@ -184,24 +189,25 @@ compartments = response.data
 response = oci.pagination.list_call_get_all_results(IdentityClient.list_region_subscriptions, RootCompartmentID)
 regions = response.data
 
-# -- do the job
-class root_cpt:
-    name="root"
-    id=RootCompartmentID
-    lifecycle_state="AVAILABLE"
+# -- Query (see https://docs.cloud.oracle.com/en-us/iaas/Content/Search/Concepts/querysyntax.htm)
+query = "query autonomousdatabase resources"
 
+# -- Run the search query/queries to find all autonomous databases in the region/regions
 if not(all_regions):
-    DatabaseClient = oci.database.DatabaseClient(config)
-    process_compartment(root_cpt)
-    for cpt in compartments:
-        process_compartment(cpt)
+    SearchClient = oci.resource_search.ResourceSearchClient(config)
+    response = SearchClient.search_resources(oci.resource_search.models.StructuredSearchDetails(type="Structured", query=query))
+    for item in response.data.items:
+        cpt_name = get_cpt_name_from_id(item.compartment_id)
+        process_adb (item.identifier, cpt_name)
 else:
     for region in regions:
+        #print (f"DEBUG: testing region {region.region_name}")
         config["region"]=region.region_name
-        DatabaseClient = oci.database.DatabaseClient(config)
-        process_compartment(root_cpt)
-        for cpt in compartments:
-            process_compartment(cpt)
+        SearchClient = oci.resource_search.ResourceSearchClient(config)
+        response = SearchClient.search_resources(oci.resource_search.models.StructuredSearchDetails(type="Structured", query=query))
+        for item in response.data.items:
+            cpt_name = get_cpt_name_from_id(item.compartment_id)
+            process_adb (item.identifier, cpt_name)
 
 # -- the end
 print ("{:s}: END SCRIPT PID={:d}".format(datetime.utcnow().strftime("%Y/%m/%d %T"),pid))

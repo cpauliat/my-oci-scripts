@@ -26,7 +26,7 @@
 # Versions
 #    2020-04-23: Initial Version
 #    2020-09-17: bug fix (root compartment was ignored)
-#    2021-01-08: bug fix (ignore DB system if not in AVAILABLE status)
+#    2021-01-08: Use a search query to accelerate the script
 # ---------------------------------------------------------------------------------------------------------------------------------
 
 # -- import
@@ -66,52 +66,70 @@ def usage():
     print ("region      = eu-frankfurt-1")
     exit (1)
 
-# ---- Check VM database systems in a compartment
-def process_compartment(lcpt):
+# ---- Get the complete name of a compartment from its id, including parent and grand-parent..
+def get_cpt_name_from_id(cpt_id):
+    if cpt_id == RootCompartmentID:
+        return "root"
 
-    # exit function if compartent is deleted
-    if lcpt.lifecycle_state == "DELETED": return
+    name=""
+    for c in compartments:
+        if (c.id == cpt_id):
+            name=c.name
+    
+            # if the cpt is a direct child of root compartment, return name
+            if c.compartment_id == RootCompartmentID:
+                return name
+            # otherwise, find name of parent and add it as a prefix to name
+            else:
+                name = get_cpt_name_from_id(c.compartment_id)+":"+name
+                return name
 
-    # region 
-    region = config["region"]
+# ---- If needed, stop or start the autonomous database
+def process_dbs (dbs_id, lcpt_name, lcpt_id):
 
-    # find VM database systems in this compartment
-    response = oci.pagination.list_call_get_all_results(DatabaseClient.list_db_systems,compartment_id=lcpt.id)
- 
-    # for each instance, check if it needs to be stopped or started 
-    if len(response.data) > 0:
-        for dbs in response.data:
-            # process VM DB system only if available (DBS is AVAILABLE even if DB nodes are stopped)
-            if dbs.lifecycle_state == "AVAILABLE":
-                # get the tags
-                try:
-                    tag_value_stop  = dbs.defined_tags[tag_ns][tag_key_stop]
-                    tag_value_start = dbs.defined_tags[tag_ns][tag_key_start]
-                except:
-                    tag_value_stop  = "none"
-                    tag_value_start = "none"
-                
-                # get the DB node 
-                response = DatabaseClient.list_db_nodes(compartment_id=lcpt.id, db_system_id=dbs.id)
-                dbnode = response.data[0]
+    region  = config["region"] 
 
-                # Is it time to start this autonomous db ?
-                if dbnode.lifecycle_state == "STOPPED" and tag_value_start == current_utc_time:
-                    print ("{:s}, {:s}, {:s}: ".format(datetime.utcnow().strftime("%T"), region, lcpt.name),end='')
-                    if confirm_start:
-                        print ("STARTING DB node for {:s} ({:s})".format(dbs.display_name, dbs.id))
-                        DatabaseClient.db_node_action(dbnode.id, "START")
-                    else:
-                        print ("DB node for DB system {:s} ({:s}) SHOULD BE STARTED --> re-run script with --confirm_start to actually start databases".format(dbs.display_name, dbs.id))
+    # get details about database system from regular API 
+    DatabaseClient = oci.database.DatabaseClient(config)
+    response = DatabaseClient.get_db_system (dbs_id)
+    dbs = response.data
 
-                # Is it time to stop this autonomous db ?
-                elif dbnode.lifecycle_state == "AVAILABLE" and tag_value_stop == current_utc_time:
-                    print ("{:s}, {:s}, {:s}: ".format(datetime.utcnow().strftime("%T"), region, lcpt.name),end='')
-                    if confirm_stop:
-                        print ("STOPPING DB node for {:s} ({:s})".format(dbs.display_name, dbs.id))
-                        DatabaseClient.db_node_action(dbnode.id, "STOP")
-                    else:
-                        print ("DB node for DB system {:s} ({:s}) SHOULD BE STOPPED --> re-run script with --confirm_start to actually stop databases".format(dbs.display_name, dbs.id))
+    # we only care about VM (Virtual Machine) DB systems because stopping BM (Bare Metal) DB systems does not stop billing
+    # so ignoring BM DB systems
+    if dbs.shape[:2] != "VM":
+        return
+
+    # process VM DB system only if available (DBS is AVAILABLE even if DB nodes are stopped)
+    if dbs.lifecycle_state == "AVAILABLE":
+        # get the tags
+        try:
+            tag_value_stop  = dbs.defined_tags[tag_ns][tag_key_stop]
+            tag_value_start = dbs.defined_tags[tag_ns][tag_key_start]
+        except:
+            tag_value_stop  = "none"
+            tag_value_start = "none"
+        
+        # get the DB node 
+        response = DatabaseClient.list_db_nodes(compartment_id=lcpt_id, db_system_id=dbs.id)
+        dbnode = response.data[0]
+
+        # Is it time to start this autonomous db ?
+        if dbnode.lifecycle_state == "STOPPED" and tag_value_start == current_utc_time:
+            print ("{:s}, {:s}, {:s}: ".format(datetime.utcnow().strftime("%T"), region, lcpt_name),end='')
+            if confirm_start:
+                print ("STARTING DB node for {:s} ({:s})".format(dbs.display_name, dbs.id))
+                DatabaseClient.db_node_action(dbnode.id, "START")
+            else:
+                print ("DB node for DB system {:s} ({:s}) SHOULD BE STARTED --> re-run script with --confirm_start to actually start databases".format(dbs.display_name, dbs.id))
+
+        # Is it time to stop this autonomous db ?
+        elif dbnode.lifecycle_state == "AVAILABLE" and tag_value_stop == current_utc_time:
+            print ("{:s}, {:s}, {:s}: ".format(datetime.utcnow().strftime("%T"), region, lcpt_name),end='')
+            if confirm_stop:
+                print ("STOPPING DB node for {:s} ({:s})".format(dbs.display_name, dbs.id))
+                DatabaseClient.db_node_action(dbnode.id, "STOP")
+            else:
+                print ("DB node for DB system {:s} ({:s}) SHOULD BE STOPPED --> re-run script with --confirm_start to actually stop databases".format(dbs.display_name, dbs.id))
 
   
 # ------------ main
@@ -184,24 +202,25 @@ compartments = response.data
 response = oci.pagination.list_call_get_all_results(IdentityClient.list_region_subscriptions, RootCompartmentID)
 regions = response.data
 
-# -- do the job
-class root_cpt:
-    name="root"
-    id=RootCompartmentID
-    lifecycle_state="AVAILABLE"
+# -- Query (see https://docs.cloud.oracle.com/en-us/iaas/Content/Search/Concepts/querysyntax.htm)
+query = "query dbsystem resources"
 
+# -- Run the search query/queries to find all DB systems in the region/regions
 if not(all_regions):
-    DatabaseClient = oci.database.DatabaseClient(config)
-    process_compartment(root_cpt)
-    for cpt in compartments:
-        process_compartment(cpt)
+    SearchClient = oci.resource_search.ResourceSearchClient(config)
+    response = SearchClient.search_resources(oci.resource_search.models.StructuredSearchDetails(type="Structured", query=query))
+    for item in response.data.items:
+        cpt_name = get_cpt_name_from_id(item.compartment_id)
+        process_dbs (item.identifier, cpt_name, item.compartment_id)
 else:
     for region in regions:
+        #print (f"DEBUG: testing region {region.region_name}")
         config["region"]=region.region_name
-        DatabaseClient = oci.database.DatabaseClient(config)
-        process_compartment(root_cpt)
-        for cpt in compartments:
-            process_compartment(cpt)
+        SearchClient = oci.resource_search.ResourceSearchClient(config)
+        response = SearchClient.search_resources(oci.resource_search.models.StructuredSearchDetails(type="Structured", query=query))
+        for item in response.data.items:
+            cpt_name = get_cpt_name_from_id(item.compartment_id)
+            process_dbs (item.identifier, cpt_name, item.compartment_id)
 
 # -- the end
 print ("{:s}: END SCRIPT PID={:d}".format(datetime.utcnow().strftime("%Y/%m/%d %T"),pid))
