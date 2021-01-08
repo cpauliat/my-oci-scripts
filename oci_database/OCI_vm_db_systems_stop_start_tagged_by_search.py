@@ -94,8 +94,8 @@ def process_dbs (dbs_id, lcpt_name, lcpt_id):
     response = DatabaseClient.get_db_system (dbs_id)
     dbs = response.data
 
-    # we only care about VM (Virtual Machine) DB systems because stopping BM (Bare Metal) DB systems does not stop billing
-    # so ignoring BM DB systems
+    # we only care about VM (Virtual Machine) DB systems because stopping BM (Bare Metal) or Exadata DB systems does not stop billing
+    # so ignoring DB systems with shape different than "VM*"
     if dbs.shape[:2] != "VM":
         return
 
