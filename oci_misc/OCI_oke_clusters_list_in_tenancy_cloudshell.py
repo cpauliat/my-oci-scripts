@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # ---------------------------------------------------------------------------------------------------------------------------------
-# This script lists ContainerEngine(aka OKE) clusters in a region or all active regions using OCI Python SDK
+# This script lists ContainerEngine(aka OKE) clusters in all active regions using OCI Python SDK
 #
 # Note: OCI tenant and region given retrieved automatically by CloudShell
 #
@@ -25,9 +25,7 @@ import sys
 
 # ---- usage syntax
 def usage():
-    print ("Usage: {} [-a]".format(sys.argv[0]))
-    print ("")
-    print ("    If -a is provided, the OKE containers from all subscribed regions are listed")
+    print ("Usage: {}".format(sys.argv[0]))
     print ("")
     exit (1)
 
@@ -67,18 +65,6 @@ def process_compartment (lcpt_id):
 
 # ------------ main
 
-# -- parse arguments
-all_regions = False
-
-
-if len(sys.argv) == 2:
-    if sys.argv[1] == "-a":
-        all_regions = True
-    else:
-        usage ()
-elif len(sys.argv) != 1:
-    usage()
-
 # -- get config from CloudShell
 try:
     config = oci.config.from_file()
@@ -86,8 +72,10 @@ except:
     print ("ERROR 02: cannot get config")
     exit (2)
 
+IdentityClient = oci.identity.IdentityClient(config)
+
 # -- get list of compartments
-RootCompartmentID = config.tenancy
+RootCompartmentID = config['tenancy']
 response = oci.pagination.list_call_get_all_results(IdentityClient.list_compartments, RootCompartmentID,compartment_id_in_subtree=True)
 compartments = response.data
 
@@ -101,22 +89,16 @@ clusters_ids = []
 # -- Query (see https://docs.cloud.oracle.com/en-us/iaas/Content/Search/Concepts/querysyntax.htm)
 query = "query instance resources where displayName =~ 'oke'"
 
-# -- Run the search query/queries to find all OKE compute instances in the region/regions
+# -- Run the search query/queries to find all OKE compute instances in the subscribed regions
 # -- then get details about OKE clusters
-if not(all_regions):
+
+for region in regions:
+    config["region"]=region.region_name
     SearchClient = oci.resource_search.ResourceSearchClient(config)
     response = SearchClient.search_resources(oci.resource_search.models.StructuredSearchDetails(type="Structured", query=query))
     for item in response.data.items:
         cpt_name = get_cpt_name_from_id(item.compartment_id)
         process_compartment (item.compartment_id)
-else:
-    for region in regions:
-        config["region"]=region.region_name
-        SearchClient = oci.resource_search.ResourceSearchClient(config)
-        response = SearchClient.search_resources(oci.resource_search.models.StructuredSearchDetails(type="Structured", query=query))
-        for item in response.data.items:
-            cpt_name = get_cpt_name_from_id(item.compartment_id)
-            process_compartment (item.compartment_id)
 
 # -- the end
 exit (0)
