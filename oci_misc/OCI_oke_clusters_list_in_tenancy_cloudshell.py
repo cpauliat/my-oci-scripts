@@ -86,11 +86,8 @@ except:
     print ("ERROR 02: cannot get config")
     exit (2)
 
-IdentityClient = oci.identity.IdentityClient(config)
-user = IdentityClient.get_user(config["user"]).data
-RootCompartmentID = user.compartment_id
-
 # -- get list of compartments
+RootCompartmentID = config.tenancy
 response = oci.pagination.list_call_get_all_results(IdentityClient.list_compartments, RootCompartmentID,compartment_id_in_subtree=True)
 compartments = response.data
 
