@@ -102,7 +102,7 @@ def process_adb (adb_id, lcpt_name):
         
         # Is it time to start this autonomous db ?
         if adb.lifecycle_state == "STOPPED" and tag_value_start == current_utc_time:
-            print ("{:s}, {:s}, {:s}: ".format(datetime.utcnow().strftime("%T"), region, lcpt.name),end='')
+            print ("{:s}, {:s}, {:s}: ".format(datetime.utcnow().strftime("%T"), region, lcpt_name),end='')
             if confirm_start:
                 print ("STARTING autonomous db {:s} ({:s})".format(adb.display_name, adb.id))
                 DatabaseClient.start_autonomous_database(adb.id)
@@ -111,7 +111,7 @@ def process_adb (adb_id, lcpt_name):
 
         # Is it time to stop this autonomous db ?
         elif adb.lifecycle_state == "AVAILABLE" and tag_value_stop == current_utc_time:
-            print ("{:s}, {:s}, {:s}: ".format(datetime.utcnow().strftime("%T"), region, lcpt.name),end='')
+            print ("{:s}, {:s}, {:s}: ".format(datetime.utcnow().strftime("%T"), region, lcpt_name),end='')
             if confirm_stop:
                 print ("STOPPING autonomous db {:s} ({:s})".format(adb.display_name, adb.id))
                 DatabaseClient.stop_autonomous_database(adb.id)
