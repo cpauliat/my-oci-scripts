@@ -14,6 +14,7 @@
 #    2019-10-04: Change defaut behavior (does not display limits with quota set to 0). 
 #    2019-12-31: Fix minor formatting bug
 #    2020-03-20: change location of temporary files to /tmp + check oci exists
+#    2021-04-07: change width of columns
 # --------------------------------------------------------------------------------------------------------------
 
 usage()
@@ -96,7 +97,7 @@ list_limits()
     i=$nb_lines
     while [ $i -lt $max ]
     do
-      printf "%-41s\n" "" >> ${TMP_FILE}_AD_$ad
+      printf "%-48s\n" "" >> ${TMP_FILE}_AD_$ad
       i=`expr $i + 1`
     done
   done
