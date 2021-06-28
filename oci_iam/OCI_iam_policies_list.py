@@ -10,11 +10,13 @@
 #                 - OCI config file configured with profiles
 # Versions
 #    2021-06-25: Initial Version
+#    2021-06-25: Improved display by Matthieu Bordonne
 # --------------------------------------------------------------------------------------------------------------
 
 # -- import
 import oci
 import sys
+import re
 from datetime import datetime
 
 # ---------- Colors for output
@@ -90,8 +92,12 @@ def list_policies_in_compartment(cpt_id, cpt_name):
             try:
                 creator = policy.defined_tags['osc']['created-by']
             except:
-                creator = "??"
-            print (f"    - {policy.name:40s}, created on {policy.time_created.strftime('%m/%d/%Y')} by {creator}, {policy.description:s}")
+                try:
+                    creator = policy.defined_tags['Oracle-Tags']['CreatedBy']
+                except:
+                    creator = "??"
+            creator_stripped = re.sub('^.*/','',creator)
+            print (f"    - {policy.name:40s} \n               created on {policy.time_created.strftime('%m/%d/%Y')},  by {creator_stripped}\n               Description:  {policy.description:s}")
 
 def list_compartments(parent_id, level):
     # level = 0 for root, 1 for 1st level compartments, ...
