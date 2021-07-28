@@ -13,6 +13,7 @@
 # Versions
 #    2020-17-12: Initial Version
 #    2020-22-12: Add support for all subscribed regions and add optional details
+#    2021-07-28: Fix usage() function, no compartment needed
 # ---------------------------------------------------------------------------------------------------------------------------------
 
 # -- import
@@ -47,8 +48,7 @@ configfile = "~/.oci/config"    # Define config file to be used.
 
 # ---- usage syntax
 def usage():
-    print ("Usage: {} [-a] [-v] OCI_PROFILE compartment_ocid".format(sys.argv[0]))
-    print ("    or {} [-a] [-v] OCI_PROFILE compartment_name".format(sys.argv[0]))  
+    print ("Usage: {} [-a] [-v] OCI_PROFILE".format(sys.argv[0]))
     print ("")
     print ("    By default, only the region provided in the profile is processed")
     print ("    If -a is provided, all subscribed regions are processed (by default, only the region in the profile is processed)")

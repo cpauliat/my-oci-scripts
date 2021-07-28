@@ -7,7 +7,7 @@
 # Platforms     : MacOS / Linux
 #
 # Prerequisites: 
-# - Python 3 installed
+# - Python 3 installed with modules requests and columnar (install them with pip3)
 # - IDCS OAuth2 application created with Client ID and Client secret available
 #
 # Versions
