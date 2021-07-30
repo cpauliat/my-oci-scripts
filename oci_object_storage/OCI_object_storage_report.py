@@ -15,6 +15,7 @@
 #    2020-21-12: Initial Version
 #    2021-07-28: Fix usage() function, no compartment needed
 #    2021-07-28: Add -a option for all regions
+#    2021-07-30: Ignore buckets with # in name (internal buckets / no charge)
 # ---------------------------------------------------------------------------------------------------------------------------------
 
 # -- import
@@ -87,6 +88,10 @@ def get_cpt_name_from_id(cpt_id):
 
 # -- Build the block storage report for one region then display it
 def get_report_for_region():
+
+    # workaround for bucket issue in Toronto
+    # if config["region"] == "ca-toronto-1":
+    #     return
         
     print ("--------------------------------------------------------------------------------------------------------------")
 
@@ -100,11 +105,12 @@ def get_report_for_region():
     total_mb_used = 0
     namespace = OSClient.get_namespace().data
 
-    # Run the search query to get list of BLOCK volumes then for each volume, use get_volume() to get size
+    # Run the search query to get list of bucket then for each bucket, use get_bucket() to get approximate size
     # Finally store the result in a dictionary
     response = SearchClient.search_resources(oci.resource_search.models.StructuredSearchDetails(type="Structured", query=query_bucket))
     for item in response.data.items:
-        if item.lifecycle_state != "TERMINATED":
+        # ignore terminated buckets and internal buckets ('#' in the name)
+        if item.lifecycle_state != "TERMINATED" and not '#' in item.display_name:
             # as size is not returned by the query search, we need to get the size (approximate) of each bucket.
             my_fields = [ 'approximateSize' ]
             response2 = OSClient.get_bucket(namespace, item.display_name, fields=my_fields)
