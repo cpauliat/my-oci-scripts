@@ -87,10 +87,6 @@ def get_cpt_name_from_id(cpt_id):
 
 # -- Build the block storage report for one region then display it
 def get_report_for_region():
-
-    # workaround for bucket issue in Toronto
-    if config["region"] == "ca-toronto-1":
-        return
         
     print ("--------------------------------------------------------------------------------------------------------------")
 
