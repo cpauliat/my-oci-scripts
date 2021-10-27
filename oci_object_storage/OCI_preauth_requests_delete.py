@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # --------------------------------------------------------------------------------------------------------------------------
-# This script lists all preauth requests for an object storage bucket using OCI Python SDK
+# This script lists all preauthenticated requests (PARs) for an object storage bucket using OCI Python SDK
 # Then for each request, it asks if it must be deleted then deletes it if confirmed
 #
 # Note: OCI tenant and region given by an OCI CLI PROFILE
@@ -12,6 +12,7 @@
 #                 - OCI config file configured with profiles
 # Versions
 #    2020-15-12: Initial Version
+#    2021-10-27: Add the possibility to delete all PARs in a single operation
 # --------------------------------------------------------------------------------------------------------------------------
 
 # -- import
@@ -37,6 +38,9 @@ def usage():
     print ("key_file    = /Users/cpauliat/.oci/api_key.pem")
     print ("region      = eu-frankfurt-1")
     exit (1)
+
+def delete_par(l_os, l_ns, l_bucket, l_auth_id):
+    oci.object_storage.ObjectStorageClient.delete_preauthenticated_request(l_os, namespace_name=l_ns, bucket_name=l_bucket, par_id=l_auth_id)
 
 # ------------ main
 
@@ -83,15 +87,26 @@ for auth in response.data:
     print ('{:2d}) {:50s} {:50s} {}'.format(nb, auth.name, auth.object_name, auth.time_expires))
     nb += 1
 
+# -- Do you want to delete all PARs in a single operation ?
 print ("")
-nb = 1
-for auth in response.data:
+answer = input ("Do you want to delete all PARs in a single operation ? (y/n): ")
+if answer == "y":
+    for auth in response.data:
+        delete_par(ObjectStorageClient, namespace, bucket, auth.id)
     print ("")
-    answer = input (f"Do you want to delete request {nb} ? (y/n): ")
-    if answer == "y":
-        oci.object_storage.ObjectStorageClient.delete_preauthenticated_request(ObjectStorageClient, namespace_name=namespace, bucket_name=bucket, par_id=auth.id)
-        print (f"    Pre-authenticated request {nb} deleted !")
-    nb += 1
+    print (f"All pre-authenticated requests deleted !")
+
+# -- If not, you can delete each PAR individually 
+else:
+    print ("")
+    nb = 1
+    for auth in response.data:
+        answer2 = input (f"Do you want to delete request {nb} ? (y/n): ")
+        if answer2 == "y":
+            delete_par(ObjectStorageClient, namespace, bucket, auth.id)
+            print (f"    Pre-authenticated request {nb} deleted !")
+            print ("")
+        nb += 1
     
 # -- the end
 exit (0)
