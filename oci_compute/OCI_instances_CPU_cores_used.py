@@ -138,13 +138,20 @@ def display_results():
         for fd in fds:
             print (f"{ad:26s} {fd:^12s} ",end="")
             for cpu_type in list_cpu_types:
-                print (f"{results[ad][fd][cpu_type]:>7d} ",end="")
                 total[cpu_type] += results[ad][fd][cpu_type]
+                # Choice 1: display zeros
+                # print (f"{results[ad][fd][cpu_type]:>7d} ",end="")
+
+                # Choice 2: display . instead of zeros for better readibility
+                if results[ad][fd][cpu_type] != 0:
+                    print (f"{results[ad][fd][cpu_type]:>7d} ",end="")
+                else:
+                    print (f"{'.':>7s} ",end="")
             print ("")
 
     # total number of opcus per cpu_type
     total_region = 0
-    trailer_ad = "TOTAL"
+    trailer_ad = "TOTAL:"
     trailer_fd = " "
     print (f"{trailer_ad:>26s} {trailer_fd:12s} ",end="")        
     for cpu_type in list_cpu_types:
@@ -153,18 +160,16 @@ def display_results():
     print ("")
 
     # grand total per region
-    trailer_ad = "REGION TOTAL"
-    trailer_fd = " "
-    print (f"{trailer_ad:>26s} {trailer_fd:12s} {total_region:>7d}")
+    trailer_ad = "REGION TOTAL:"
+    print (f"{trailer_ad:>26s} {total_region:^12d}")
 
     # update total for tenant
     total_tenant += total_region
 
 def display_tenant_total():
     print ("")
-    trailer_ad = "TENANT TOTAL"
-    trailer_fd = " "
-    print (f"{trailer_ad:>26s} {trailer_fd:12s} {total_tenant:>7d}")
+    trailer_ad = "TENANT TOTAL:"
+    print (f"{trailer_ad:>26s} {total_tenant:^12d}")
 
 def process(l_config):
     global list_ads
@@ -190,7 +195,8 @@ def process(l_config):
     for item in response.data.items:
         get_cpu_type_and_nb_of_cores(ComputeClient, item.identifier)
 
-    # display number of all ocpus per AD, FD and cpu type
+    # compute total per region and update total for tenant
+    # and display number of all ocpus per AD, FD and cpu type
     display_results()
 
 # ---------- main
