@@ -12,6 +12,7 @@
 #                 - OCI config file configured with profiles
 # Versions
 #    2021-11-05: Initial Version
+#    2021-11-05: Add HTML output as alternative to text output
 # --------------------------------------------------------------------------------------------------------------
 
 
@@ -24,6 +25,7 @@ configfile     = "~/.oci/config"    # Define config file to be used.
 list_cpu_types = [ "E2", "E3", "E4", "A1", "Std1", "Std2", "DenseIO2", "Opt3", "GPU2", "GPU3", "GPU4", "HPC2", "Others" ]
 list_ads       = []
 total_tenant   = 0
+output_mode    = "html"         # "html" or "text"
 
 # -- functions
 def usage():
@@ -112,13 +114,11 @@ def get_cpu_type_and_nb_of_cores(compute_client, instance_id):
 
     results[ad][fd][cpu_type] += int(float(ocpus))
 
-def display_results():    
+def display_results_text():    
     global total_tenant
 
     # table title
     print ("")
-
-    #print (results)
 
     # table headers
     header_ad = "Availability domain"
@@ -166,10 +166,129 @@ def display_results():
     # update total for tenant
     total_tenant += total_region
 
-def display_tenant_total():
+# -- begin of HTML code
+def HTML_begin():
+    my_str = """<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <title>OCPUS report for OCI compute instances</title>
+    <style type="text/css">
+        tr:nth-child(odd) { background-color: #f2f2f2; }
+        tr:hover          { background-color: #ffdddd; }
+        table {
+            border-collapse: collapse;
+            font-family:Arial;
+        }
+        th {
+            background-color: #4CAF50;
+            color: white;
+        }
+        tr {
+            background-color: #FFF5F0;
+        }
+        th, td {
+            border: 1px solid #808080;
+            text-align: center;
+            padding: 7px;
+        }
+        caption {
+            caption-side: bottom;
+            padding: 10px;
+            align: right;
+            font-style: italic;
+        }
+        #tenant-total {
+            font-family:Arial;
+            color: red; 
+        }
+        #signature {
+            font-size: 80%;
+        }
+    </style>
+</head>
+<body>"""
+    print (my_str)
+
+# -- end of HTML code
+def HTML_end():
+    url = "https://github.com/cpauliat/my-oci-scripts/blob/master/oci_compute/OCI_instances_CPU_cores_used.py"
+    print (f"&nbsp;&nbsp;&nbsp;&nbsp;<span id=\"signature\">This report was generated using Python script <a href=\"{url}\">{url}</a></span>")
+    print ("<p>")
+    print ("</body>")
+    print ("</html>")
+
+# -- HTML table for the region
+def display_results_HTML_table():    
+    global total_tenant
+
+    print ("    <table>")
+
+    # table headers
+    print (f"        <caption>OCPUs for compute instances in region <b>{config['region']}</b></caption>")
+    my_str = """        <tbody>
+            <tr>
+                <th>Availability domain</th>
+                <th>Fault domain</th>"""
+    print (my_str)
+    for cpu_type in list_cpu_types:
+        print (f"                <th>{cpu_type}</th>")
+    my_str = """
+            </tr>"""
+    print (my_str)
+
+    # tables content
+    total = {}
+    for cpu_type in list_cpu_types:
+        total[cpu_type] = 0
+    for ad in list_ads:
+        fds = list(results[ad].keys())
+        fds.sort()
+        for fd in fds:
+            print("            <tr>")
+            print (f"                <td>{ad}</td>")
+            print (f"                <td>{fd}</td>")
+            for cpu_type in list_cpu_types:
+                total[cpu_type] += results[ad][fd][cpu_type]
+                print (f"                <td>{results[ad][fd][cpu_type]}</td>")
+            print("            </tr>")
+
+    # total number of opcus per cpu_type
+    print("            <tr>")
+    total_region = 0
+    print (f"                <td colspan=\"2\"><b>REGION TOTALS</b></td>")
+    #print (f"                <td>&nbsp;</td>")      
+    for cpu_type in list_cpu_types:
+        print (f"                <td><b>{total[cpu_type]:d}</b></td>")
+        total_region += total[cpu_type]
+    print("            </tr>")
+
+    # grand total per region
+    print("            <tr>")
+    print (f"                <td colspan=\"2\"><b>REGION GRAND TOTAL</b></td>")
+    print (f"                <td colspan=\"{len(list_cpu_types)}\"><b>{total_region}</b></td>")      
+    # for cpu_type in list_cpu_types:
+    #     print (f"                <td>&nbsp;</td>")
+    print("            </tr>")
+
+    # end of HTML table
+    print("        </tbody>")
+    print("    </table>")
+
+    # add space between tables
+    print("    <p>")
+
+    # update total for tenant
+    total_tenant += total_region
+
+def display_tenant_total_text():
     print ("")
     trailer_ad = "TENANT TOTAL:"
     print (f"{trailer_ad:>26s} {total_tenant:^12d}")
+
+def display_tenant_total_HTML():
+    print (f"&nbsp;&nbsp;&nbsp;&nbsp;<span id=\"tenant-total\"><b>TENANT TOTAL: {total_tenant:d}<b></span>")
+    print ("<p>")
 
 def process(l_config):
     global list_ads
@@ -197,7 +316,10 @@ def process(l_config):
 
     # compute total per region and update total for tenant
     # and display number of all ocpus per AD, FD and cpu type
-    display_results()
+    if output_mode == "html":
+        display_results_HTML_table()
+    else:
+        display_results_text()
 
 # ---------- main
 
@@ -234,6 +356,10 @@ RootCompartmentID = user.compartment_id
 response = oci.pagination.list_call_get_all_results(IdentityClient.list_region_subscriptions, RootCompartmentID)
 regions = response.data
 
+# -- HTML output
+if output_mode == "html":
+    HTML_begin()
+
 # -- Run the search query/queries
 if not(all_regions):
     process(config)
@@ -241,7 +367,14 @@ else:
     for region in regions:
         config["region"] = region.region_name
         process(config)
-    display_tenant_total()
+    if output_mode == "html":
+        display_tenant_total_HTML()
+    else:
+        display_tenant_total_text()
+
+# -- HTML output
+if output_mode == "html":
+    HTML_end()
 
 # -- the end
 exit (0)
