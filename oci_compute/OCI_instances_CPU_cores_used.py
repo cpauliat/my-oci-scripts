@@ -21,8 +21,9 @@ import sys
 
 # -- variables
 configfile     = "~/.oci/config"    # Define config file to be used.
-list_cpu_types = [ "E2", "E3", "E4", "A1", "Std2", "DenseIO2", "Opt3", "GPU2", "GPU3", "GPU4", "HPC2", "UNKNOWN" ]
+list_cpu_types = [ "E2", "E3", "E4", "A1", "Std1", "Std2", "DenseIO2", "Opt3", "GPU2", "GPU3", "GPU4", "HPC2", "Others" ]
 list_ads       = []
+total_tenant   = 0
 
 # -- functions
 def usage():
@@ -90,6 +91,8 @@ def get_cpu_type_and_nb_of_cores(compute_client, instance_id):
         cpu_type = "E4"       
     elif ".A1." in shape:
         cpu_type = "A1"  
+    elif ".Standard1." in shape:
+        cpu_type = "Std1" 
     elif ".Standard2." in shape:
         cpu_type = "Std2" 
     elif ".DenseIO2." in shape:
@@ -105,20 +108,13 @@ def get_cpu_type_and_nb_of_cores(compute_client, instance_id):
     elif ".HPC2." in shape:
         cpu_type = "HPC2" 
     else:
-        cpu_type = "UNKNOWN"
+        cpu_type = "Others"
 
     results[ad][fd][cpu_type] += int(float(ocpus))
 
-def display_results_raw():
-    print ("")
-    for ad in list_ads:
-        fds = list(results[ad].keys())
-        fds.sort()
-        for fd in fds:
-            print (f"{ad}: {fd}: {results[ad][fd]}")
-        print ("")
+def display_results():    
+    global total_tenant
 
-def display_results():
     # table title
     print ("")
 
@@ -147,13 +143,28 @@ def display_results():
             print ("")
 
     # total number of opcus per cpu_type
+    total_region = 0
     trailer_ad = "TOTAL"
     trailer_fd = " "
     print (f"{trailer_ad:>26s} {trailer_fd:12s} ",end="")        
     for cpu_type in list_cpu_types:
         print (f"{total[cpu_type]:>7d} ",end="")
+        total_region += total[cpu_type]
     print ("")
 
+    # grand total per region
+    trailer_ad = "REGION TOTAL"
+    trailer_fd = " "
+    print (f"{trailer_ad:>26s} {trailer_fd:12s} {total_region:>7d}")
+
+    # update total for tenant
+    total_tenant += total_region
+
+def display_tenant_total():
+    print ("")
+    trailer_ad = "TENANT TOTAL"
+    trailer_fd = " "
+    print (f"{trailer_ad:>26s} {trailer_fd:12s} {total_tenant:>7d}")
 
 def process(l_config):
     global list_ads
@@ -224,6 +235,7 @@ else:
     for region in regions:
         config["region"] = region.region_name
         process(config)
+    display_tenant_total()
 
 # -- the end
 exit (0)
