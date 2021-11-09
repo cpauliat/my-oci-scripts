@@ -13,19 +13,25 @@
 # Versions
 #    2021-11-05: Initial Version
 #    2021-11-05: Add HTML output as alternative to text output
+#    2021-11-08: Add date/time of report
+#    2021-11-08: Add option to also display CPU cores for running instances on HTML output
 # --------------------------------------------------------------------------------------------------------------
 
 
 # -- import
 import oci
 import sys
+from datetime import datetime 
+
+# -- variable for customized output
+output_mode       = "text"         # "html" or "text"
 
 # -- variables
-configfile     = "~/.oci/config"    # Define config file to be used.
-list_cpu_types = [ "E2", "E3", "E4", "A1", "Std1", "Std2", "DenseIO2", "Opt3", "GPU2", "GPU3", "GPU4", "HPC2", "Others" ]
-list_ads       = []
-total_tenant   = 0
-output_mode    = "html"         # "html" or "text"
+configfile           = "~/.oci/config"    # Define config file to be used.
+list_cpu_types       = [ "E2", "E3", "E4", "A1", "Std1", "Std2", "DenseIO2", "Opt3", "GPU2", "GPU3", "GPU4", "HPC2", "Others" ]
+list_ads             = []
+total_tenant_all     = 0
+total_tenant_running = 0
 
 # -- functions
 def usage():
@@ -72,7 +78,10 @@ def init_results():
         for fd in list_fds:
             results[ad][fd] = {}
             for cpu_type in list_cpu_types:
-                results[ad][fd][cpu_type] = 0
+                results[ad][fd][cpu_type] = {}
+                results[ad][fd][cpu_type]['running'] = 0
+                results[ad][fd][cpu_type]['all']     = 0
+
 
 # -- Clear results variable
 
@@ -81,10 +90,17 @@ def get_cpu_type_and_nb_of_cores(compute_client, instance_id):
     global results;
 
     response = compute_client.get_instance(instance_id)
+    state = response.data.lifecycle_state
+
+    # ignore terminated compute instances
+    if state == "TERMINATED":
+        return
+
     shape = response.data.shape
     ocpus = response.data.shape_config.ocpus
     ad    = response.data.availability_domain
     fd    = response.data.fault_domain.replace("FAULT-DOMAIN-","FD")
+
     if ".E2." in shape:
         cpu_type = "E2"
     elif ".E3." in shape:
@@ -112,10 +128,14 @@ def get_cpu_type_and_nb_of_cores(compute_client, instance_id):
     else:
         cpu_type = "Others"
 
-    results[ad][fd][cpu_type] += int(float(ocpus))
+    results[ad][fd][cpu_type]['all'] += int(float(ocpus))
+    if state != "STOPPED":
+        results[ad][fd][cpu_type]['running'] += int(float(ocpus))
+
 
 def display_results_text():    
-    global total_tenant
+    global total_tenant_all
+    global total_tenant_running
 
     # table title
     print ("")
@@ -129,42 +149,48 @@ def display_results_text():
     print ("")
 
     # tables content
-    total = {}
+    total_all     = {}
+    total_running = {}
     for cpu_type in list_cpu_types:
-        total[cpu_type] = 0
+        total_all[cpu_type] = 0
+        total_running[cpu_type] = 0
     for ad in list_ads:
         fds = list(results[ad].keys())
         fds.sort()
         for fd in fds:
             print (f"{ad:26s} {fd:^12s} ",end="")
             for cpu_type in list_cpu_types:
-                total[cpu_type] += results[ad][fd][cpu_type]
+                total_all[cpu_type] += results[ad][fd][cpu_type]['all']
+                total_running[cpu_type] += results[ad][fd][cpu_type]['running']
                 # Choice 1: display zeros
                 # print (f"{results[ad][fd][cpu_type]:>7d} ",end="")
 
                 # Choice 2: display . instead of zeros for better readibility
-                if results[ad][fd][cpu_type] != 0:
-                    print (f"{results[ad][fd][cpu_type]:>7d} ",end="")
+                if results[ad][fd][cpu_type]['all'] != 0:
+                    print (f"{results[ad][fd][cpu_type]['all']:>7d} ",end="")
                 else:
                     print (f"{'.':>7s} ",end="")
             print ("")
 
     # total number of opcus per cpu_type
-    total_region = 0
+    total_region_all = 0
+    total_region_running = 0
     trailer_ad = "TOTAL:"
     trailer_fd = " "
     print (f"{trailer_ad:>26s} {trailer_fd:12s} ",end="")        
     for cpu_type in list_cpu_types:
-        print (f"{total[cpu_type]:>7d} ",end="")
-        total_region += total[cpu_type]
+        print (f"{total_all[cpu_type]:>7d} ",end="")
+        total_region_all     += total_all[cpu_type]
+        total_region_running += total_running[cpu_type]
     print ("")
 
     # grand total per region
     trailer_ad = "REGION TOTAL:"
-    print (f"{trailer_ad:>26s} {total_region:^12d}")
+    print (f"{trailer_ad:>26s} {total_region_all:^12d}")
 
     # update total for tenant
-    total_tenant += total_region
+    total_tenant_all     += total_region_all
+    total_tenant_running += total_region_running
 
 # -- begin of HTML code
 def HTML_begin():
@@ -212,6 +238,10 @@ def HTML_begin():
 
 # -- end of HTML code
 def HTML_end():
+    print ("<p>")
+    now = datetime.utcnow().strftime("%Y/%m/%d %T")
+    print (f"&nbsp;&nbsp;&nbsp;&nbsp;Date/time of report: {now:s} UTC")
+    print ("<p>")
     url = "https://github.com/cpauliat/my-oci-scripts/blob/master/oci_compute/OCI_instances_CPU_cores_used.py"
     print (f"&nbsp;&nbsp;&nbsp;&nbsp;<span id=\"signature\">This report was generated using Python script <a href=\"{url}\">{url}</a></span>")
     print ("<p>")
@@ -220,7 +250,8 @@ def HTML_end():
 
 # -- HTML table for the region
 def display_results_HTML_table():    
-    global total_tenant
+    global total_tenant_all
+    global total_tenant_running
 
     print ("    <table>")
 
@@ -238,9 +269,11 @@ def display_results_HTML_table():
     print (my_str)
 
     # tables content
-    total = {}
+    total_all = {}
+    total_running = {}
     for cpu_type in list_cpu_types:
-        total[cpu_type] = 0
+        total_all[cpu_type] = 0
+        total_running[cpu_type] = 0
     for ad in list_ads:
         fds = list(results[ad].keys())
         fds.sort()
@@ -249,24 +282,27 @@ def display_results_HTML_table():
             print (f"                <td>{ad}</td>")
             print (f"                <td>{fd}</td>")
             for cpu_type in list_cpu_types:
-                total[cpu_type] += results[ad][fd][cpu_type]
-                print (f"                <td>{results[ad][fd][cpu_type]}</td>")
+                total_all[cpu_type]     += results[ad][fd][cpu_type]['all']
+                total_running[cpu_type] += results[ad][fd][cpu_type]['running']
+                print (f"                <td>{results[ad][fd][cpu_type]['running']} / {results[ad][fd][cpu_type]['all']}</td>")
             print("            </tr>")
 
     # total number of opcus per cpu_type
     print("            <tr>")
-    total_region = 0
+    total_region_all     = 0
+    total_region_running = 0
     print (f"                <td colspan=\"2\"><b>REGION TOTALS</b></td>")
     #print (f"                <td>&nbsp;</td>")      
     for cpu_type in list_cpu_types:
-        print (f"                <td><b>{total[cpu_type]:d}</b></td>")
-        total_region += total[cpu_type]
+        print (f"                <td><b>{total_running[cpu_type]} / {total_all[cpu_type]:d}</b></td>")
+        total_region_all     += total_all[cpu_type]
+        total_region_running += total_running[cpu_type]
     print("            </tr>")
 
     # grand total per region
     print("            <tr>")
     print (f"                <td colspan=\"2\"><b>REGION GRAND TOTAL</b></td>")
-    print (f"                <td colspan=\"{len(list_cpu_types)}\"><b>{total_region}</b></td>")      
+    print (f"                <td colspan=\"{len(list_cpu_types)}\"><b>{total_region_running} / {total_region_all}</b></td>")      
     # for cpu_type in list_cpu_types:
     #     print (f"                <td>&nbsp;</td>")
     print("            </tr>")
@@ -279,7 +315,8 @@ def display_results_HTML_table():
     print("    <p>")
 
     # update total for tenant
-    total_tenant += total_region
+    total_tenant_all     += total_region_all
+    total_tenant_running += total_region_running
 
 def display_tenant_total_text():
     print ("")
@@ -287,7 +324,7 @@ def display_tenant_total_text():
     print (f"{trailer_ad:>26s} {total_tenant:^12d}")
 
 def display_tenant_total_HTML():
-    print (f"&nbsp;&nbsp;&nbsp;&nbsp;<span id=\"tenant-total\"><b>TENANT TOTAL: {total_tenant:d}<b></span>")
+    print (f"&nbsp;&nbsp;&nbsp;&nbsp;<span id=\"tenant-total\"><b>TENANT TOTAL: {total_tenant_running:d} / {total_tenant_all:d}<b></span>")
     print ("<p>")
 
 def process(l_config):
@@ -354,7 +391,7 @@ RootCompartmentID = user.compartment_id
 
 # -- get list of subscribed regions
 response = oci.pagination.list_call_get_all_results(IdentityClient.list_region_subscriptions, RootCompartmentID)
-regions = response.data
+regions  = response.data
 
 # -- HTML output
 if output_mode == "html":
