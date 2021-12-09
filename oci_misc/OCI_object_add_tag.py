@@ -5,7 +5,7 @@
 #
 # Supported resource types:
 # - COMPUTE: instance
-# - DATABASE: dbsystem, autonomous database
+# - DATABASE: dbsystem, autonomous database, database
 # 
 # Note: OCI tenant and region given by an OCI CLI PROFILE
 # Author        : Christophe Pauliat
@@ -18,6 +18,7 @@
 #    2020-05-04: Fix bug if tag namespace not already used for this object
 #    2020-05-04: Simplify code
 #    2020-09-18: Fix bug for automous database
+#    2021-12-08: Add support for database
 #
 # TO DO: add support for more resource types
 # --------------------------------------------------------------------------------------------
@@ -85,6 +86,16 @@ def add_tag_autonomous_db(adb_id):
         print (sys.exc_info()[1].message)
         exit (3)
 
+def add_tag_db(db_id):
+    DatabaseClient = oci.database.DatabaseClient(config)
+    try:
+        response = DatabaseClient.get_database(db_id)
+        tags = update_tags(response.data.defined_tags)
+        DatabaseClient.update_database(db_id, oci.database.models.UpdateDatabaseDetails(defined_tags=tags))
+    except:
+        print (sys.exc_info()[1].message)
+        exit (3)
+
 # ------------ main
 
 # -- parse arguments
@@ -115,6 +126,7 @@ obj_type = obj_id.split(".")[1].lower()
 if   obj_type == "instance":           add_tag_compute_instance(obj_id)
 elif obj_type == "dbsystem":           add_tag_db_system(obj_id)
 elif obj_type == "autonomousdatabase": add_tag_autonomous_db(obj_id)
+elif obj_type == "database":           add_tag_db(obj_id)
 else: print ("SORRY: resource type {:s} is not yet supported by this script !".format(obj_type)) 
 
 # -- the end

@@ -6,7 +6,7 @@
 # Supported resource types:
 # - COMPUTE            : instance, custom image, boot volume
 # - BLOCK STORAGE      : block volume
-# - DATABASE           : dbsystem, autonomous database
+# - DATABASE           : dbsystem, autonomous database, database
 # - OBJECT STORAGE     : bucket
 # - NETWORKING         : vcn, subnet, security list
 # 
@@ -18,6 +18,7 @@
 #                 - OCI config file configured with profiles
 # Versions
 #    2020-04-27: Initial Version
+#    2021-12-08: Add support for database object
 #
 # TO DO: add support for more resource types
 # --------------------------------------------------------------------------------------------
@@ -213,6 +214,33 @@ def remove_tag_from_autonomous_db(adb_id, ltag_ns, ltag_key):
         print (sys.exc_info()[1].message)
         exit (6)
 
+def remove_tag_from_db(db_id, ltag_ns, ltag_key):
+    DatabaseClient = oci.database.DatabaseClient(config)
+
+    # Get Defined-tags for the DB
+    try:
+        response = DatabaseClient.get_database(db_id)
+        adb = response.data
+    except:
+        print ("ERROR 03: DB with OCID '{}' not found !".format(db_id))
+        exit (3)
+
+    # Remove tag key from tag namespace
+    tags = adb.defined_tags
+    try:
+        del tags[ltag_ns][ltag_key]
+    except:
+        print ("ERROR 05: this tag key does not exist for this database !")
+        exit (5)
+
+    # Update  DB
+    try:
+        DatabaseClient.update_database(db_id, oci.database.models.UpdateDatabaseDetails(defined_tags=tags))
+    except:
+        print ("ERROR 06: cannot remove this tag from this DB !")
+        print (sys.exc_info()[1].message)
+        exit (6)
+
 # -- object storage
 def remove_tag_from_bucket(bucket_id, ltag_ns, ltag_key):
     bucket_name = "HOW-TO-GET-IT-FROM-BUCKET-ID-?"
@@ -392,6 +420,7 @@ elif obj_type == "volume":             remove_tag_from_block_volume(obj_id, tag_
 # database
 elif obj_type == "dbsystem":           remove_tag_from_db_system(obj_id, tag_ns, tag_key)
 elif obj_type == "autonomousdatabase": remove_tag_from_autonomous_db(obj_id, tag_ns, tag_key)
+elif obj_type == "database":           remove_tag_from_db(obj_id, tag_ns, tag_key)
 # object storage
 elif obj_type == "bucket":             remove_tag_from_bucket(obj_id, tag_ns, tag_key)
 # networking

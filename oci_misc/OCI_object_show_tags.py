@@ -6,7 +6,7 @@
 # Supported resource types:
 # - COMPUTE            : instance, custom image, boot volume
 # - BLOCK STORAGE      : block volume, block volume backup
-# - DATABASE           : dbsystem, autonomous database
+# - DATABASE           : dbsystem, autonomous database, database
 # - OBJECT STORAGE     : bucket
 # - NETWORKING         : vcn, subnet, route table, Internet gateway, DRG, network security group
 #                        security list, DHCP options, LPG, NAT gateway, service gateway
@@ -19,6 +19,7 @@
 #                 - OCI config file configured with profiles
 # Versions
 #    2020-04-28: Initial Version
+#    2021-12-08: Add support for Database
 #
 # TO DO: add support for more resource types
 # ----------------------------------------------------------------------------------------------------------
@@ -129,6 +130,17 @@ def show_tags_from_autonomous_db(adb_id):
         print ("ERROR 03: Autonomous DB with OCID '{}' not found !".format(adb_id))
         exit (3)
 
+def show_tags_from_db(db_id):
+    DatabaseClient = oci.database.DatabaseClient(config)
+
+    try:
+        response = DatabaseClient.get_database(db_id)
+        adb = response.data
+        print (adb.defined_tags)
+    except:
+        print ("ERROR 03: DB with OCID '{}' not found !".format(db_id))
+        exit (3)
+        
 # -- object storage     # DOES NOT WORK
 def show_tags_from_bucket(bucket_id):
     bucket_name = "HOW-TO-GET-IT-FROM-BUCKET-ID-?"
@@ -303,6 +315,7 @@ elif obj_type == "volumebackup":         show_tags_from_block_volume_backup(obj_
 # database
 elif obj_type == "dbsystem":             show_tags_from_db_system(obj_id)
 elif obj_type == "autonomousdatabase":   show_tags_from_autonomous_db(obj_id)
+elif obj_type == "database":             show_tags_from_db(obj_id)
 # object storage
 elif obj_type == "bucket":               show_tags_from_bucket(obj_id)
 # networking
