@@ -11,11 +11,13 @@
 #                 - OCI config file configured with profiles
 # Versions
 #    2020-09-08: Initial Version
+#    2022-01-03: use argparse to parse arguments
 # --------------------------------------------------------------------------------------------------------------------------
 
 # -- import
 import oci
 import sys
+import argparse
 
 # ---------- Functions
 
@@ -24,7 +26,7 @@ configfile = "~/.oci/config"    # Define config file to be used.
 
 # ---- usage syntax
 def usage():
-    print ("Usage: {} OCI_PROFILE".format(sys.argv[0]))
+    print ("Usage: {} -p OCI_PROFILE".format(sys.argv[0]))
     print ("")
     print ("")
     print ("note: OCI_PROFILE must exist in {} file (see example below)".format(configfile))
@@ -47,10 +49,11 @@ def get_cpt_name_from_id(cpt_id):
 # ------------ main
 
 # -- parse arguments
-if len(sys.argv) == 2:
-    profile  = sys.argv[1]
-else:
-    usage()
+parser = argparse.ArgumentParser(description = "List all custom images in an OCI tenant")
+parser.add_argument("-p", "--profile", help="OCI profile", required=True)
+args = parser.parse_args()
+    
+profile     = args.profile
 
 # -- load profile from config file
 try:

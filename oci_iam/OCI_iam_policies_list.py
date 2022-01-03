@@ -11,12 +11,14 @@
 # Versions
 #    2021-06-25: Initial Version
 #    2021-06-25: Improved display by Matthieu Bordonne
+#    2022-01-03: use argparse to parse arguments
 # --------------------------------------------------------------------------------------------------------------
 
 # -- import
 import oci
 import sys
 import re
+import argparse
 from datetime import datetime
 
 # ---------- Colors for output
@@ -45,7 +47,7 @@ flag=[0,0,0,0,0,0,0,0,0,0]
 
 # ---------- functions
 def usage():
-    print (f"Usage: {sys.argv[0]} [-d] OCI_PROFILE")
+    print (f"Usage: {sys.argv[0]} -p OCI_PROFILE")
     print ("")
     print (f"note: OCI_PROFILE must exist in {configfile} file (see example below)")
     print ("")
@@ -131,15 +133,15 @@ def list_compartments(parent_id, level):
 # ---------- main
 
 # -- parsing arguments
-if (len(sys.argv) == 2):
-    profile = sys.argv[1] 
-else:
-    usage()
+parser = argparse.ArgumentParser(description = "List compartments in an OCI tenant")
+parser.add_argument("-p", "--profile", help="OCI profile", required=True)
+args = parser.parse_args()
+    
+profile = args.profile
     
 # -- get OCI Config
 try:
     config = oci.config.from_file(configfile,profile)
-
 except:
     print (f"ERROR: profile '{profile}' not found in config file {configfile} !")
     exit (2)

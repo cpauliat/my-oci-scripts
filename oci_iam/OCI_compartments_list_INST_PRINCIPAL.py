@@ -11,11 +11,13 @@
 # Versions
 #    2020-09-09: Initial Version
 #    2020-12-12: Display full name of compartments (using parents) using colored outputs
+#    2022-01-03: use argparse to parse arguments
 # --------------------------------------------------------------------------------------------------------------
 
 # -- import
 import oci
 import sys
+import argparse
 
 # ---------- Colors for output
 # see https://misc.flogisoft.com/bash/tip_colors_and_formatting to customize
@@ -94,7 +96,7 @@ def list_compartments(parent_id, level):
     sub_compartments_ids_list=[]
     for c in compartments:
         if c.compartment_id == parent_id:
-            if LIST_DELETED or c.lifecycle_state != "DELETED":
+            if list_deleted or c.lifecycle_state != "DELETED":
                 sub_compartments_ids_list.append(c.id)
     
     # then for each of those cpt ids, display the sub-compartments details
@@ -109,17 +111,13 @@ def list_compartments(parent_id, level):
         i += 1
 
 # ---------- main
-LIST_DELETED=False
 
 # -- parsing arguments
-if (len(sys.argv) != 1) and (len(sys.argv) != 2):
-    usage()
-
-if (len(sys.argv) == 2):
-    if (sys.argv[1] == "-d"):
-        LIST_DELETED=True
-    else:
-        usage()
+parser = argparse.ArgumentParser(description = "List compartments in an OCI tenant")
+parser.add_argument("-d", "--list_deleted", help="List also deleted compartments", action="store_true")
+args = parser.parse_args()
+    
+list_deleted = args.list_deleted
 
 # -- authentication using instance principal
 signer = oci.auth.signers.InstancePrincipalsSecurityTokenSigner()

@@ -11,12 +11,14 @@
 #                 - OCI config file configured with profiles
 # Versions
 #    2020-03-25: Initial Version
+#    2022-01-03: use argparse to parse arguments
 # --------------------------------------------------------------------------------------------------------------------------
 
 # -- import
 import oci
 import sys
 import datetime
+import argparse
 
 # ---------- Functions
 
@@ -25,7 +27,7 @@ configfile = "~/.oci/config"    # Define config file to be used.
 
 # ---- usage syntax
 def usage():
-    print ("Usage: {} OCI_PROFILE bucket_name".format(sys.argv[0]))
+    print ("Usage: {} -p OCI_PROFILE -b bucket_name".format(sys.argv[0]))
     print ("")
     print ("note: OCI_PROFILE must exist in {} file (see example below)".format(configfile))
     print ("")
@@ -40,16 +42,17 @@ def usage():
 # ------------ main
 
 # -- parse arguments
-if len(sys.argv) != 3: 
-    usage()
+parser = argparse.ArgumentParser(description = "Delete expired PARs in a bucket")
+parser.add_argument("-p", "--profile", help="OCI profile", required=True)
+parser.add_argument("-b", "--bucket", help="Bucket name", required=True)
+args = parser.parse_args()
 
-profile  = sys.argv[1] 
-bucket   = sys.argv[2]
+profile = args.profile
+bucket  = args.bucket
 
 # -- load profile from config file and exists if profile does not exist
 try:
     config = oci.config.from_file(configfile, profile)
-
 except:
     print ("ERROR 02: profile '{}' not found in config file {} !".format(profile,configfile))
     exit (2)

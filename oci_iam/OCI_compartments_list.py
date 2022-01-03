@@ -13,11 +13,13 @@
 #    2019-10-18: change default behaviour (does not display deleted compartment)
 #                and add option -d to list deleted compartments
 #    2020-11-19: display full name of compartment (with parents) + colored output
+#    2022-01-03: use argparse to parse arguments
 # --------------------------------------------------------------------------------------------------------------
 
 # -- import
 import oci
 import sys
+import argparse
 
 # ---------- Colors for output
 # see https://misc.flogisoft.com/bash/tip_colors_and_formatting to customize
@@ -45,7 +47,7 @@ flag=[0,0,0,0,0,0,0,0,0,0]
 
 # ---------- functions
 def usage():
-    print ("Usage: {} [-d] OCI_PROFILE".format(sys.argv[0]))
+    print ("Usage: {} [-d] -p OCI_PROFILE".format(sys.argv[0]))
     print ("")
     print ("    If -d is provided, deleted compartments are also listed.")
     print ("    If not, only active compartments are listed.")
@@ -105,7 +107,7 @@ def list_compartments(parent_id, level):
     sub_compartments_ids_list=[]
     for c in compartments:
         if c.compartment_id == parent_id:
-            if LIST_DELETED or c.lifecycle_state != "DELETED":
+            if list_deleted or c.lifecycle_state != "DELETED":
                 sub_compartments_ids_list.append(c.id)
     
     # then for each of those cpt ids, display the sub-compartments details
@@ -120,25 +122,19 @@ def list_compartments(parent_id, level):
         i += 1
 
 # ---------- main
-LIST_DELETED=False
 
 # -- parsing arguments
-if (len(sys.argv) != 2) and (len(sys.argv) != 3):
-    usage()
-
-if (len(sys.argv) == 2):
-    profile = sys.argv[1] 
-elif (len(sys.argv) == 3):
-    profile = sys.argv[2]
-    if (sys.argv[1] == "-d"):
-        LIST_DELETED=True
-    else:
-        usage()
+parser = argparse.ArgumentParser(description = "List compartments in an OCI tenant")
+parser.add_argument("-p", "--profile", help="OCI profile", required=True)
+parser.add_argument("-d", "--list_deleted", help="List also deleted compartments", action="store_true")
+args = parser.parse_args()
+    
+profile      = args.profile
+list_deleted = args.list_deleted
     
 # -- get OCI Config
 try:
     config = oci.config.from_file(configfile,profile)
-
 except:
     print ("ERROR: profile '{}' not found in config file {} !".format(profile,configfile))
     exit (2)

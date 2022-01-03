@@ -11,19 +11,21 @@
 #                 - OCI config file configured with profiles
 # Versions
 #    2020-09-18: Initial Version
+#    2022-01-03: use argparse to parse arguments
 # --------------------------------------------------------------------------------------------------------------
 
 
 # -- import
 import oci
 import sys
+import argparse
 
 # -- variables
 configfile = "~/.oci/config"    # Define config file to be used.
 
 # -- functions
 def usage():
-    print ("Usage: {} [-a] OCI_PROFILE".format(sys.argv[0]))
+    print ("Usage: {} [-a] -p OCI_PROFILE".format(sys.argv[0]))
     print ("")
     print ("    If -a is provided, the script search in all active regions instead of single region provided in profile")
     print ("")
@@ -59,26 +61,17 @@ def get_cpt_name_from_id(cpt_id):
 # ---------- main
 
 # -- parse arguments
-all_regions=False
-
-if (len(sys.argv) != 2) and (len(sys.argv) != 3):
-    usage()
-
-if (len(sys.argv) == 2):
-    profile = sys.argv[1] 
-elif (len(sys.argv) == 3):
-    profile = sys.argv[2]
-    if (sys.argv[1] == "-a"):
-        all_regions=True
-    else:
-        usage()
+parser = argparse.ArgumentParser(description = "List compute instances")
+parser.add_argument("-p", "--profile", help="OCI profile", required=True)
+parser.add_argument("-a", "--all_regions", help="Do this for all regions", action="store_true")
+args = parser.parse_args()
     
-#print ("profile = {}".format(profile))
+profile     = args.profile
+all_regions = args.all_regions
 
 # -- get info from profile
 try:
     config = oci.config.from_file(configfile,profile)
-
 except:
     print ("ERROR: profile '{}' not found in config file {} !".format(profile,configfile))
     exit (2)

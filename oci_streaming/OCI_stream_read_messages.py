@@ -9,11 +9,13 @@
 #                 - OCI config file configured with profiles
 # Versions
 #    2020-11-17: Initial Version
+#    2022-01-03: use argparse to parse arguments
 # --------------------------------------------------------------------------------------------------------------
 
 # -- import
 import oci
 import sys
+import argparse
 from base64 import b64encode, b64decode
 
 # ---------- Colors for output
@@ -31,7 +33,7 @@ nb_messages = 300                # Max nb of message to be read
 
 # ---------- functions
 def usage():
-    print ("Usage: {} OCI_PROFILE stream-id partition offset".format(sys.argv[0]))
+    print ("Usage: {} -p OCI_PROFILE -s stream-id -pt partition -o offset".format(sys.argv[0]))
     print ("")
     print ("Notes: ")
     print ("- Use offset \"all\" to list all messages in the stream partition")
@@ -48,13 +50,17 @@ def usage():
 # ---------- main
 
 # -- parsing arguments
-if (len(sys.argv) != 5):
-    usage()
+parser = argparse.ArgumentParser(description = "Read messages from an OCI stream")
+parser.add_argument("-p", "--profile", help="OCI profile", required=True)
+parser.add_argument("-s", "--stream_ocid", help="Stream OCID", required=True)
+parser.add_argument("-pt", "--partition", help="Stream Partition", required=True)
+parser.add_argument("-o", "--offset", help="offset in partition (use 'all' to read all partition)", required=True)
+args = parser.parse_args()
 
-profile   = sys.argv[1] 
-stream_id = sys.argv[2]
-partition = sys.argv[3]
-offset    = sys.argv[4]
+profile   = args.profile
+stream_id = args.stream_ocid
+partition = args.partition
+offset    = args.offset
 
 # -- get OCI Config
 try:

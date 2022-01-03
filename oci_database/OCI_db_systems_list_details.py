@@ -12,11 +12,13 @@
 #                 - OCI config file configured with profiles
 # Versions
 #    2021-09-24: Initial Version
+#    2022-01-03: use argparse to parse arguments
 # --------------------------------------------------------------------------------------------------------------------------
 
 # -- import
 import oci
 import sys
+import argparse
 
 # ---------- Colors for output
 # see https://misc.flogisoft.com/bash/tip_colors_and_formatting to customize
@@ -52,7 +54,7 @@ configfile = "~/.oci/config"    # Define config file to be used.
 
 # ---- usage syntax
 def usage():
-    print ("Usage: {} OCI_PROFILE".format(sys.argv[0]))
+    print ("Usage: {} -p OCI_PROFILE".format(sys.argv[0]))
     print ("")
     print ("note: OCI_PROFILE must exist in {} file (see example below)".format(configfile))
     print ("")
@@ -122,11 +124,11 @@ def search_resources():
 # ------------ main
 
 # -- parse arguments
-
-if len(sys.argv) == 2:
-    profile  = sys.argv[1] 
-else:
-    usage()
+parser = argparse.ArgumentParser(description = "List database systems details")
+parser.add_argument("-p", "--profile", help="OCI profile", required=True)
+args = parser.parse_args()
+    
+profile = args.profile
 
 # -- load profile from config file
 try:

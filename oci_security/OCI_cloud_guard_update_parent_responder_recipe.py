@@ -20,12 +20,14 @@
 #                 - OCI config file configured with profiles
 # Versions
 #    2021-11-19: Initial Version
+#    2022-01-03: use argparse to parse arguments
 # --------------------------------------------------------------------------------------------------------------
 
 # ---------- import
 import oci
 import sys
 import json
+import argparse
 from pathlib import Path
 
 # ---------- variables
@@ -34,7 +36,7 @@ different  = False              # Is configuration in backup file different from
 
 # ---------- functions
 def usage():
-    print (f"Usage: {sys.argv[0]} OCI_PROFILE input_backup_file.json")
+    print (f"Usage: {sys.argv[0]} -p OCI_PROFILE -f input_backup_file.json")
     print ("")
     print ("notes: ")
     print ("- The OCID of the responder recipe to update is stored in the backup file")
@@ -149,11 +151,13 @@ def check_differences():
 # ---------- main
 
 # -- parse arguments
-if (len(sys.argv) == 3):
-    profile     = sys.argv[1]
-    input_file  = sys.argv[2]
-else:
-    usage()
+parser = argparse.ArgumentParser(description = "Update a Cloud Guard responder recipe from a backup file")
+parser.add_argument("-p", "--profile", help="OCI profile", required=True)
+parser.add_argument("-f", "--file", help="input file (.json)", required=True)
+args = parser.parse_args()
+    
+profile    = args.profile
+input_file = args.file
 
 # -- If the backup file does not exist, exit in error 
 my_file = Path(input_file)

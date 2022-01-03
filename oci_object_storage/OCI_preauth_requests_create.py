@@ -11,12 +11,14 @@
 #                 - OCI config file configured with profiles
 # Versions
 #    2020-15-12: Initial Version
+#    2022-01-03: use argparse to parse arguments
 # --------------------------------------------------------------------------------------------------------------------------
 
 # -- import
 import oci
 import sys
 import datetime
+import argparse
 
 # ---------- Functions
 
@@ -25,10 +27,10 @@ configfile = "~/.oci/config"    # Define config file to be used.
 
 # ---- usage syntax
 def usage():
-    print ("Usage: {} OCI_PROFILE bucket_name object_name par_name type days_from_now".format(sys.argv[0]))
+    print ("Usage: {} -p OCI_PROFILE -b bucket_name -o object_name -p par_name -t type -d days_from_now".format(sys.argv[0]))
     print ("")
     print ("Notes:")
-    print ("- type values: R for Read or RW for ReadWrite")
+    print ("- type values: R for Read, W for Write or RW for ReadWrite")
     print ("- expiry date/time is now + <days_from_now> days. ")
     print ("")
     print ("note: OCI_PROFILE must exist in {} file (see example below)".format(configfile))
@@ -45,20 +47,25 @@ def usage():
 # ------------ main
 
 # -- parse arguments
-if len(sys.argv) != 7: 
-    usage()
+parser = argparse.ArgumentParser(description = "Create a PAR for an object in a bucket")
+parser.add_argument("-p", "--profile", help="OCI profile", required=True)
+parser.add_argument("-b", "--bucket", help="Bucket name", required=True)
+parser.add_argument("-o", "--object", help="Object name", required=True)
+parser.add_argument("-p", "--par", help="Pre-authenticated request name", required=True)
+parser.add_argument("-t", "--type", help="R for Read, W for Write or RW for Read/Write", required=True, choices=['R','W','RW'])
+parser.add_argument("-d", "--days", help="Pre-authenticated request validity in number of days", required=True)
+args = parser.parse_args()
 
-profile  = sys.argv[1] 
-bucket   = sys.argv[2]
-object   = sys.argv[3]
-par_name = sys.argv[4]
-type     = sys.argv[5]
-days_fnow= sys.argv[6]
+profile      = args.profile
+bucket       = args.bucket
+object       = args.object
+par_name     = args.par
+days_fnow    = args.days
+type         = args.type
 
 # -- load profile from config file and exists if profile does not exist
 try:
     config = oci.config.from_file(configfile, profile)
-
 except:
     print ("ERROR 02: profile '{}' not found in config file {} !".format(profile,configfile))
     exit (2)
@@ -74,10 +81,10 @@ namespace = ObjectStorageClient.get_namespace().data
 # -- Create a PAR
 if type.upper() == "R":
     access_type = "ObjectRead"
+elif type.upper() == "W":
+    access_type = "ObjectWrite"
 elif type.upper() == "RW":
-    access_type = "ObjectRead"
-else:
-    usage()
+    access_type = "ObjectReadWrite"
 
 now = datetime.datetime.now(datetime.timezone.utc)
 exp_time = now + datetime.timedelta(days=int(days_fnow))

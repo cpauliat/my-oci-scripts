@@ -15,16 +15,15 @@
 #    2021-11-05: Add HTML output as alternative to text output
 #    2021-11-08: Add date/time of report
 #    2021-11-08: Add option to also display CPU cores for running instances on HTML output
+#    2022-01-03: use argparse to parse arguments
 # --------------------------------------------------------------------------------------------------------------
 
 
 # -- import
 import oci
 import sys
+import argparse
 from datetime import datetime 
-
-# -- variable for customized output
-output_mode       = "text"         # "html" or "text"
 
 # -- variables
 configfile           = "~/.oci/config"    # Define config file to be used.
@@ -35,9 +34,10 @@ total_tenant_running = 0
 
 # -- functions
 def usage():
-    print ("Usage: {} [-a] OCI_PROFILE".format(sys.argv[0]))
+    print ("Usage: {} [-a] [-o html] -p OCI_PROFILE".format(sys.argv[0]))
     print ("")
     print ("    If -a is provided, the script search in all active regions instead of single region provided in profile")
+    print ("    If -o html is provided, output is HTML instead of text")
     print ("")
     print ("note: OCI_PROFILE must exist in {} file (see example below)".format(configfile))
     print ("")
@@ -321,7 +321,7 @@ def display_results_HTML_table():
 def display_tenant_total_text():
     print ("")
     trailer_ad = "TENANT TOTAL:"
-    print (f"{trailer_ad:>26s} {total_tenant:^12d}")
+    print (f"{trailer_ad:>26s} {total_tenant_all:^12d}")
 
 def display_tenant_total_HTML():
     print (f"&nbsp;&nbsp;&nbsp;&nbsp;<span id=\"tenant-total\"><b>TENANT TOTAL: {total_tenant_running:d} / {total_tenant_all:d}<b></span>")
@@ -353,7 +353,7 @@ def process(l_config):
 
     # compute total per region and update total for tenant
     # and display number of all ocpus per AD, FD and cpu type
-    if output_mode == "html":
+    if output_format == "html":
         display_results_HTML_table()
     else:
         display_results_text()
@@ -361,26 +361,22 @@ def process(l_config):
 # ---------- main
 
 # -- parse arguments
-all_regions = False
-
-if (len(sys.argv) != 2) and (len(sys.argv) != 3):
-    usage()
-
-if len(sys.argv) == 2:
-    profile = sys.argv[1] 
-elif len(sys.argv) == 3:
-    profile = sys.argv[2]
-    if sys.argv[1] == "-a":
-        all_regions=True
-    else:
-        usage()
+parser = argparse.ArgumentParser(description = "List number of CPU cores used by compute instances")
+parser.add_argument("-p", "--profile", help="OCI profile", required=True)
+parser.add_argument("-a", "--all_regions", help="Do this for all regions", action="store_true")
+parser.add_argument("-o", "--output_format", help="Output format ('html' or 'text'). Default is 'text'", choices=["html","text"])
+args = parser.parse_args()
     
-#print ("profile = {}".format(profile))
+profile     = args.profile
+all_regions = args.all_regions
+if args.output_format:
+    output_format = args.output_format
+else:
+    output_format = "text"
 
 # -- get info from profile
 try:
     config = oci.config.from_file(configfile,profile)
-
 except:
     print ("ERROR: profile '{}' not found in config file {} !".format(profile,configfile))
     exit (2)
@@ -394,7 +390,7 @@ response = oci.pagination.list_call_get_all_results(IdentityClient.list_region_s
 regions  = response.data
 
 # -- HTML output
-if output_mode == "html":
+if output_format == "html":
     HTML_begin()
 
 # -- Run the search query/queries
@@ -404,13 +400,13 @@ else:
     for region in regions:
         config["region"] = region.region_name
         process(config)
-    if output_mode == "html":
+    if output_format == "html":
         display_tenant_total_HTML()
     else:
         display_tenant_total_text()
 
 # -- HTML output
-if output_mode == "html":
+if output_format == "html":
     HTML_end()
 
 # -- the end

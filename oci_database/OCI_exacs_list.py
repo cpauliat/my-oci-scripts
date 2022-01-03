@@ -11,12 +11,14 @@
 #                 - OCI config file configured with profiles
 # Versions
 #    2020-12-04: Initial Version
+#    2022-01-03: use argparse to parse arguments
 # ---------------------------------------------------------------------------------------------------------------
 
 
 # -- import
 import oci
 import sys
+import argparse
 
 # ---------- Colors for output
 # see https://misc.flogisoft.com/bash/tip_colors_and_formatting to customize
@@ -44,9 +46,9 @@ show_ocids = False  # or True
 
 # -- functions
 def usage():
-    print ("Usage: {} [-a] [-i] OCI_PROFILE".format(sys.argv[0]))
+    print ("Usage: {} [-a] [-v] -p OCI_PROFILE".format(sys.argv[0]))
     print ("")
-    print ("    -i: also display OCIDs")
+    print ("    -v: also display OCIDs")
     print ("    -a: search in all active regions instead of single region provided in profile")
     print ("")
     print ("note: OCI_PROFILE must exist in {} file (see example below)".format(configfile))
@@ -181,33 +183,19 @@ def search_exa_infra (lconfig):
 # ---------- main
 
 # -- parse arguments
-all_regions=False
-
-if (len(sys.argv) != 2) and (len(sys.argv) != 3) and (len(sys.argv) != 4):
-    usage()
-
-if len(sys.argv) == 2:
-    profile = sys.argv[1] 
-elif len(sys.argv) == 3:
-    profile = sys.argv[2]
-    if (sys.argv[1] == "-a"):
-        all_regions = True
-    elif (sys.argv[1] == "-i"):
-        show_ocids = True
-    else:
-        usage()
-elif len(sys.argv) == 4:
-    profile = sys.argv[3]
-    if ((sys.argv[1] == "-a") and (sys.argv[2] == "-i")) or ((sys.argv[1] == "-i") and (sys.argv[2] == "-a")):
-        all_regions = True
-        show_ocids = True
-    else:
-        usage()  
+parser = argparse.ArgumentParser(description = "List machines in Exadata Cloud Service")
+parser.add_argument("-p", "--profile", help="OCI profile", required=True)
+parser.add_argument("-a", "--all_regions", help="Do this for all regions", action="store_true")
+parser.add_argument("-v", "--verbose", help="Verbose mode: display OCIDs", action="store_true")
+args = parser.parse_args()
+    
+profile       = args.profile
+all_regions   = args.all_regions
+show_ocids    = args.verbose
 
 # -- get info from profile
 try:
     config = oci.config.from_file(configfile,profile)
-
 except:
     print ("ERROR: profile '{}' not found in config file {} !".format(profile,configfile))
     exit (2)

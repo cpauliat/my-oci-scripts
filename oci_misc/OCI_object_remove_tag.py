@@ -6,7 +6,7 @@
 # Supported resource types:
 # - COMPUTE            : instance, custom image, boot volume
 # - BLOCK STORAGE      : block volume
-# - DATABASE           : dbsystem, autonomous database, database
+# - DATABASE           : dbsystem, autonomous database, database, database home
 # - OBJECT STORAGE     : bucket
 # - NETWORKING         : vcn, subnet, security list
 # 
@@ -19,6 +19,9 @@
 # Versions
 #    2020-04-27: Initial Version
 #    2021-12-08: Add support for database object
+#    2021-12-09: set OCI region according to the gived object ocid and not according to profile
+#    2021-12-09: Add support for Database Home
+#    2022-01-03: use argparse to parse arguments
 #
 # TO DO: add support for more resource types
 # --------------------------------------------------------------------------------------------
@@ -26,6 +29,7 @@
 # -- import
 import oci
 import sys
+import argparse
 
 # ---------- Functions
 
@@ -34,7 +38,7 @@ configfile = "~/.oci/config"    # Define config file to be used.
 
 # ---- usage syntax
 def usage():
-    print ("Usage: {} OCI_PROFILE object_ocid tag_namespace tag_key".format(sys.argv[0]))
+    print ("Usage: {} -p OCI_PROFILE -id object_ocid -n tag_namespace -k tag_key".format(sys.argv[0]))
     print ("")
     print ("")
     print ("note: OCI_PROFILE must exist in {} file (see example below)".format(configfile))
@@ -220,13 +224,13 @@ def remove_tag_from_db(db_id, ltag_ns, ltag_key):
     # Get Defined-tags for the DB
     try:
         response = DatabaseClient.get_database(db_id)
-        adb = response.data
+        db = response.data
     except:
         print ("ERROR 03: DB with OCID '{}' not found !".format(db_id))
         exit (3)
 
     # Remove tag key from tag namespace
-    tags = adb.defined_tags
+    tags = db.defined_tags
     try:
         del tags[ltag_ns][ltag_key]
     except:
@@ -240,6 +244,34 @@ def remove_tag_from_db(db_id, ltag_ns, ltag_key):
         print ("ERROR 06: cannot remove this tag from this DB !")
         print (sys.exc_info()[1].message)
         exit (6)
+
+def remove_tag_from_dbhome(dbh_id, ltag_ns, ltag_key):
+    DatabaseClient = oci.database.DatabaseClient(config)
+
+    # Get Defined-tags for the DB Home
+    try:
+        response = DatabaseClient.get_db_home(dbh_id)
+        dbh = response.data
+    except:
+        print ("ERROR 03: DB with OCID '{}' not found !".format(dbh_id))
+        exit (3)
+
+    # Remove tag key from tag namespace
+    tags = dbh.defined_tags
+    try:
+        del tags[ltag_ns][ltag_key]
+    except:
+        print ("ERROR 05: this tag key does not exist for this DB Home !")
+        exit (5)
+
+    # Update  DB Home
+    try:
+        DatabaseClient.update_db_home(dbh_id, oci.database.models.UpdateDbHomeDetails(defined_tags=tags))
+    except:
+        print ("ERROR 06: cannot remove this tag from this DB Home !")
+        print (sys.exc_info()[1].message)
+        exit (6)
+
 
 # -- object storage
 def remove_tag_from_bucket(bucket_id, ltag_ns, ltag_key):
@@ -384,22 +416,24 @@ def remove_tag_from_route_table(rt_id, ltag_ns, ltag_key):
         print (sys.exc_info()[1].message)
         exit (6)
 
-
 # ------------ main
 
 # -- parse arguments
-if len(sys.argv) == 5:
-    profile  = sys.argv[1]
-    obj_id   = sys.argv[2] 
-    tag_ns   = sys.argv[3]
-    tag_key  = sys.argv[4]
-else:
-    usage()
+parser = argparse.ArgumentParser(description = "Remove a defined tag from an OCI resource")
+parser.add_argument("-p", "--profile", help="OCI profile", required=True)
+parser.add_argument("-id", "--resource_ocid", help="Resource OCID", required=True)
+parser.add_argument("-n", "--tag_ns", help="Tag namespace", required=True)
+parser.add_argument("-k", "--tag_key", help="Tag key", required=True)
+args = parser.parse_args()
+
+profile     = args.profile
+obj_id      = args.resource_ocid
+tag_ns      = args.tag_ns
+tag_key     = args.tag_key
 
 # -- load profile from config file
 try:
     config = oci.config.from_file(configfile,profile)
-
 except:
     print ("ERROR 02: profile '{}' not found in config file {} !".format(profile,configfile))
     exit (2)
@@ -410,6 +444,9 @@ RootCompartmentID = user.compartment_id
 
 # -- Get the resource type from OCID
 obj_type = obj_id.split(".")[1].lower()
+# Set the working region to the region extracted from the ocid
+obj_region = obj_id.split(".")[3].lower()
+config["region"] = obj_region
 
 # compute
 if   obj_type == "instance":           remove_tag_from_compute_instance(obj_id, tag_ns, tag_key)
@@ -421,6 +458,7 @@ elif obj_type == "volume":             remove_tag_from_block_volume(obj_id, tag_
 elif obj_type == "dbsystem":           remove_tag_from_db_system(obj_id, tag_ns, tag_key)
 elif obj_type == "autonomousdatabase": remove_tag_from_autonomous_db(obj_id, tag_ns, tag_key)
 elif obj_type == "database":           remove_tag_from_db(obj_id, tag_ns, tag_key)
+elif obj_type == "dbhome":             remove_tag_from_dbhome(obj_id, tag_ns, tag_key)
 # object storage
 elif obj_type == "bucket":             remove_tag_from_bucket(obj_id, tag_ns, tag_key)
 # networking

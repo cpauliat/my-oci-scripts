@@ -16,12 +16,14 @@
 #    2021-07-28: Fix usage() function, no compartment needed
 #    2021-07-28: Add -a option for all regions
 #    2021-07-30: Ignore buckets with # in name (internal buckets / no charge)
+#    2022-01-03: use argparse to parse arguments
 # ---------------------------------------------------------------------------------------------------------------------------------
 
 # -- import
 import oci
 import sys
 import operator
+import argparse
 
 # ---------- Colors for output
 # see https://misc.flogisoft.com/bash/tip_colors_and_formatting to customize
@@ -50,7 +52,7 @@ configfile = "~/.oci/config"    # Define config file to be used.
 
 # ---- usage syntax
 def usage():
-    print ("Usage: {} [-a] OCI_PROFILE".format(sys.argv[0]))
+    print ("Usage: {} [-a] -p OCI_PROFILE".format(sys.argv[0]))
     print ("")
     print ("    By default, only the region provided in the profile is processed")
     print ("    If -a is provided, all subscribed regions are processed (by default, only the region in the profile is processed)")
@@ -142,18 +144,13 @@ def get_report_for_region():
 # ------------ main
 
 # -- parse arguments
-all_regions = False
+parser = argparse.ArgumentParser(description = "Display object storage capacity used in all compartments")
+parser.add_argument("-p", "--profile", help="OCI profile", required=True)
+parser.add_argument("-a", "--all_regions", help="Do this for all regions", action="store_true")
+args = parser.parse_args()
 
-if len(sys.argv) == 2:
-    profile  = sys.argv[1]
-elif len(sys.argv) == 3:
-    profile  = sys.argv[2]
-    if sys.argv[1] == "-a":
-        all_regions = True
-    else:
-        usage ()
-else:
-    usage()
+profile     = args.profile
+all_regions = args.all_regions
 
 # -- get info from profile
 try:

@@ -5,7 +5,7 @@
 #
 # Supported resource types:
 # - COMPUTE: instance
-# - DATABASE: dbsystem, autonomous database, database
+# - DATABASE: dbsystem, autonomous database, database, database home
 # 
 # Note: OCI tenant and region given by an OCI CLI PROFILE
 # Author        : Christophe Pauliat
@@ -19,6 +19,9 @@
 #    2020-05-04: Simplify code
 #    2020-09-18: Fix bug for automous database
 #    2021-12-08: Add support for database
+#    2021-12-09: set OCI region according to the gived object ocid and not according to profile
+#    2021-12-09: Add support for Database Home
+#    2022-01-03: use argparse to parse arguments
 #
 # TO DO: add support for more resource types
 # --------------------------------------------------------------------------------------------
@@ -26,6 +29,7 @@
 # -- import
 import oci
 import sys
+import argparse
 
 # ---------- Functions
 
@@ -34,7 +38,7 @@ configfile = "~/.oci/config"    # Define config file to be used.
 
 # ---- usage syntax
 def usage():
-    print ("Usage: {} OCI_PROFILE object_ocid tag_namespace tag_key tag_value".format(sys.argv[0]))
+    print ("Usage: {} -p OCI_PROFILE -id object_ocid -n tag_namespace -k tag_key -vl tag_value".format(sys.argv[0]))
     print ("")
     print ("")
     print ("note: OCI_PROFILE must exist in {} file (see example below)".format(configfile))
@@ -96,22 +100,36 @@ def add_tag_db(db_id):
         print (sys.exc_info()[1].message)
         exit (3)
 
+def add_tag_dbhome(dbh_id):
+    DatabaseClient = oci.database.DatabaseClient(config)
+    try:
+        response = DatabaseClient.get_db_home(dbh_id)
+        tags = update_tags(response.data.defined_tags)
+        DatabaseClient.update_db_home(dbh_id, oci.database.models.UpdateDbHomeDetails(defined_tags=tags))
+    except:
+        print (sys.exc_info()[1].message)
+        exit (3)
+
 # ------------ main
 
 # -- parse arguments
-if len(sys.argv) == 6:
-    profile  = sys.argv[1]
-    obj_id   = sys.argv[2] 
-    tag_ns   = sys.argv[3]
-    tag_key  = sys.argv[4]
-    tag_value= sys.argv[5]
-else:
-    usage()
+parser = argparse.ArgumentParser(description = "Add a defined tag to an OCI resource")
+parser.add_argument("-p", "--profile", help="OCI profile", required=True)
+parser.add_argument("-id", "--resource_ocid", help="Resource OCID", required=True)
+parser.add_argument("-n", "--tag_ns", help="Tag namespace", required=True)
+parser.add_argument("-k", "--tag_key", help="Tag key", required=True)
+parser.add_argument("-vl", "--tag_value", help="Tag value", required=True)
+args = parser.parse_args()
+
+profile     = args.profile
+obj_id      = args.resource_ocid
+tag_ns      = args.tag_ns
+tag_key     = args.tag_key
+tag_value   = args.tag_value
 
 # -- load profile from config file
 try:
     config = oci.config.from_file(configfile,profile)
-
 except:
     print ("ERROR 02: profile '{}' not found in config file {} !".format(profile,configfile))
     exit (2)
@@ -122,11 +140,15 @@ RootCompartmentID = user.compartment_id
 
 # -- Get the resource type from OCID
 obj_type = obj_id.split(".")[1].lower()
+# Set the working region to the region extracted from the ocid
+obj_region = obj_id.split(".")[3].lower()
+config["region"] = obj_region
 
 if   obj_type == "instance":           add_tag_compute_instance(obj_id)
 elif obj_type == "dbsystem":           add_tag_db_system(obj_id)
 elif obj_type == "autonomousdatabase": add_tag_autonomous_db(obj_id)
 elif obj_type == "database":           add_tag_db(obj_id)
+elif obj_type == "dbhome":             add_tag_dbhome(obj_id)
 else: print ("SORRY: resource type {:s} is not yet supported by this script !".format(obj_type)) 
 
 # -- the end

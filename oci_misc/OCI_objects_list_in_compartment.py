@@ -35,11 +35,13 @@
 #    2020-06-22: add support for Data Safe private endpoints
 #    2020-07-07: fix minor bug for functions applications
 #    2020-08-10: add support for Security Vaults
+#    2022-01-03: use argparse to parse arguments
 # ---------------------------------------------------------------------------------------------------------------------------------
 
 # -- import
 import oci
 import sys
+import argparse
 
 # ---------- Colors for output
 # see https://misc.flogisoft.com/bash/tip_colors_and_formatting to customize
@@ -68,8 +70,8 @@ configfile = "~/.oci/config"    # Define config file to be used.
 
 # ---- usage syntax
 def usage():
-    print ("Usage: {} [-a] [-r] OCI_PROFILE compartment_ocid".format(sys.argv[0]))
-    print ("    or {} [-a] [-r] OCI_PROFILE compartment_name".format(sys.argv[0]))
+    print ("Usage: {} [-a] [-r] -p OCI_PROFILE -c compartment_ocid".format(sys.argv[0]))
+    print ("    or {} [-a] [-r] -p OCI_PROFILE -c compartment_name".format(sys.argv[0]))
     print ("")
     print ("    By default, only the objects in the region provided in the profile are listed")
     print ("    If -a is provided, the objects from all subscribed regions are listed")
@@ -525,36 +527,21 @@ def list_region_specific_objects (cpt_ocid,cpt_name):
 # ------------ main
 
 # -- parse arguments
-all_regions = False
-include_sub_cpt = False
+parser = argparse.ArgumentParser(description = "List resources in an OCI compartment")
+parser.add_argument("-p", "--profile", help="OCI profile", required=True)
+parser.add_argument("-c", "--compartment", help="Compartment name or compartment OCID", required=True)
+parser.add_argument("-r", "--recursive", help="Include sub-compartments", action="store_true")
+parser.add_argument("-a", "--all_regions", help="Do this for all regions", action="store_true")
+args = parser.parse_args()
 
-if len(sys.argv) == 3:
-    profile  = sys.argv[1] 
-    cpt      = sys.argv[2]
-elif len(sys.argv) == 4:
-    profile  = sys.argv[2] 
-    cpt      = sys.argv[3]
-    if sys.argv[1] == "-a":
-        all_regions = True
-    elif sys.argv[1] == "-r":
-        include_sub_cpt = True
-    else:
-        usage ()
-elif len(sys.argv) == 5:
-    profile  = sys.argv[3] 
-    cpt      = sys.argv[4]
-    if (sys.argv[1] == "-a" and sys.argv[2] == "-r") or (sys.argv[1] == "-r" and sys.argv[2] == "-a"):
-        all_regions = True
-        include_sub_cpt = True
-    else:
-        usage ()
-else:
-    usage()
+profile         = args.profile
+cpt             = args.compartment
+include_sub_cpt = args.recursive
+all_regions     = args.all_regions
 
 # -- load profile from config file
 try:
     config = oci.config.from_file(configfile,profile)
-
 except:
     print ("ERROR 02: profile '{}' not found in config file {} !".format(profile,configfile))
     exit (2)

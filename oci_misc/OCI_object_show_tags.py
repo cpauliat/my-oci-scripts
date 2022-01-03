@@ -6,7 +6,7 @@
 # Supported resource types:
 # - COMPUTE            : instance, custom image, boot volume
 # - BLOCK STORAGE      : block volume, block volume backup
-# - DATABASE           : dbsystem, autonomous database, database
+# - DATABASE           : dbsystem, autonomous database, database, database home
 # - OBJECT STORAGE     : bucket
 # - NETWORKING         : vcn, subnet, route table, Internet gateway, DRG, network security group
 #                        security list, DHCP options, LPG, NAT gateway, service gateway
@@ -20,6 +20,9 @@
 # Versions
 #    2020-04-28: Initial Version
 #    2021-12-08: Add support for Database
+#    2021-12-09: set OCI region according to the gived object ocid and not according to profile
+#    2021-12-09: Add support for Database Home
+#    2022-01-03: use argparse to parse arguments
 #
 # TO DO: add support for more resource types
 # ----------------------------------------------------------------------------------------------------------
@@ -27,6 +30,7 @@
 # -- import
 import oci
 import sys
+import argparse
 
 # ---------- Functions
 
@@ -35,7 +39,7 @@ configfile = "~/.oci/config"    # Define config file to be used.
 
 # ---- usage syntax
 def usage():
-    print ("Usage: {} OCI_PROFILE object_ocid".format(sys.argv[0]))
+    print ("Usage: {} -p OCI_PROFILE -id object_ocid".format(sys.argv[0]))
     print ("")
     print ("")
     print ("note: OCI_PROFILE must exist in {} file (see example below)".format(configfile))
@@ -135,12 +139,24 @@ def show_tags_from_db(db_id):
 
     try:
         response = DatabaseClient.get_database(db_id)
-        adb = response.data
-        print (adb.defined_tags)
+        db = response.data
+        print (db.defined_tags)
     except:
         print ("ERROR 03: DB with OCID '{}' not found !".format(db_id))
         exit (3)
-        
+
+def show_tags_from_dbhome(dbh_id):
+    DatabaseClient = oci.database.DatabaseClient(config)
+
+    try:
+        response = DatabaseClient.get_db_home(dbh_id)
+        dbh = response.data
+        print (dbh.defined_tags)
+    except:
+        print ("ERROR 03: DB Home with OCID '{}' not found !".format(dbh_id))
+        exit (3)
+
+
 # -- object storage     # DOES NOT WORK
 def show_tags_from_bucket(bucket_id):
     bucket_name = "HOW-TO-GET-IT-FROM-BUCKET-ID-?"
@@ -284,16 +300,17 @@ def show_tags_from_service_gateway(sg_id):
 # ------------ main
 
 # -- parse arguments
-if len(sys.argv) == 3:
-    profile = sys.argv[1]
-    obj_id  = sys.argv[2] 
-else:
-    usage()
+parser = argparse.ArgumentParser(description = "Show defined tags for an OCI resource")
+parser.add_argument("-p", "--profile", help="OCI profile", required=True)
+parser.add_argument("-id", "--resource_ocid", help="Resource OCID", required=True)
+args = parser.parse_args()
+
+profile     = args.profile
+obj_id      = args.resource_ocid
 
 # -- load profile from config file
 try:
     config = oci.config.from_file(configfile,profile)
-
 except:
     print ("ERROR 02: profile '{}' not found in config file {} !".format(profile,configfile))
     exit (2)
@@ -304,6 +321,9 @@ RootCompartmentID = user.compartment_id
 
 # -- Get the resource type from OCID
 obj_type = obj_id.split(".")[1].lower()
+# Set the working region to the region extracted from the ocid
+obj_region = obj_id.split(".")[3].lower()
+config["region"] = obj_region
 
 # compute
 if   obj_type == "instance":             show_tags_from_compute_instance(obj_id)
@@ -316,6 +336,7 @@ elif obj_type == "volumebackup":         show_tags_from_block_volume_backup(obj_
 elif obj_type == "dbsystem":             show_tags_from_db_system(obj_id)
 elif obj_type == "autonomousdatabase":   show_tags_from_autonomous_db(obj_id)
 elif obj_type == "database":             show_tags_from_db(obj_id)
+elif obj_type == "dbhome":               show_tags_from_dbhome(obj_id)
 # object storage
 elif obj_type == "bucket":               show_tags_from_bucket(obj_id)
 # networking

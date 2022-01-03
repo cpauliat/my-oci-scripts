@@ -24,12 +24,14 @@
 # Versions
 #    2020-09-09: Initial Version
 #    2021-01-08: bug fix (ignore DB system if not in AVAILABLE status)
+#    2022-01-03: use argparse to parse arguments
 # ---------------------------------------------------------------------------------------------------------------------------------
 
 # -- import
 import oci
 import sys
 import os
+import argparse
 from datetime import datetime
 
 # ---------- Tag names, key and value to look for
@@ -103,42 +105,15 @@ def process_compartment(lcpt):
 # ------------ main
 
 # -- parse arguments
-all_regions   = False
-confirm_stop  = False
-confirm_start = False
-
-if len(sys.argv) == 1:
-    pass
-
-elif len(sys.argv) == 2:
-    if sys.argv[1] == "-a": all_regions = True
-    elif sys.argv[1] == "--confirm_stop":  confirm_stop  = True
-    elif sys.argv[1] == "--confirm_start": confirm_start = True
-    else: usage ()
-
-elif len(sys.argv) == 3:
-    if   sys.argv[1] == "-a": all_regions = True
-    elif sys.argv[1] == "--confirm_stop":  confirm_stop  = True
-    elif sys.argv[1] == "--confirm_start": confirm_start = True
-    else: usage ()
-    if   sys.argv[2] == "--confirm_stop":  confirm_stop  = True 
-    elif sys.argv[2] == "--confirm_start": confirm_start = True 
-    else: usage ()
-
-elif len(sys.argv) == 4:
-    if   sys.argv[1] == "-a": all_regions = True
-    elif sys.argv[1] == "--confirm_stop":  confirm_stop  = True
-    elif sys.argv[1] == "--confirm_start": confirm_start = True
-    else: usage ()
-    if   sys.argv[2] == "--confirm_stop":  confirm_stop  = True 
-    elif sys.argv[2] == "--confirm_start": confirm_start = True 
-    else: usage ()
-    if   sys.argv[3] == "--confirm_stop":  confirm_stop  = True 
-    elif sys.argv[3] == "--confirm_start": confirm_start = True 
-    else: usage ()
-
-else:
-    usage()
+parser = argparse.ArgumentParser(description = "Stop or start tagged database systems")
+parser.add_argument("-off", "--confirm_stop", help="Confirm shutdown", action="store_true")
+parser.add_argument("-on", "--confirm_start", help="Confirm startup", action="store_true")
+parser.add_argument("-a", "--all_regions", help="Do this for all regions", action="store_true")
+args = parser.parse_args()
+    
+confirm_stop  = args.confirm_stop
+confirm_start = args.confirm_start
+all_regions   = args.all_regions
 
 # -- get UTC time (format 10:00_UTC, 11:00_UTC ...)
 current_utc_time = datetime.utcnow().strftime("%H")+":00_UTC"

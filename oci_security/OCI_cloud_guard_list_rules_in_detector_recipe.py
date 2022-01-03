@@ -11,12 +11,14 @@
 #                 - OCI config file configured with profiles
 # Versions
 #    2021-11-05: Initial Version
+#    2022-01-03: use argparse to parse arguments
 # --------------------------------------------------------------------------------------------------------------
 
 
 # ---------- import
 import oci
 import sys
+import argparse
 from operator import itemgetter
 
 # ---------- variables
@@ -24,7 +26,7 @@ configfile = "~/.oci/config"    # Define config file to be used.
 
 # ---------- functions
 def usage():
-    print (f"Usage: {sys.argv[0]} OCI_PROFILE detector_recipe_ocid")
+    print (f"Usage: {sys.argv[0]} -p OCI_PROFILE -r detector_recipe_ocid")
     print ("")
     print (f"note: OCI_PROFILE must exist in {configfile} file (see example below)")
     print ("")
@@ -72,11 +74,13 @@ def display_rules_sorted_by_risk_level(rules):
 # ---------- main
 
 # -- parse arguments
-if (len(sys.argv) == 3):
-    profile     = sys.argv[1]
-    recipe_ocid = sys.argv[2]
-else:
-    usage()
+parser = argparse.ArgumentParser(description = "List rules in a Cloud Guard detector recipe")
+parser.add_argument("-p", "--profile", help="OCI profile", required=True)
+parser.add_argument("-r", "--recipe_ocid", help="Detector recipe OCID", required=True)
+args = parser.parse_args()
+    
+profile     = args.profile
+recipe_ocid = args.recipe_ocid
 
 # -- get info from profile    
 try:

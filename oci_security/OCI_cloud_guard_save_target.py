@@ -22,12 +22,14 @@
 #                 - OCI config file configured with profiles
 # Versions
 #    2021-11-19: Initial Version
+#    2022-01-03: use argparse to parse arguments
 # --------------------------------------------------------------------------------------------------------------
 
 
 # ---------- import
 import oci
 import sys
+import argparse
 from pathlib import Path
 from operator import itemgetter
 
@@ -36,7 +38,7 @@ configfile = "~/.oci/config"    # Define config file to be used.
 
 # ---------- functions
 def usage():
-    print (f"Usage: {sys.argv[0]} OCI_PROFILE target_ocid output_file.json")
+    print (f"Usage: {sys.argv[0]} -p OCI_PROFILE -t target_ocid -f output_file.json")
     print ("")
     print (f"note: OCI_PROFILE must exist in {configfile} file (see example below)")
     print ("")
@@ -81,12 +83,15 @@ def get_cpt_full_name_from_id(cpt_id):
 # ---------- main
 
 # -- parse arguments
-if (len(sys.argv) == 4):
-    profile     = sys.argv[1]
-    target_ocid = sys.argv[2]
-    output_file = sys.argv[3]
-else:
-    usage()
+parser = argparse.ArgumentParser(description = "Save configuration of a Cloud Guard target")
+parser.add_argument("-p", "--profile", help="OCI profile", required=True)
+parser.add_argument("-r", "--target_ocid", help="Target OCID", required=True)
+parser.add_argument("-f", "--file", help="Backup file (.json)", required=True)
+args = parser.parse_args()
+    
+profile     = args.profile
+target_ocid = args.target_ocid
+output_file = args.file
 
 # -- If the output file already exists, exit in error 
 my_file = Path(output_file)

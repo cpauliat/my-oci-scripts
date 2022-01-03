@@ -13,11 +13,13 @@
 # Versions
 #    2020-04-16: Initial Version
 #    2020-04-24: rewrite of the script using OCI search (much faster)
+#    2022-01-03: use argparse to parse arguments
 # --------------------------------------------------------------------------------------------------------------------------
 
 # -- import
 import oci
 import sys
+import argparse
 
 # ---------- Functions
 
@@ -26,7 +28,7 @@ configfile = "~/.oci/config"    # Define config file to be used.
 
 # ---- usage syntax
 def usage():
-    print ("Usage: {} [-a] OCI_PROFILE tag_namespace tag_key".format(sys.argv[0]))
+    print ("Usage: {} [-a] -p OCI_PROFILE -n tag_namespace -k tag_key".format(sys.argv[0]))
     print ("")
     print ("    By default, only the database systems in the region provided in the profile are listed")
     print ("    If -a is provided, the database systems from all subscribed regions are listed")
@@ -61,22 +63,17 @@ def search_resources():
 # ------------ main
 
 # -- parse arguments
-all_regions = False
-
-if len(sys.argv) == 4:
-    profile  = sys.argv[1] 
-    tag_ns   = sys.argv[2]
-    tag_key  = sys.argv[3]
-elif len(sys.argv) == 5:
-    if sys.argv[1] == "-a":
-        all_regions = True
-    else:
-        usage()
-    profile  = sys.argv[2] 
-    tag_ns   = sys.argv[3]
-    tag_key  = sys.argv[4]
-else:
-    usage()
+parser = argparse.ArgumentParser(description = "List tagged databases systems")
+parser.add_argument("-p", "--profile", help="OCI profile", required=True)
+parser.add_argument("-n", "--tag_ns", help="Tag namespace", required=True)
+parser.add_argument("-k", "--tag_key", help="Tag key", required=True)
+parser.add_argument("-a", "--all_regions", help="Do this for all regions", action="store_true")
+args = parser.parse_args()
+    
+profile     = args.profile
+tag_ns      = args.tag_ns
+tag_key     = args.tag_key
+all_regions = args.all_regions
 
 # -- load profile from config file
 try:

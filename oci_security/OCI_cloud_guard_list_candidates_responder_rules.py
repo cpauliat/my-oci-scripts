@@ -11,27 +11,30 @@
 #                 - OCI config file configured with profiles
 # Versions
 #    2021-11-19: Initial Version
+#    2022-01-03: use argparse to parse arguments
 # --------------------------------------------------------------------------------------------------------------
 
 # ---------- import
 import sys
 import json
+import argparse
 from pathlib import Path
 from operator import itemgetter
 
 # ---------- functions
 def usage():
-    print (f"Usage: {sys.argv[0]} input_backup_file.json")
+    print (f"Usage: {sys.argv[0]} -f input_backup_file.json")
     print ("")
     exit (1)
 
 # ---------- main
 
 # -- parse arguments
-if (len(sys.argv) == 2):
-    input_file  = sys.argv[1]
-else:
-    usage()
+parser = argparse.ArgumentParser(description = "List Cloud Guard problems in an OCI tenant")
+parser.add_argument("-f", "--file", help="backup input file", required=True)
+args = parser.parse_args()
+    
+input_file = args.file
 
 # -- If the backup file does not exist, exit in error 
 my_file = Path(input_file)

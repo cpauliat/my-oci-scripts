@@ -22,12 +22,14 @@
 # Versions
 #    2020-04-23: Initial Version
 #    2020-09-17: bug fix (root compartment was ignored)
+#    2022-01-03: use argparse to parse arguments
 # ---------------------------------------------------------------------------------------------------------------------------------
 
 # -- import
 import oci
 import sys
 import os
+import argparse
 from datetime import datetime
 
 # ---------- Tag names, key and value to look for
@@ -44,7 +46,7 @@ configfile = "~/.oci/config"    # Define config file to be used.
 
 # ---- usage syntax
 def usage():
-    print ("Usage: {} [-a] [--confirm_stop] [--confirm_start] OCI_PROFILE".format(sys.argv[0]))
+    print ("Usage: {} [-a] [--confirm_stop] [--confirm_start] -p OCI_PROFILE".format(sys.argv[0]))
     print ("")
     print ("Notes:")
     print ("    If -a is provided, the script processes all active regions instead of singe region provided in profile")
@@ -107,45 +109,17 @@ def process_compartment(lcpt):
 # ------------ main
 
 # -- parse arguments
-all_regions   = False
-confirm_stop  = False
-confirm_start = False
-
-if len(sys.argv) == 2:
-    profile  = sys.argv[1] 
-
-elif len(sys.argv) == 3:
-    profile  = sys.argv[2] 
-    if sys.argv[1] == "-a": all_regions = True
-    elif sys.argv[1] == "--confirm_stop":  confirm_stop  = True
-    elif sys.argv[1] == "--confirm_start": confirm_start = True
-    else: usage ()
-
-elif len(sys.argv) == 4:
-    profile  = sys.argv[3] 
-    if   sys.argv[1] == "-a": all_regions = True
-    elif sys.argv[1] == "--confirm_stop":  confirm_stop  = True
-    elif sys.argv[1] == "--confirm_start": confirm_start = True
-    else: usage ()
-    if   sys.argv[2] == "--confirm_stop":  confirm_stop  = True 
-    elif sys.argv[2] == "--confirm_start": confirm_start = True 
-    else: usage ()
-
-elif len(sys.argv) == 5:
-    profile  = sys.argv[4] 
-    if   sys.argv[1] == "-a": all_regions = True
-    elif sys.argv[1] == "--confirm_stop":  confirm_stop  = True
-    elif sys.argv[1] == "--confirm_start": confirm_start = True
-    else: usage ()
-    if   sys.argv[2] == "--confirm_stop":  confirm_stop  = True 
-    elif sys.argv[2] == "--confirm_start": confirm_start = True 
-    else: usage ()
-    if   sys.argv[3] == "--confirm_stop":  confirm_stop  = True 
-    elif sys.argv[3] == "--confirm_start": confirm_start = True 
-    else: usage ()
-
-else:
-    usage()
+parser = argparse.ArgumentParser(description = "Stop or start tagged autonomous databases")
+parser.add_argument("-p", "--profile", help="OCI profile", required=True)
+parser.add_argument("-off", "--confirm_stop", help="Confirm shutdown", action="store_true")
+parser.add_argument("-on", "--confirm_start", help="Confirm startup", action="store_true")
+parser.add_argument("-a", "--all_regions", help="Do this for all regions", action="store_true")
+args = parser.parse_args()
+    
+profile       = args.profile
+confirm_stop  = args.confirm_stop
+confirm_start = args.confirm_start
+all_regions   = args.all_regions
 
 # -- get UTC time (format 10:00_UTC, 11:00_UTC ...)
 current_utc_time = datetime.utcnow().strftime("%H")+":00_UTC"
@@ -157,7 +131,6 @@ print ("{:s}: BEGIN SCRIPT PID={:d}".format(datetime.utcnow().strftime("%Y/%m/%d
 # -- load profile from config file
 try:
     config = oci.config.from_file(configfile,profile)
-
 except:
     print ("ERROR 02: profile '{}' not found in config file {} !".format(profile,configfile))
     exit (2)

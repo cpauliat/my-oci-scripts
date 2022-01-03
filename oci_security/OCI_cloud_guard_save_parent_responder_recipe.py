@@ -16,12 +16,14 @@
 # Versions
 #    2021-11-16: Initial Version
 #    2021-11-19: Remove responder_rules[] from backup and use effective_responder_rules[]
+#    2022-01-03: use argparse to parse arguments
 # --------------------------------------------------------------------------------------------------------------
 
 
 # ---------- import
 import oci
 import sys
+import argparse
 from pathlib import Path
 from operator import itemgetter
 
@@ -45,12 +47,15 @@ def usage():
 # ---------- main
 
 # -- parse arguments
-if (len(sys.argv) == 4):
-    profile     = sys.argv[1]
-    recipe_ocid = sys.argv[2]
-    output_file = sys.argv[3]
-else:
-    usage()
+parser = argparse.ArgumentParser(description = "Save configuration of a Cloud Guard responder recipe")
+parser.add_argument("-p", "--profile", help="OCI profile", required=True)
+parser.add_argument("-r", "--recipe_ocid", help="Responder recipe OCID", required=True)
+parser.add_argument("-f", "--file", help="Backup file (.json)", required=True)
+args = parser.parse_args()
+    
+profile     = args.profile
+recipe_ocid = args.recipe_ocid
+output_file = args.file
 
 # -- If the output file already exists, exit in error 
 my_file = Path(output_file)

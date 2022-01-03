@@ -10,19 +10,21 @@
 #                 - OCI config file configured with profiles
 # Versions
 #    2021-11-18: Initial Version 
+#    2022-01-03: use argparse to parse arguments
 # --------------------------------------------------------------------------------------------------------------
 
 
 # ---------- import
 import oci
 import sys
+import argparse
 
 # ---------- variables
 configfile = "~/.oci/config"    # Define config file to be used.
 
 # ---------- functions
 def usage():
-    print (f"Usage: {sys.argv[0]} OCI_PROFILE")
+    print (f"Usage: {sys.argv[0]} -p OCI_PROFILE")
     print ("")
     print (f"note: OCI_PROFILE must exist in {configfile} file (see example below)")
     print ("")
@@ -67,10 +69,11 @@ def get_cpt_full_name_from_id(cpt_id):
 # ---------- main
 
 # -- parse arguments
-if (len(sys.argv) == 2):
-    profile = sys.argv[1]
-else:
-    usage()
+parser = argparse.ArgumentParser(description = "List Cloud Guard problems in an OCI tenant")
+parser.add_argument("-p", "--profile", help="OCI profile", required=True)
+args = parser.parse_args()
+    
+profile = args.profile
 
 # -- get info from profile    
 try:
