@@ -36,42 +36,33 @@
 #    2020-07-07: fix minor bug for functions applications
 #    2020-08-10: add support for Security Vaults
 #    2022-01-03: use argparse to parse arguments
+#    2022-01-04: add --no_color option
 # ---------------------------------------------------------------------------------------------------------------------------------
 
-# -- import
+# -------- import
 import oci
 import sys
 import argparse
 
-# ---------- Colors for output
+# -------- colors for output
 # see https://misc.flogisoft.com/bash/tip_colors_and_formatting to customize
-colored_output=True
-if (colored_output):
-  COLOR_TITLE0="\033[95m"             # light magenta
-  COLOR_TITLE1="\033[91m"             # light red
-  COLOR_TITLE2="\033[32m"             # green
-  COLOR_AD="\033[94m"                 # light blue
-  COLOR_COMP="\033[93m"               # light yellow
-  COLOR_BREAK="\033[91m"              # light red
-  COLOR_NORMAL="\033[39m"
-else:
-  COLOR_TITLE0=""
-  COLOR_TITLE1=""
-  COLOR_TITLE2=""
-  COLOR_AD=""
-  COLOR_COMP=""
-  COLOR_BREAK=""
-  COLOR_NORMAL=""
+COLOR_TITLE0="\033[95m"             # light magenta
+COLOR_TITLE1="\033[91m"             # light red
+COLOR_TITLE2="\033[32m"             # green
+COLOR_AD="\033[94m"                 # light blue
+COLOR_COMP="\033[93m"               # light yellow
+COLOR_BREAK="\033[91m"              # light red
+COLOR_NORMAL="\033[39m"
 
-# ---------- Functions
-
-# ---- variables
+# -------- variables
 configfile = "~/.oci/config"    # Define config file to be used.
+
+# -------- functions
 
 # ---- usage syntax
 def usage():
-    print ("Usage: {} [-a] [-r] -p OCI_PROFILE -c compartment_ocid".format(sys.argv[0]))
-    print ("    or {} [-a] [-r] -p OCI_PROFILE -c compartment_name".format(sys.argv[0]))
+    print ("Usage: {} [-nc] [-a] [-r] -p OCI_PROFILE -c compartment_ocid".format(sys.argv[0]))
+    print ("    or {} [-nc] [-a] [-r] -p OCI_PROFILE -c compartment_name".format(sys.argv[0]))
     print ("")
     print ("    By default, only the objects in the region provided in the profile are listed")
     print ("    If -a is provided, the objects from all subscribed regions are listed")
@@ -86,6 +77,24 @@ def usage():
     print ("key_file    = /Users/cpauliat/.oci/api_key.pem")
     print ("region      = eu-frankfurt-1")
     exit (1)
+
+# ---- Disable colored output
+def disable_colored_output():
+    global COLOR_TITLE0
+    global COLOR_TITLE1
+    global COLOR_TITLE2
+    global COLOR_AD
+    global COLOR_COMP
+    global COLOR_BREAK
+    global COLOR_NORMAL
+
+    COLOR_TITLE0 = ""
+    COLOR_TITLE1 = ""
+    COLOR_TITLE2 = ""
+    COLOR_AD     = ""
+    COLOR_COMP   = ""
+    COLOR_BREAK  = ""
+    COLOR_NORMAL = ""
 
 # ---- List objects common to all regions
 def list_networking_dns_zones(lcpt_ocid):
@@ -524,7 +533,7 @@ def list_region_specific_objects (cpt_ocid,cpt_name):
             if (sub_compartment.lifecycle_state == "ACTIVE"):
                 list_region_specific_objects(sub_compartment.id,sub_compartment.name)
 
-# ------------ main
+# -------- main
 
 # -- parse arguments
 parser = argparse.ArgumentParser(description = "List resources in an OCI compartment")
@@ -532,12 +541,15 @@ parser.add_argument("-p", "--profile", help="OCI profile", required=True)
 parser.add_argument("-c", "--compartment", help="Compartment name or compartment OCID", required=True)
 parser.add_argument("-r", "--recursive", help="Include sub-compartments", action="store_true")
 parser.add_argument("-a", "--all_regions", help="Do this for all regions", action="store_true")
+parser.add_argument("-nc", "--no_color", help="Disable colored output", action="store_true")
 args = parser.parse_args()
 
 profile         = args.profile
 cpt             = args.compartment
 include_sub_cpt = args.recursive
 all_regions     = args.all_regions
+if args.nocolor:
+  disable_colored_output()
 
 # -- load profile from config file
 try:

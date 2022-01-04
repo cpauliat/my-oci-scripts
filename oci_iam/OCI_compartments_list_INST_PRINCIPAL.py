@@ -12,45 +12,57 @@
 #    2020-09-09: Initial Version
 #    2020-12-12: Display full name of compartments (using parents) using colored outputs
 #    2022-01-03: use argparse to parse arguments
+#    2022-01-04: add --no_color option
 # --------------------------------------------------------------------------------------------------------------
 
-# -- import
+# -------- import
 import oci
 import sys
 import argparse
 
-# ---------- Colors for output
+# -------- colors for output
 # see https://misc.flogisoft.com/bash/tip_colors_and_formatting to customize
-colored_output=True
-if (colored_output):
-    COLOR_YELLOW="\033[93m"
-    COLOR_RED="\033[91m"
-    COLOR_GREEN="\033[32m"
-    COLOR_NORMAL="\033[39m"
-    COLOR_CYAN="\033[96m"
-    COLOR_BLUE="\033[94m"
-    COLOR_GREY="\033[90m"
-else:
-    COLOR_YELLOW=""
-    COLOR_RED=""
-    COLOR_GREEN=""
-    COLOR_NORMAL=""
-    COLOR_CYAN=""
-    COLOR_BLUE=""
-    COLOR_GREY=""
+COLOR_YELLOW = "\033[93m"
+COLOR_RED    = "\033[91m"
+COLOR_GREEN  = "\033[32m"
+COLOR_NORMAL = "\033[39m"
+COLOR_CYAN   = "\033[96m"
+COLOR_BLUE   = "\033[94m"
+COLOR_GREY   = "\033[90m"
 
-# ---------- variables
+# -------- variables
 flag=[0,0,0,0,0,0,0,0,0,0]
 
-# ---------- functions
+# -------- functions
+
+# ---- usage syntax
 def usage():
-    print ("Usage: {} [-d]".format(sys.argv[0]))
+    print ("Usage: {} [-nc] [-d]".format(sys.argv[0]))
     print ("")
     print ("    If -d is provided, deleted compartments are also listed.")
     print ("    If not, only active compartments are listed.")
     print 
     exit (1)
 
+# ---- Disable colored output
+def disable_colored_output():
+    global COLOR_YELLOW 
+    global COLOR_RED   
+    global COLOR_GREEN 
+    global COLOR_NORMAL 
+    global COLOR_CYAN   
+    global COLOR_BLUE   
+    global COLOR_GREY    
+
+    COLOR_YELLOW = ""
+    COLOR_RED    = ""
+    COLOR_GREEN  = ""
+    COLOR_NORMAL = ""
+    COLOR_CYAN   = ""
+    COLOR_BLUE   = ""
+    COLOR_GREY   = ""
+    
+# ---- Get the complete name of compartment from its id
 def get_cpt_parent(cpt):
     if (cpt.id == RootCompartmentID):
         return "root"
@@ -110,14 +122,17 @@ def list_compartments(parent_id, level):
         list_compartments(cid, level+1)
         i += 1
 
-# ---------- main
+# -------- main
 
 # -- parsing arguments
 parser = argparse.ArgumentParser(description = "List compartments in an OCI tenant")
 parser.add_argument("-d", "--list_deleted", help="List also deleted compartments", action="store_true")
+parser.add_argument("-nc", "--no_color", help="Disable colored output", action="store_true")
 args = parser.parse_args()
     
 list_deleted = args.list_deleted
+if args.nocolor:
+  disable_colored_output()
 
 # -- authentication using instance principal
 signer = oci.auth.signers.InstancePrincipalsSecurityTokenSigner()

@@ -14,20 +14,20 @@
 #    2022-01-03: use argparse to parse arguments
 # --------------------------------------------------------------------------------------------------------------
 
-# ---------- import
+# -------- import
 import sys
 import json
 import argparse
 from pathlib import Path
 from operator import itemgetter
 
-# ---------- functions
+# -------- functions
 def usage():
     print (f"Usage: {sys.argv[0]} -f input_backup_file.json")
     print ("")
     exit (1)
 
-# ---------- main
+# -------- main
 
 # -- parse arguments
 parser = argparse.ArgumentParser(description = "List Cloud Guard problems in an OCI tenant")

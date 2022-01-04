@@ -15,16 +15,16 @@
 # --------------------------------------------------------------------------------------------------------------
 
 
-# ---------- import
+# -------- import
 import oci
 import sys
 import argparse
 from operator import itemgetter
 
-# ---------- variables
+# -------- variables
 configfile = "~/.oci/config"    # Define config file to be used.
 
-# ---------- functions
+# -------- functions
 def usage():
     print (f"Usage: {sys.argv[0]} -p OCI_PROFILE -r responder_recipe_ocid")
     print ("")
@@ -44,7 +44,7 @@ def display_rules_sorted_by_id(rules):
         # CSV
         #print (f"{r['id']},{r['mode']},{r['is_enabled']}")
 
-# ---------- main
+# -------- main
 
 # -- parse arguments
 parser = argparse.ArgumentParser(description = "List rules in a Cloud Guard responder recipe")

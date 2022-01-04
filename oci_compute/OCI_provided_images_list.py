@@ -14,15 +14,15 @@
 #    2022-01-03: use argparse to parse arguments
 # ---------------------------------------------------------------------------------------------------------------------------------
 
-# -- import
+# -------- import
 import oci
 import sys
 import argparse
 
-# ---------- Functions
-
-# ---- variables
+# -------- variables
 configfile = "~/.oci/config"    # Define config file to be used.
+
+# -------- functions
 
 # ---- usage syntax
 def usage():
@@ -46,7 +46,7 @@ def list_compute_images():
             print ('{0:100s} {1:s}'.format(image.id, image.display_name))
 
 
-# ------------ main
+# -------- main
 
 # -- parse arguments
 parser = argparse.ArgumentParser(description = "List Oracle provided images")

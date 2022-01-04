@@ -14,15 +14,15 @@
 #    2022-01-03: use argparse to parse arguments
 # --------------------------------------------------------------------------------------------------------------------------
 
-# -- import
+# -------- import
 import oci
 import sys
 import argparse
 
-# ---------- Functions
-
-# ---- variables
+# -------- variables
 configfile = "~/.oci/config"    # Define config file to be used.
+
+# -------- functions
 
 # ---- usage syntax
 def usage():
@@ -39,14 +39,14 @@ def usage():
     print ("region      = eu-frankfurt-1")
     exit (1)
 
-# -- Get the name of of compartment from its id
+# ---- Get the name of of compartment from its id
 def get_cpt_name_from_id(cpt_id):
     for c in compartments:
         if (c.id == cpt_id):
             return c.name
     return "root"
 
-# ------------ main
+# -------- main
 
 # -- parse arguments
 parser = argparse.ArgumentParser(description = "List all custom images in an OCI tenant")

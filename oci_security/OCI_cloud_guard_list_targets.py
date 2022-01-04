@@ -14,15 +14,15 @@
 # --------------------------------------------------------------------------------------------------------------
 
 
-# ---------- import
+# -------- import
 import oci
 import sys
 import argparse
 
-# ---------- variables
+# -------- variables
 configfile = "~/.oci/config"    # Define config file to be used.
 
-# ---------- functions
+# -------- functions
 def usage():
     print (f"Usage: {sys.argv[0]} -p OCI_PROFILE")
     print ("")
@@ -66,7 +66,7 @@ def get_cpt_full_name_from_id(cpt_id):
                 return cpt_full_name(c)
     return
 
-# ---------- main
+# -------- main
 
 # -- parse arguments
 parser = argparse.ArgumentParser(description = "List Cloud Guard problems in an OCI tenant")

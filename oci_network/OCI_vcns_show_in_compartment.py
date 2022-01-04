@@ -22,43 +22,34 @@
 #    2020-02-27: Initial Version
 #    2020-03-24: fix bug for root compartment
 #    2022-01-03: use argparse to parse arguments
+#    2022-01-04: add --no_color option
 # --------------------------------------------------------------------------------------------------------------------------
 
 
-# -- import
+# -------- import
 import oci
 import sys
 import argparse
 
-# ---------- Colors for output
+# -------- colors for output
 # see https://misc.flogisoft.com/bash/tip_colors_and_formatting to customize
-colored_output=True
-if (colored_output):
-  COLOR_LMAGENTA="\033[95m"         # light magenta
-  COLOR_LRED="\033[91m"             # light red
-  COLOR_GREEN="\033[32m"            # green
-  COLOR_LBLUE="\033[94m"            # light blue
-  COLOR_LYELLOW="\033[93m"          # light yellow
-  COLOR_CYAN="\033[36m"             # cyan
-  COLOR_NORMAL="\033[39m"
-else:
-  COLOR_LMAGENTA=""
-  COLOR_LRED=""
-  COLOR_GREEN=""
-  COLOR_LBLUE=""
-  COLOR_LYELLOW=""
-  COLOR_CYAN=""
-  COLOR_NORMAL=""
+COLOR_LMAGENTA = "\033[95m"         # light magenta
+COLOR_LRED     = "\033[91m"             # light red
+COLOR_GREEN    = "\033[32m"            # green
+COLOR_LBLUE    = "\033[94m"            # light blue
+COLOR_LYELLOW  = "\033[93m"          # light yellow
+COLOR_CYAN     = "\033[36m"             # cyan
+COLOR_NORMAL   = "\033[39m"
 
-# ---------- Functions
-
-# -- variables
+# -------- variables
 configfile = "~/.oci/config"    # Define config file to be used.
 
-# -- usage syntax
+# -------- functions
+
+# ---- usage syntax
 def usage():
-    print ("Usage: {} [-v] -p OCI_PROFILE -c compartment_ocid".format(sys.argv[0]))
-    print ("    or {} [-v] -p OCI_PROFILE -c compartment_name".format(sys.argv[0]))  
+    print ("Usage: {} [-nc] [-v] -p OCI_PROFILE -c compartment_ocid".format(sys.argv[0]))
+    print ("    or {} [-nc] [-v] -p OCI_PROFILE -c compartment_name".format(sys.argv[0]))  
     print ("")
     print ("Notes:")
     print ("- If -v is provided, then OCIDs of objects are also displayed")
@@ -72,7 +63,25 @@ def usage():
     print ("region      = eu-frankfurt-1")
     exit (1)
 
-# -- List VCNs
+# ---- Disable colored output
+def disable_colored_output():
+    global COLOR_LMAGENTA
+    global COLOR_LRED
+    global COLOR_GREEN
+    global COLOR_LBLUE
+    global COLOR_LYELLOW
+    global COLOR_CYAN
+    global COLOR_NORMAL 
+
+    COLOR_LMAGENTA = ""
+    COLOR_LRED     = ""
+    COLOR_GREEN    = ""
+    COLOR_LBLUE    = ""
+    COLOR_LYELLOW  = ""
+    COLOR_CYAN     = ""
+    COLOR_NORMAL   = ""
+
+# ---- List VCNs
 def rule_details(lrule):
     if lrule.protocol=="all": 
         return "ALL"
@@ -194,18 +203,21 @@ def list_vcns (cpt_ocid,cpt_name):
                         if rule.direction == "EGRESS":
                             print (COLOR_CYAN+"                destination  {:18s} {:s}".format(rule.destination,rule_details(rule))+COLOR_NORMAL)
 
-# ------------ main
+# -------- main
 
 # -- parse arguments
 parser = argparse.ArgumentParser(description = "Show VCNs in an OCI compartment")
 parser.add_argument("-p", "--profile", help="OCI profile", required=True)
 parser.add_argument("-c", "--compartment", help="Compartment name or compartment OCID", required=True)
 parser.add_argument("-v", "--verbose", help="Verbose mode, display OCIDs", action="store_true")
+parser.add_argument("-nc", "--no_color", help="Disable colored output", action="store_true")
 args = parser.parse_args()
 
 profile      = args.profile
 cpt          = args.compartment
 display_ocid = args.verbose
+if args.nocolor:
+  disable_colored_output()
 
 # -- load profile from config file
 try:

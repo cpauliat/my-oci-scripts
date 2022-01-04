@@ -14,7 +14,7 @@
 #    2020-01-08: Initial Version
 # --------------------------------------------------------------------------------------------------------------------------
 
-# -- import
+# -------- import
 import sys
 import base64
 import json
@@ -24,7 +24,15 @@ from pprint import pprint
 from columnar import columnar
 from operator import itemgetter, attrgetter
 
-# -- Usage
+# -------- variables
+CREDENTIALS_FILE=str(Path.home())+"/.oci/idcs_credentials.python3"
+MAX_OBJECTS="200"
+IDCS_END_POINT="xx"
+TOKEN="xx"
+
+# -------- functions
+
+# ---- usage syntax
 def usage():
     print ("Usage: python3 {} operation [parameters]".format(sys.argv[0]))
     print ("")
@@ -53,14 +61,6 @@ def usage():
     print ("  python3 {} set_credentials idcs-f0f03632a0e346fdaccfaf527xxxxxx xxxxxxxxx xxxxxxxxxxx".format(sys.argv[0]))
     exit (1)
 
-
-# -------- variables
-CREDENTIALS_FILE=str(Path.home())+"/.oci/idcs_credentials.python3"
-MAX_OBJECTS="200"
-IDCS_END_POINT="xx"
-TOKEN="xx"
-
-# -------- functions
 def fatal_error(error_number):
   if   (error_number == 2):    print ("ERROR 2: cannot create credentials file {} !".format(CREDENTIALS_FILE))
   elif (error_number == 3):    print ("ERROR 3: credentials file {} not found ! Run set_credentials operation.".format(CREDENTIALS_FILE))

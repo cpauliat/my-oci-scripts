@@ -26,15 +26,15 @@
 # TO DO: add support for more resource types
 # --------------------------------------------------------------------------------------------
 
-# -- import
+# -------- import
 import oci
 import sys
 import argparse
 
-# ---------- Functions
-
-# ---- variables
+# -------- variables
 configfile = "~/.oci/config"    # Define config file to be used.
+
+# -------- functions
 
 # ---- usage syntax
 def usage():
@@ -416,7 +416,7 @@ def remove_tag_from_route_table(rt_id, ltag_ns, ltag_key):
         print (sys.exc_info()[1].message)
         exit (6)
 
-# ------------ main
+# -------- main
 
 # -- parse arguments
 parser = argparse.ArgumentParser(description = "Remove a defined tag from an OCI resource")

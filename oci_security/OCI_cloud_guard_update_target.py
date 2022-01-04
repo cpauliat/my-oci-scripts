@@ -25,18 +25,18 @@
 #    2022-01-03: use argparse to parse arguments
 # --------------------------------------------------------------------------------------------------------------
 
-# ---------- import
+# -------- import
 import oci
 import sys
 import json
 import argparse
 from pathlib import Path
 
-# ---------- variables
+# -------- variables
 configfile = "~/.oci/config"    # Define config file to be used.
 different  = False              # Is configuration in backup file different from current configuration
 
-# ---------- functions
+# -------- functions
 def usage():
     print (f"Usage: {sys.argv[0]} -p OCI_PROFILE -f input_backup_file.json")
     print ("")
@@ -82,7 +82,7 @@ def get_cpt_full_name_from_id(cpt_id):
                 return cpt_full_name(c)
     return
 
-# -- Build class oci.cloud_guard.models.UpdateTargetDetails from JSON content read in file
+# ---- Build class oci.cloud_guard.models.UpdateTargetDetails from JSON content read in file
 def build_update_target_class():
 
     # 
@@ -155,7 +155,7 @@ def build_update_target_class():
     
     return details
 
-# -- Check target_detector_recipes  differences between current configuration and configuration in backup file
+# ---- Check target_detector_recipes  differences between current configuration and configuration in backup file
 def check_differences_target_detector_recipes(current_target):
 
     l_different = False
@@ -216,7 +216,7 @@ def check_differences_target_detector_recipes(current_target):
 
     return l_different
 
-# -- Check target_responder_recipes  differences between current configuration and configuration in backup file
+# ---- Check target_responder_recipes  differences between current configuration and configuration in backup file
 def check_differences_target_responder_recipes(current_target):
 
     l_different = False
@@ -299,7 +299,7 @@ def check_differences_target_responder_recipes(current_target):
 
     return l_different
 
-# -- Check target differences between current configuration and configuration in backup file
+# ---- Check target differences between current configuration and configuration in backup file
 def check_differences():
 
     global different
@@ -363,7 +363,7 @@ def check_differences():
         print ("")
         exit (0)
 
-# ---------- main
+# -------- main
 
 # -- parse arguments
 parser = argparse.ArgumentParser(description = "Update a Cloud Guard target from a backup file")

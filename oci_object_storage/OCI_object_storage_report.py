@@ -17,42 +17,34 @@
 #    2021-07-28: Add -a option for all regions
 #    2021-07-30: Ignore buckets with # in name (internal buckets / no charge)
 #    2022-01-03: use argparse to parse arguments
+#    2022-01-04: add --no_color option
 # ---------------------------------------------------------------------------------------------------------------------------------
 
-# -- import
+# -------- import
 import oci
 import sys
 import operator
 import argparse
 
-# ---------- Colors for output
+# -------- colors for output
 # see https://misc.flogisoft.com/bash/tip_colors_and_formatting to customize
-colored_output=True
-if (colored_output):
-  COLOR_TITLE0="\033[95m"             # light magenta
-  COLOR_TITLE1="\033[91m"             # light red
-  COLOR_TITLE2="\033[32m"             # green
-  COLOR_AD="\033[94m"                 # light blue
-  COLOR_COMP="\033[93m"               # light yellow
-  COLOR_BREAK="\033[91m"              # light red
-  COLOR_NORMAL="\033[39m"
-else:
-  COLOR_TITLE0=""
-  COLOR_TITLE1=""
-  COLOR_TITLE2=""
-  COLOR_AD=""
-  COLOR_COMP=""
-  COLOR_BREAK=""
-  COLOR_NORMAL=""
+COLOR_TITLE0="\033[95m"             # light magenta
+COLOR_TITLE1="\033[91m"             # light red
+COLOR_TITLE2="\033[32m"             # green
+COLOR_AD="\033[94m"                 # light blue
+COLOR_COMP="\033[93m"               # light yellow
+COLOR_BREAK="\033[91m"              # light red
+COLOR_NORMAL="\033[39m"
 
-# ---------- Functions
 
-# ---- variables
+# -------- variables
 configfile = "~/.oci/config"    # Define config file to be used.
+
+# -------- functions
 
 # ---- usage syntax
 def usage():
-    print ("Usage: {} [-a] -p OCI_PROFILE".format(sys.argv[0]))
+    print ("Usage: {} [-nc] [-a] -p OCI_PROFILE".format(sys.argv[0]))
     print ("")
     print ("    By default, only the region provided in the profile is processed")
     print ("    If -a is provided, all subscribed regions are processed (by default, only the region in the profile is processed)")
@@ -69,7 +61,25 @@ def usage():
     print ("region      = eu-frankfurt-1")
     exit (1)
 
-# -- Get the complete name of a compartment from its id, including parent and grand-parent..
+# ---- Disable colored output
+def disable_colored_output():
+    global COLOR_TITLE0
+    global COLOR_TITLE1
+    global COLOR_TITLE2
+    global COLOR_AD
+    global COLOR_COMP
+    global COLOR_BREAK
+    global COLOR_NORMAL
+
+    COLOR_TITLE0=""
+    COLOR_TITLE1=""
+    COLOR_TITLE2=""
+    COLOR_AD=""
+    COLOR_COMP=""
+    COLOR_BREAK=""
+    COLOR_NORMAL=""
+
+# ---- Get the complete name of a compartment from its id, including parent and grand-parent..
 def get_cpt_name_from_id(cpt_id):
 
     if cpt_id == RootCompartmentID:
@@ -88,7 +98,7 @@ def get_cpt_name_from_id(cpt_id):
                 name = get_cpt_name_from_id(c.compartment_id)+":"+name
                 return name
 
-# -- Build the block storage report for one region then display it
+# ---- Build the block storage report for one region then display it
 def get_report_for_region():
 
     # workaround for bucket issue in Toronto
@@ -141,21 +151,23 @@ def get_report_for_region():
             print (f"- {mb/1024:6.1f} GBs, {cpt_name} ")
     print ("")
 
-# ------------ main
+# -------- main
 
 # -- parse arguments
 parser = argparse.ArgumentParser(description = "Display object storage capacity used in all compartments")
 parser.add_argument("-p", "--profile", help="OCI profile", required=True)
 parser.add_argument("-a", "--all_regions", help="Do this for all regions", action="store_true")
+parser.add_argument("-nc", "--no_color", help="Disable colored output", action="store_true")
 args = parser.parse_args()
 
 profile     = args.profile
 all_regions = args.all_regions
+if args.nocolor:
+  disable_colored_output()
 
 # -- get info from profile
 try:
     config = oci.config.from_file(configfile,profile)
-
 except:
     print ("ERROR: profile '{}' not found in config file {} !".format(profile,configfile))
     exit (2)
@@ -183,7 +195,7 @@ else:
 # -- the end
 exit (0)
 
-# ------------
+# --------
 
 # # -- Query (see https://docs.cloud.oracle.com/en-us/iaas/Content/Search/Concepts/querysyntax.htm)
 # query_bucket = "query bucket resources"

@@ -14,40 +14,33 @@
 #                and add option -d to list deleted compartments
 #    2020-11-19: display full name of compartment (with parents) + colored output
 #    2022-01-03: use argparse to parse arguments
+#    2022-01-04: add --no_color option
 # --------------------------------------------------------------------------------------------------------------
 
-# -- import
+# -------- import
 import oci
 import sys
 import argparse
 
-# ---------- Colors for output
+# -------- colors for output
 # see https://misc.flogisoft.com/bash/tip_colors_and_formatting to customize
-colored_output=True
-if (colored_output):
-    COLOR_YELLOW="\033[93m"
-    COLOR_RED="\033[91m"
-    COLOR_GREEN="\033[32m"
-    COLOR_NORMAL="\033[39m"
-    COLOR_CYAN="\033[96m"
-    COLOR_BLUE="\033[94m"
-    COLOR_GREY="\033[90m"
-else:
-    COLOR_YELLOW=""
-    COLOR_RED=""
-    COLOR_GREEN=""
-    COLOR_NORMAL=""
-    COLOR_CYAN=""
-    COLOR_BLUE=""
-    COLOR_GREY=""
+COLOR_YELLOW="\033[93m"
+COLOR_RED="\033[91m"
+COLOR_GREEN="\033[32m"
+COLOR_NORMAL="\033[39m"
+COLOR_CYAN="\033[96m"
+COLOR_BLUE="\033[94m"
+COLOR_GREY="\033[90m"
 
-# ---------- variables
+# -------- variables
 configfile = "~/.oci/config"    # Define config file to be used.
 flag=[0,0,0,0,0,0,0,0,0,0]
 
-# ---------- functions
+# -------- functions
+
+# ---- usage syntax
 def usage():
-    print ("Usage: {} [-d] -p OCI_PROFILE".format(sys.argv[0]))
+    print ("Usage: {} [-nc] [-d] -p OCI_PROFILE".format(sys.argv[0]))
     print ("")
     print ("    If -d is provided, deleted compartments are also listed.")
     print ("    If not, only active compartments are listed.")
@@ -62,6 +55,25 @@ def usage():
     print ("region      = eu-frankfurt-1")
     exit (1)
 
+# ---- Disable colored output
+def disable_colored_output():
+    global COLOR_YELLOW
+    global COLOR_RED
+    global COLOR_GREEN
+    global COLOR_NORMAL
+    global COLOR_CYAN
+    global COLOR_BLUE
+    global COLOR_GREY
+
+    COLOR_YELLOW = ""
+    COLOR_RED    = ""
+    COLOR_GREEN  = ""
+    COLOR_NORMAL = ""
+    COLOR_CYAN   = ""
+    COLOR_BLUE   = ""
+    COLOR_GREY   = ""
+
+# ---- Get the complete name of compartment from its id
 def get_cpt_parent(cpt):
     if (cpt.id == RootCompartmentID):
         return "root"
@@ -121,17 +133,20 @@ def list_compartments(parent_id, level):
         list_compartments(cid, level+1)
         i += 1
 
-# ---------- main
+# -------- main
 
 # -- parsing arguments
 parser = argparse.ArgumentParser(description = "List compartments in an OCI tenant")
 parser.add_argument("-p", "--profile", help="OCI profile", required=True)
 parser.add_argument("-d", "--list_deleted", help="List also deleted compartments", action="store_true")
+parser.add_argument("-nc", "--no_color", help="Disable colored output", action="store_true")
 args = parser.parse_args()
     
 profile      = args.profile
 list_deleted = args.list_deleted
-    
+if args.nocolor:
+  disable_colored_output()
+
 # -- get OCI Config
 try:
     config = oci.config.from_file(configfile,profile)

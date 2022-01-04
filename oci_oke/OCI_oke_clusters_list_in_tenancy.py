@@ -18,15 +18,15 @@
 #    2022-01-03: use argparse to parse arguments
 # ---------------------------------------------------------------------------------------------------------------------------------
 
-# -- import
+# -------- import
 import oci
 import sys
 import argparse
 
-# ---------- Functions
-
-# ---- variables
+# -------- variables
 configfile = "~/.oci/config"    # Define config file to be used.
+
+# -------- functions
 
 # ---- usage syntax
 def usage():
@@ -79,7 +79,7 @@ def process_compartment (lcpt_id):
                 cpt_name = get_cpt_name_from_id(lcpt_id)
                 print (f"{region}, {cpt_name}, {cluster.id}, {cluster.name}, {cluster.lifecycle_state}")
 
-# ------------ main
+# -------- main
 
 # -- parse arguments
 parser = argparse.ArgumentParser(description = "Lists number of CPU cores used by compute instances")

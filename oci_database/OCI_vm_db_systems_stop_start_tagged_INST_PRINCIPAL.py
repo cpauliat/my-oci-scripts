@@ -27,21 +27,21 @@
 #    2022-01-03: use argparse to parse arguments
 # ---------------------------------------------------------------------------------------------------------------------------------
 
-# -- import
+# -------- import
 import oci
 import sys
 import os
 import argparse
 from datetime import datetime
 
-# ---------- Tag names, key and value to look for
+# -------- Tag names, key and value to look for
 # VM DB systems tagged using this will be stopped/started.
 # Update these to match your tags.
 tag_ns        = "osc"
 tag_key_stop  = "automatic_shutdown"
 tag_key_start = "automatic_startup"
 
-# ---------- Functions
+# -------- functions
 
 # ---- usage syntax
 def usage():
@@ -102,7 +102,7 @@ def process_compartment(lcpt):
                         print ("DB node for DB system {:s} ({:s}) SHOULD BE STOPPED --> re-run script with --confirm_start to actually stop databases".format(dbs.display_name, dbs.id))
 
   
-# ------------ main
+# -------- main
 
 # -- parse arguments
 parser = argparse.ArgumentParser(description = "Stop or start tagged database systems")

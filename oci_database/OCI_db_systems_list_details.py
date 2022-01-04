@@ -13,17 +13,16 @@
 # Versions
 #    2021-09-24: Initial Version
 #    2022-01-03: use argparse to parse arguments
+#    2022-01-04: add --no_color option
 # --------------------------------------------------------------------------------------------------------------------------
 
-# -- import
+# -------- import
 import oci
 import sys
 import argparse
 
-# ---------- Colors for output
+# -------- colors for output
 # see https://misc.flogisoft.com/bash/tip_colors_and_formatting to customize
-colored_output=True
-
 COLOR_YELLOW  = "\033[93m"
 COLOR_RED     = "\033[91m"
 COLOR_GREEN   = "\033[32m"
@@ -32,29 +31,21 @@ COLOR_BLUE    = "\033[94m"
 COLOR_GREY    = "\033[90m"
 COLOR_DEFAULT = "\033[39m"
     
-if (colored_output):
-    COLOR_DBS     = COLOR_YELLOW
-    COLOR_DB_HOME = COLOR_RED
-    COLOR_DB      = COLOR_CYAN
-    COLOR_PDB     = COLOR_GREEN
-    COLOR_CPT     = COLOR_CYAN
-    COLOR_NORMAL  = COLOR_DEFAULT
-else:
-    COLOR_DBS     = ""
-    COLOR_DB_HOME = ""
-    COLOR_DB      = ""
-    COLOR_PDB     = ""
-    COLOR_CPT     = ""
-    COLOR_NORMAL  = ""
+COLOR_DBS     = COLOR_YELLOW
+COLOR_DB_HOME = COLOR_RED
+COLOR_DB      = COLOR_CYAN
+COLOR_PDB     = COLOR_GREEN
+COLOR_CPT     = COLOR_CYAN
+COLOR_NORMAL  = COLOR_DEFAULT
 
-# ---------- Functions
-
-# ---- variables
+# -------- variables
 configfile = "~/.oci/config"    # Define config file to be used.
+
+# -------- functions
 
 # ---- usage syntax
 def usage():
-    print ("Usage: {} -p OCI_PROFILE".format(sys.argv[0]))
+    print ("Usage: {} [-nc] -p OCI_PROFILE".format(sys.argv[0]))
     print ("")
     print ("note: OCI_PROFILE must exist in {} file (see example below)".format(configfile))
     print ("")
@@ -66,7 +57,23 @@ def usage():
     print ("region      = eu-frankfurt-1")
     exit (1)
 
-# ---- Get the full name of compartment from its id
+# ---- Disable colored output
+def disable_colored_output():
+    global COLOR_DBS    
+    global COLOR_DB_HOME 
+    global COLOR_DB      
+    global COLOR_PDB     
+    global COLOR_CPT     
+    global COLOR_NORMAL  
+
+    COLOR_DBS     = ""
+    COLOR_DB_HOME = ""
+    COLOR_DB      = ""
+    COLOR_PDB     = ""
+    COLOR_CPT     = ""
+    COLOR_NORMAL  = ""
+
+# ---- Get the complete name of compartment from its id
 def get_cpt_parent(cpt):
     if (cpt.id == RootCompartmentID):
         return "root"
@@ -121,14 +128,17 @@ def search_resources():
                 except:
                     print ("")
                 
-# ------------ main
+# -------- main
 
 # -- parse arguments
 parser = argparse.ArgumentParser(description = "List database systems details")
 parser.add_argument("-p", "--profile", help="OCI profile", required=True)
+parser.add_argument("-nc", "--no_color", help="Disable colored output", action="store_true")
 args = parser.parse_args()
     
 profile = args.profile
+if args.nocolor:
+  disable_colored_output()
 
 # -- load profile from config file
 try:

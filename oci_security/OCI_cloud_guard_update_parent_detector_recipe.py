@@ -27,18 +27,18 @@
 #    2022-01-03: use argparse to parse arguments
 # --------------------------------------------------------------------------------------------------------------
 
-# ---------- import
+# -------- import
 import oci
 import sys
 import json
 import argparse
 from pathlib import Path
 
-# ---------- variables
+# -------- variables
 configfile = "~/.oci/config"    # Define config file to be used.
 different  = False              # Is configuration in backup file different from current configuration
 
-# ---------- functions
+# -------- functions
 def usage():
     print (f"Usage: {sys.argv[0]} -p OCI_PROFILE -f input_backup_file.json")
     print ("")
@@ -233,7 +233,7 @@ def check_differences():
         print ("")
         exit (0)
 
-# ---------- main
+# -------- main
 
 # -- parse arguments
 parser = argparse.ArgumentParser(description = "Update a Cloud Guard detector recipe from a backup file")

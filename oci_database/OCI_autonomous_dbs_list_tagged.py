@@ -16,15 +16,15 @@
 #    2022-01-03: use argparse to parse arguments
 # --------------------------------------------------------------------------------------------------------------------------
 
-# -- import
+# -------- import
 import oci
 import sys
 import argparse
 
-# ---------- Functions
-
-# ---- variables
+# -------- variables
 configfile = "~/.oci/config"    # Define config file to be used.
+
+# -------- functions
 
 # ---- usage syntax
 def usage():
@@ -59,7 +59,7 @@ def search_resources():
         tag = tag_ns+"."+tag_key+" = "+item.defined_tags[tag_ns][tag_key]
         print ("{:s}, {:s}, {:s}, {:s}, {:s}".format(config['region'], cpt_name, item.display_name, item.identifier, tag))
 
-# ------------ main
+# -------- main
 
 # -- parse arguments
 parser = argparse.ArgumentParser(description = "List tagged Autonomous databases")

@@ -11,43 +11,56 @@
 # Versions
 #    2020-12-11: Initial Version
 #    2022-01-03: use argparse to parse arguments
+#    2022-01-04: add --no_color option
 # ---------------------------------------------------------------------------------------------------------------
 
 
-# -- import
+# -------- import
 import oci
 import sys
 import argparse
 
-# ---------- Colors for output
+# -------- colors for output
 # see https://misc.flogisoft.com/bash/tip_colors_and_formatting to customize
-colored_output=True
-if (colored_output):
-    COLOR_YELLOW="\033[93m"
-    COLOR_RED="\033[91m"
-    COLOR_GREEN="\033[32m"
-    COLOR_NORMAL="\033[39m"
-    COLOR_CYAN="\033[96m"
-    COLOR_BLUE="\033[94m"
-    COLOR_GREY="\033[90m"
-else:
-    COLOR_YELLOW=""
-    COLOR_RED=""
-    COLOR_GREEN=""
-    COLOR_NORMAL=""
-    COLOR_CYAN=""
-    COLOR_BLUE=""
-    COLOR_GREY=""
+COLOR_YELLOW="\033[93m"
+COLOR_RED="\033[91m"
+COLOR_GREEN="\033[32m"
+COLOR_NORMAL="\033[39m"
+COLOR_CYAN="\033[96m"
+COLOR_BLUE="\033[94m"
+COLOR_GREY="\033[90m"
 
-# -- functions
+# -------- functions
+
+# ---- usage syntax
 def usage():
-    print ("Usage: {} [-a] [-v]".format(sys.argv[0]))
+    print ("Usage: {} [-nc] [-a] [-v]".format(sys.argv[0]))
     print ("")
-    print ("    -v: also display OCIDs")
-    print ("    -a: search in all active regions instead of single region provided in profile")
+    print ("    -v : also display OCIDs")
+    print ("    -a : search in all active regions instead of single region provided in profile")
+    print ("    -nc: disable colored output")
     print ("")
     exit (1)
 
+# ---- Disable colored output
+def disable_colored_output():
+    global COLOR_YELLOW
+    global COLOR_RED
+    global COLOR_GREEN
+    global COLOR_NORMAL
+    global COLOR_CYAN
+    global COLOR_BLUE
+    global COLOR_GREY
+
+    COLOR_YELLOW = ""
+    COLOR_RED    = ""
+    COLOR_GREEN  = ""
+    COLOR_NORMAL = ""
+    COLOR_CYAN   = ""
+    COLOR_BLUE   = ""
+    COLOR_GREY   = ""
+
+# ---- Get the complete name of compartment from its id
 def get_cpt_name_from_id(cpt_id):
     """
     Get the complete name of a compartment from its id, including parent and grand-parent..
@@ -167,16 +180,19 @@ def search_exa_infra (lsigner):
             print ("          compartment : "+COLOR_GREEN+f"{cpt_name}"+COLOR_NORMAL)
             list_vm_clusters (lsigner, exa_infra.id)
 
-# ---------- main
+# -------- main
 
 # -- parse arguments
 parser = argparse.ArgumentParser(description = "List machines in Exadata Cloud Service")
 parser.add_argument("-a", "--all_regions", help="Do this for all regions", action="store_true")
 parser.add_argument("-v", "--verbose", help="Verbose mode: display OCIDs", action="store_true")
+parser.add_argument("-nc", "--no_color", help="Disable colored output", action="store_true")
 args = parser.parse_args()
     
 all_regions   = args.all_regions
 show_ocids    = args.verbose
+if args.nocolor:
+  disable_colored_output()
 
 # -- authentication using instance principal
 signer = oci.auth.signers.InstancePrincipalsSecurityTokenSigner()

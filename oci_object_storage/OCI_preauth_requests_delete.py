@@ -16,16 +16,16 @@
 #    2022-01-03: use argparse to parse arguments
 # --------------------------------------------------------------------------------------------------------------------------
 
-# -- import
+# -------- import
 import oci
 import sys
 import datetime
 import argparse
 
-# ---------- Functions
-
-# ---- variables
+# -------- variables
 configfile = "~/.oci/config"    # Define config file to be used.
+
+# -------- functions
 
 # ---- usage syntax
 def usage():
@@ -44,7 +44,7 @@ def usage():
 def delete_par(l_os, l_ns, l_bucket, l_auth_id):
     oci.object_storage.ObjectStorageClient.delete_preauthenticated_request(l_os, namespace_name=l_ns, bucket_name=l_bucket, par_id=l_auth_id)
 
-# ------------ main
+# -------- main
 
 # -- parse arguments
 parser = argparse.ArgumentParser(description = "Delete PARs in a bucket")

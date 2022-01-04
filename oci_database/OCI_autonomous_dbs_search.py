@@ -15,15 +15,17 @@
 # --------------------------------------------------------------------------------------------------------------
 
 
-# -- import
+# -------- import
 import oci
 import sys
 import argparse
 
-# -- variables
+# -------- variables
 configfile = "~/.oci/config"    # Define config file to be used.
 
-# -- functions
+# -------- functions
+
+# ---- usage syntax
 def usage():
     print ("Usage: {} [-a] -p OCI_PROFILE".format(sys.argv[0]))
     print ("")
@@ -39,7 +41,7 @@ def usage():
     print ("region      = eu-frankfurt-1")
     exit (1)
 
-# -- Get the complete name of a compartment from its id, including parent and grand-parent..
+# ---- Get the complete name of a compartment from its id, including parent and grand-parent..
 def get_cpt_name_from_id(cpt_id):
 
     if cpt_id == RootCompartmentID:
@@ -58,8 +60,7 @@ def get_cpt_name_from_id(cpt_id):
                 name = get_cpt_name_from_id(c.compartment_id)+":"+name
                 return name
 
-
-# ---------- main
+# -------- main
 
 # -- parse arguments
 parser = argparse.ArgumentParser(description = "List Autonomous databases")

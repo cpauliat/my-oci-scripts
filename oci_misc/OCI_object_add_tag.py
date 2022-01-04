@@ -26,15 +26,15 @@
 # TO DO: add support for more resource types
 # --------------------------------------------------------------------------------------------
 
-# -- import
+# -------- import
 import oci
 import sys
 import argparse
 
-# ---------- Functions
-
-# ---- variables
+# -------- variables
 configfile = "~/.oci/config"    # Define config file to be used.
+
+# -------- functions
 
 # ---- usage syntax
 def usage():
@@ -110,7 +110,7 @@ def add_tag_dbhome(dbh_id):
         print (sys.exc_info()[1].message)
         exit (3)
 
-# ------------ main
+# -------- main
 
 # -- parse arguments
 parser = argparse.ArgumentParser(description = "Add a defined tag to an OCI resource")

@@ -12,13 +12,13 @@
 #    2022-01-03: use argparse to parse arguments
 # --------------------------------------------------------------------------------------------------------------
 
-# -- import
+# -------- import
 import oci
 import sys
 import argparse
 from base64 import b64encode, b64decode
 
-# ---------- Colors for output
+# -------- colors for output
 COLOR_YELLOW="\033[93m"
 COLOR_RED="\033[91m"
 COLOR_GREEN="\033[32m"
@@ -27,11 +27,11 @@ COLOR_CYAN="\033[96m"
 COLOR_BLUE="\033[94m"
 COLOR_GREY="\033[90m"
 
-# ---------- variables
+# -------- variables
 configfile  = "~/.oci/config"    # OCI config file to be used
 nb_messages = 300                # Max nb of message to be read
 
-# ---------- functions
+# -------- functions
 def usage():
     print ("Usage: {} -p OCI_PROFILE -s stream-id -pt partition -o offset".format(sys.argv[0]))
     print ("")
@@ -47,7 +47,7 @@ def usage():
     print ("region      = eu-frankfurt-1")
     exit (1)
 
-# ---------- main
+# -------- main
 
 # -- parsing arguments
 parser = argparse.ArgumentParser(description = "Read messages from an OCI stream")

@@ -19,22 +19,24 @@
 # --------------------------------------------------------------------------------------------------------------
 
 
-# -- import
+# -------- import
 import oci
 import sys
 import argparse
 from datetime import datetime 
 
-# -- variables
+# -------- variables
 configfile           = "~/.oci/config"    # Define config file to be used.
 list_cpu_types       = [ "E2", "E3", "E4", "A1", "Std1", "Std2", "DenseIO2", "Opt3", "GPU2", "GPU3", "GPU4", "HPC2", "Others" ]
 list_ads             = []
 total_tenant_all     = 0
 total_tenant_running = 0
 
-# -- functions
+# -------- functions
+
+# ---- usage syntax
 def usage():
-    print ("Usage: {} [-a] [-o html] -p OCI_PROFILE".format(sys.argv[0]))
+    print ("Usage: {} [-nc] [-a] [-o html] -p OCI_PROFILE".format(sys.argv[0]))
     print ("")
     print ("    If -a is provided, the script search in all active regions instead of single region provided in profile")
     print ("    If -o html is provided, output is HTML instead of text")
@@ -49,7 +51,7 @@ def usage():
     print ("region      = eu-frankfurt-1")
     exit (1)
 
-# -- Get the complete name of a compartment from its id, including parent and grand-parent..
+# ---- Get the complete name of a compartment from its id, including parent and grand-parent..
 def get_cpt_name_from_id(cpt_id):
     if cpt_id == RootCompartmentID:
         return "root"
@@ -67,7 +69,7 @@ def get_cpt_name_from_id(cpt_id):
                 name = get_cpt_name_from_id(c.compartment_id)+":"+name
                 return name
 
-# -- Initialize results variable
+# ---- Initialize results variable
 def init_results():
     global results;
 
@@ -83,9 +85,9 @@ def init_results():
                 results[ad][fd][cpu_type]['all']     = 0
 
 
-# -- Clear results variable
+# ---- Clear results variable
 
-# -- Get the type of CPU and number of cores used by a compute instance
+# ---- Get the type of CPU and number of cores used by a compute instance
 def get_cpu_type_and_nb_of_cores(compute_client, instance_id):
     global results;
 
@@ -192,7 +194,7 @@ def display_results_text():
     total_tenant_all     += total_region_all
     total_tenant_running += total_region_running
 
-# -- begin of HTML code
+# ---- begin of HTML code
 def HTML_begin():
     my_str = """<!DOCTYPE html>
 <html>
@@ -236,7 +238,7 @@ def HTML_begin():
 <body>"""
     print (my_str)
 
-# -- end of HTML code
+# ---- end of HTML code
 def HTML_end():
     print ("<p>")
     now = datetime.utcnow().strftime("%Y/%m/%d %T")
@@ -248,7 +250,7 @@ def HTML_end():
     print ("</body>")
     print ("</html>")
 
-# -- HTML table for the region
+# ---- HTML table for the region
 def display_results_HTML_table():    
     global total_tenant_all
     global total_tenant_running
@@ -358,7 +360,7 @@ def process(l_config):
     else:
         display_results_text()
 
-# ---------- main
+# -------- main
 
 # -- parse arguments
 parser = argparse.ArgumentParser(description = "List number of CPU cores used by compute instances")

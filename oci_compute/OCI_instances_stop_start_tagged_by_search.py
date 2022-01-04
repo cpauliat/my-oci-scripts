@@ -28,24 +28,24 @@
 #    2022-01-03: use argparse to parse arguments
 # ---------------------------------------------------------------------------------------------------------------------------------
 
-# -- import
+# -------- import
 import oci
 import sys
 import os
 import argparse
 from datetime import datetime
 
-# ---------- Tag names, key and value to look for
+# -------- Tag names, key and value to look for
 # Instances tagged using this will be stopped/started.
 # Update these to match your tags.
 tag_ns        = "osc"
 tag_key_stop  = "automatic_shutdown"
 tag_key_start = "automatic_startup"
 
-# ---------- variables
+# -------- variables
 configfile = "~/.oci/config"    # Define config file to be used.
 
-# ---------- Functions
+# -------- functions
 
 # ---- usage syntax
 def usage():
@@ -128,7 +128,7 @@ def process_instance (inst_id, lcpt_name):
                 print ("Instance {:s} ({:s}) SHOULD BE STOPPED --> re-run script with --confirm_stop to actually stop instances".format(instance.display_name, instance.id))
 
   
-# ------------ main
+# -------- main
 
 # -- parse arguments
 parser = argparse.ArgumentParser(description = "Stop or start tagged compute instances")

@@ -17,11 +17,11 @@
 #    2021-01-11: Initial Version
 # ---------------------------------------------------------------------------------------------------------------------------------
 
-# -- import
+# -------- import
 import oci
 import sys
 
-# ---------- Functions
+# -------- functions
 
 # ---- usage syntax
 def usage():
@@ -63,7 +63,7 @@ def process_compartment (lcpt_id):
                 cpt_name = get_cpt_name_from_id(lcpt_id)
                 print (f"{region}, {cpt_name}, {cluster.id}, {cluster.name}, {cluster.lifecycle_state}")
 
-# ------------ main
+# -------- main
 
 # -- get config from CloudShell
 try:

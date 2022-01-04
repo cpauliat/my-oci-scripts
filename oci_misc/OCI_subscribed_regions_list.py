@@ -14,15 +14,15 @@
 #    2022-01-03: use argparse to parse arguments
 # ---------------------------------------------------------------------------------------------------------------------------------
 
-# -- import
+# -------- import
 import oci
 import sys
 import argparse
 
-# ---------- Functions
-
-# ---- variables
+# -------- variables
 configfile = "~/.oci/config"    # Define config file to be used.
+
+# -------- functions
 
 # ---- usage syntax
 def usage():
@@ -38,7 +38,7 @@ def usage():
     print ("region      = eu-frankfurt-1")
     exit (1)
 
-# ------------ main
+# -------- main
 
 # -- parse arguments
 parser = argparse.ArgumentParser(description = "List subscribed regions in an OCI tenant")
