@@ -131,7 +131,7 @@ parser.add_argument("-nc", "--no_color", help="Disable colored output", action="
 args = parser.parse_args()
     
 list_deleted = args.list_deleted
-if args.nocolor:
+if args.no_color:
   disable_colored_output()
 
 # -- authentication using instance principal

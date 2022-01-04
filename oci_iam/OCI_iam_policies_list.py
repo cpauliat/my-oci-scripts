@@ -151,7 +151,7 @@ parser.add_argument("-nc", "--no_color", help="Disable colored output", action="
 args = parser.parse_args()
     
 profile = args.profile
-if args.nocolor:
+if args.no_color:
   disable_colored_output()
 
 # -- get OCI Config

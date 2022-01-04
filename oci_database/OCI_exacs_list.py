@@ -206,7 +206,7 @@ args = parser.parse_args()
 profile       = args.profile
 all_regions   = args.all_regions
 show_ocids    = args.verbose
-if args.nocolor:
+if args.no_color:
   disable_colored_output()
 
 # -- get info from profile

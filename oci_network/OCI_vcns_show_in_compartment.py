@@ -216,7 +216,7 @@ args = parser.parse_args()
 profile      = args.profile
 cpt          = args.compartment
 display_ocid = args.verbose
-if args.nocolor:
+if args.no_color:
   disable_colored_output()
 
 # -- load profile from config file

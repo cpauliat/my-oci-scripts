@@ -548,7 +548,7 @@ profile         = args.profile
 cpt             = args.compartment
 include_sub_cpt = args.recursive
 all_regions     = args.all_regions
-if args.nocolor:
+if args.no_color:
   disable_colored_output()
 
 # -- load profile from config file

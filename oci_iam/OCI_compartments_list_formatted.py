@@ -145,7 +145,7 @@ args = parser.parse_args()
     
 profile       = args.profile
 list_deleted  = args.list_deleted
-if args.nocolor:
+if args.no_color:
   disable_colored_output()
 
 # -- get OCI Config

@@ -191,7 +191,7 @@ args = parser.parse_args()
     
 all_regions   = args.all_regions
 show_ocids    = args.verbose
-if args.nocolor:
+if args.no_color:
   disable_colored_output()
 
 # -- authentication using instance principal

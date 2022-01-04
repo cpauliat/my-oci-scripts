@@ -74,7 +74,7 @@ args = parser.parse_args()
 
 profile = args.profile
 bucket  = args.bucket
-if args.nocolor:
+if args.no_color:
   disable_colored_output()
 
 # -- load profile from config file and exists if profile does not exist
