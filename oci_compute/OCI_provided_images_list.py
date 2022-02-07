@@ -49,8 +49,6 @@ def list_compute_images():
                 response2 = oci.pagination.list_call_get_all_results(ComputeClient.list_image_shape_compatibility_entries, image_id = image.id)
                 for shape in response2.data:
                     print (f"      - {shape.shape}")
-                pass
-
 
 # -------- main
 
