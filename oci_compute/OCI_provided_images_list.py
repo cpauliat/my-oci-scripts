@@ -12,6 +12,7 @@
 # Versions
 #    2020-06-12: Initial Version
 #    2022-01-03: use argparse to parse arguments
+#    2022-02-07: add option --shapes to list compatible shapes for each image
 # ---------------------------------------------------------------------------------------------------------------------------------
 
 # -------- import
@@ -26,7 +27,7 @@ configfile = "~/.oci/config"    # Define config file to be used.
 
 # ---- usage syntax
 def usage():
-    print ("Usage: {} -p OCI_PROFILE".format(sys.argv[0]))
+    print ("Usage: {} -p OCI_PROFILE [-s]".format(sys.argv[0]))
     print ("")
     print ("note: OCI_PROFILE must exist in {} file (see example below)".format(configfile))
     print ("")
@@ -44,6 +45,11 @@ def list_compute_images():
     if len(response.data) > 0:
         for image in response.data:
             print ('{0:100s} {1:s}'.format(image.id, image.display_name))
+            if list_compatible_shapes:
+                response2 = oci.pagination.list_call_get_all_results(ComputeClient.list_image_shape_compatibility_entries, image_id = image.id)
+                for shape in response2.data:
+                    print (f"      - {shape.shape}")
+                pass
 
 
 # -------- main
@@ -51,9 +57,11 @@ def list_compute_images():
 # -- parse arguments
 parser = argparse.ArgumentParser(description = "List Oracle provided images")
 parser.add_argument("-p", "--profile", help="OCI profile", required=True)
+parser.add_argument("-s", "--shapes", help="List compatible shapes for each image", action="store_true")
 args = parser.parse_args()
     
 profile = args.profile
+list_compatible_shapes = args.shapes
 
 # -- load profile from config file
 try:
