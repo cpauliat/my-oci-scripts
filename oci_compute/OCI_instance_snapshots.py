@@ -25,11 +25,11 @@
 #                 - OCI user with enough privileges 
 # Versions
 #    2022-02-18: Initial Version
+#    2022-02-18: Add retry strategies
 # ---------------------------------------------------------------------------------------------------------------------------------
 
 # -------- import
 from ast import Delete
-#from contextlib import nullcontext
 import oci
 import sys
 import os
@@ -46,7 +46,9 @@ configfile = "~/.oci/config"    # Define config file to be used.
 # ---- Get the OCID of the cloned boot volume
 def get_bootvol_id(snapshot_name):
     query = f"query bootvolume resources where freeformTags.key = 'snapshot_{snapshot_name}'"
-    response = SearchClient.search_resources(oci.resource_search.models.StructuredSearchDetails(type="Structured", query=query))
+    response = SearchClient.search_resources(
+        oci.resource_search.models.StructuredSearchDetails(type="Structured", query=query),
+         retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
 
     if len(response.data.items) == 0:
         print (f"ERROR 04: no cloned boot volume found for snapshot {snapshot_name} !")
@@ -61,7 +63,9 @@ def get_bootvol_id(snapshot_name):
 # ---- Get the OCIDs of the cloned block volume(s) if they exist
 def get_blkvol_ids(snapshot_name):
     query      = f"query volume resources where freeformTags.key = 'snapshot_{snapshot_name}'"
-    response   = SearchClient.search_resources(oci.resource_search.models.StructuredSearchDetails(type="Structured", query=query))
+    response   = SearchClient.search_resources(
+        oci.resource_search.models.StructuredSearchDetails(type="Structured", query=query),
+        retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
     blkvol_ids = []
     if len(response.data.items) > 0:
         for bkv in response.data.items:
@@ -70,7 +74,7 @@ def get_blkvol_ids(snapshot_name):
 
 # ---- Get the primary VNIC of the compute instance
 def get_primary_vnic(cpt_id, instance_id):
-    response        = ComputeClient.list_vnic_attachments(cpt_id, instance_id=instance_id)
+    response        = ComputeClient.list_vnic_attachments(cpt_id, instance_id=instance_id,  retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
     primary_vnic_id = response.data[0].vnic_id
     reponse         = VirtualNetworkClient.get_vnic(primary_vnic_id)
     primary_vnic    = reponse.data
@@ -78,7 +82,7 @@ def get_primary_vnic(cpt_id, instance_id):
 
 # ---- get the OCID of primary private IP in VNIC
 def get_private_ip_id(vnic_id):
-    response = VirtualNetworkClient.list_private_ips(vnic_id=vnic_id)
+    response = VirtualNetworkClient.list_private_ips(vnic_id=vnic_id, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
     return response.data[0].id
     
 # ---- Stop if ephemeral public IP attched to compute instance
@@ -87,7 +91,8 @@ def stop_if_ephemeral_public_ip(public_ip_address):
         return
 
     response = VirtualNetworkClient.get_public_ip_by_ip_address(
-        oci.core.models.GetPublicIpByIpAddressDetails(ip_address=public_ip_address))
+        oci.core.models.GetPublicIpByIpAddressDetails(ip_address=public_ip_address),
+        retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
     if response.data.lifetime == "EPHEMERAL":
         print ("ERROR 06: this script does not support compute instances with ephemeral public IP. Use reserved public IP instead !")
         exit (6)
@@ -99,13 +104,13 @@ def wait_for_instance_status(instance_id, expected_status):
     current_status = None
     while current_status != expected_status:
         sleep(5)
-        response = ComputeClient.get_instance(instance_id)
+        response = ComputeClient.get_instance(instance_id, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
         current_status = response.data.lifecycle_state
 
 # ---- Get instance details and exits if instance does not exist
 def get_instance_details(instance_id):
     try:
-        response = ComputeClient.get_instance (instance_id)
+        response = ComputeClient.get_instance(instance_id, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
     except:
         print ("ERROR 09: compute instance not found !")
         exit(9)
@@ -118,7 +123,7 @@ def get_instance_details(instance_id):
 # ---- Get the OCID of the source block volume for a clone block volume
 def get_source_volume_id(clone_blkvol_id):
     try:
-        response = BlockstorageClient.get_volume(clone_blkvol_id)
+        response = BlockstorageClient.get_volume(clone_blkvol_id, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
         source_blkvol_id = response.data.source_details.id
     except:
         print (f"ERROR 10: cannot find the source volume from clone volume {clone_blkvol_id} !")
@@ -129,7 +134,7 @@ def get_source_volume_id(clone_blkvol_id):
 # ---- Check if a block volume exists and is not TERMINATED
 def is_volume_available(blkvol_id):
     try:
-        response = BlockstorageClient.get_volume(blkvol_id)
+        response = BlockstorageClient.get_volume(blkvol_id, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
         if response.data.lifecycle_state == "TERMINATED":
             return False
         else:
@@ -156,9 +161,9 @@ def get_source_volume_attachment(blkvol_attachments, source_blkvol_id):
 
 # ---- Get the name of the current boot volume for an instance
 def get_boot_volume_name(ad_name, cpt_id, instance_id):
-    response   = ComputeClient.list_boot_volume_attachments(ad_name, cpt_id, instance_id=instance_id)
+    response   = ComputeClient.list_boot_volume_attachments(ad_name, cpt_id, instance_id=instance_id, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
     bootvol_id = response.data[0].boot_volume_id
-    response   = BlockstorageClient.get_boot_volume(bootvol_id)
+    response   = BlockstorageClient.get_boot_volume(bootvol_id, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
     vol_name   = response.data.display_name
     return vol_name
 
@@ -166,55 +171,55 @@ def get_boot_volume_name(ad_name, cpt_id, instance_id):
 def rename_boot_volume(bootvol_id, bootvol_name):
     response = BlockstorageClient.update_boot_volume(
         bootvol_id, 
-        oci.core.models.UpdateBootVolumeDetails(
-            display_name = bootvol_name
-        )
+        oci.core.models.UpdateBootVolumeDetails(display_name = bootvol_name),
+        retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY
     )
 
 # ---- Rename a block volume
 def rename_block_volume(blkvol_id, blkvol_name):
     response = BlockstorageClient.update_volume(
         blkvol_id, 
-        oci.core.models.UpdateVolumeDetails(
-            display_name = blkvol_name
-        )
+        oci.core.models.UpdateVolumeDetails(display_name = blkvol_name),
+        retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY
     )
 
 # ---- Delete a block volume
 def delete_block_volume(blkvol_id):
-    response = BlockstorageClient.delete_volume(blkvol_id)
+    response = BlockstorageClient.delete_volume(blkvol_id, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
 
 # ---- Get the name of block volume for its id
 def get_volume_name_from_id(blkvol_id):
-    response = BlockstorageClient.get_volume(blkvol_id)
+    response = BlockstorageClient.get_volume(blkvol_id, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
     name     = response.data.display_name
     return name
 
 # ---- Remove a snapshot tag from a boot volume
 def remove_boot_volume_tag(bootvol_id, snapshot_name):
-    response = BlockstorageClient.get_boot_volume(bootvol_id)
+    response = BlockstorageClient.get_boot_volume(bootvol_id, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
     ff_tags  = response.data.freeform_tags
     tag_key  = f"snapshot_{snapshot_name}"
     del ff_tags[tag_key]
     response = BlockstorageClient.update_boot_volume(
         bootvol_id, 
-        oci.core.models.UpdateBootVolumeDetails(freeform_tags=ff_tags)
+        oci.core.models.UpdateBootVolumeDetails(freeform_tags=ff_tags),
+        retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY
     )
 
 # ---- Remove a snapshot tag from a block volume
 def remove_block_volume_tag(blkvol_id, snapshot_name):
-    response = BlockstorageClient.get_volume(blkvol_id)
+    response = BlockstorageClient.get_volume(blkvol_id, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
     ff_tags  = response.data.freeform_tags
     tag_key  = f"snapshot_{snapshot_name}"
     del ff_tags[tag_key]
     response = BlockstorageClient.update_volume(
         blkvol_id, 
-        oci.core.models.UpdateBootVolumeDetails(freeform_tags=ff_tags)
+        oci.core.models.UpdateBootVolumeDetails(freeform_tags=ff_tags),
+        retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY
     )
 
 # ---- Rename and tag boot volume
 def rename_and_tag_boot_volume(bootvol_id, snapshot_name, tag_key, tag_value):
-    response          = BlockstorageClient.get_boot_volume(bootvol_id)
+    response          = BlockstorageClient.get_boot_volume(bootvol_id, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
     vol_name_prefix   = re.search('^(.+?)_cloned.*$',response.data.display_name).group(1)
     vol_new_name      = f"{vol_name_prefix}_snapshot_{snapshot_name}"
     ff_tags           = response.data.freeform_tags
@@ -223,12 +228,13 @@ def rename_and_tag_boot_volume(bootvol_id, snapshot_name, tag_key, tag_value):
     print (f"Adding a freeform tag for this snapshot to the clone boot volume ...{bootvol_id[-6:]}")
     response = BlockstorageClient.update_boot_volume(
         bootvol_id, 
-        oci.core.models.UpdateBootVolumeDetails(display_name=vol_new_name, freeform_tags=ff_tags)
+        oci.core.models.UpdateBootVolumeDetails(display_name=vol_new_name, freeform_tags=ff_tags),
+        retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY
     )
 
 # ---- Rename and tag block volume
 def rename_and_tag_block_volume(blkvol_id, snapshot_name, tag_key, tag_value):
-    response          = BlockstorageClient.get_volume(blkvol_id)
+    response          = BlockstorageClient.get_volume(blkvol_id, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
     vol_name_prefix   = re.search('^(.+?)_cloned.*$',response.data.display_name).group(1)
     vol_new_name      = f"{vol_name_prefix}_snapshot_{snapshot_name}"
     ff_tags           = response.data.freeform_tags
@@ -237,7 +243,8 @@ def rename_and_tag_block_volume(blkvol_id, snapshot_name, tag_key, tag_value):
     print (f"Adding a freeform tag for this snapshot to the clone block volume ...{blkvol_id[-6:]}")
     response = BlockstorageClient.update_volume(
         blkvol_id, 
-        oci.core.models.UpdateBootVolumeDetails(display_name=vol_new_name, freeform_tags=ff_tags)
+        oci.core.models.UpdateBootVolumeDetails(display_name=vol_new_name, freeform_tags=ff_tags),
+        retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY
     )
 
 # ---- Attach block volume to new instance
@@ -250,13 +257,16 @@ def attach_block_volume_to_instance(blkvol_id, old_blkvol_attachments, new_insta
         is_shareable = source_volume_attachment.is_shareable,
         type         = source_volume_attachment.attachment_type,
         instance_id  = new_instance_id,
-        volume_id    = blkvol_id)
+        volume_id    = blkvol_id),
+        retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY
     )
 
 # ---- Stop if the snapshot name is used on another instance
 def stop_if_snapshot_name_used(snapshot_name):
     query    = f"query instance resources where freeformTags.key = 'snapshot_{snapshot_name}'"
-    response = SearchClient.search_resources(oci.resource_search.models.StructuredSearchDetails(type="Structured", query=query))
+    response = SearchClient.search_resources(
+        oci.resource_search.models.StructuredSearchDetails(type="Structured", query=query),
+        retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
     if len(response.data.items) > 0:
         print (f"ERROR 07: the snapshot name {snapshot_name} is already used on another instance. Please choose a different snapshot name !")
         exit(7)
@@ -309,11 +319,11 @@ def create_snapshot(instance_id, snapshot_name):
     stop_if_ephemeral_public_ip(primary_vnic.public_ip)
 
     # -- get the OCID of boot volume
-    response   = ComputeClient.list_boot_volume_attachments(ad_name, cpt_id, instance_id=instance_id)
+    response   = ComputeClient.list_boot_volume_attachments(ad_name, cpt_id, instance_id=instance_id, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
     bootvol_id = response.data[0].boot_volume_id
 
     # -- get the OCIDs of attached block volume(s) 
-    response   = ComputeClient.list_volume_attachments(cpt_id, instance_id=instance_id)
+    response   = ComputeClient.list_volume_attachments(cpt_id, instance_id=instance_id, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
     blkvol_ids = []
     nb_blkvols = len(response.data)
     if nb_blkvols > 0:
@@ -330,7 +340,7 @@ def create_snapshot(instance_id, snapshot_name):
         compartment_id      = cpt_id, 
         display_name        = f"snapshot_{snapshot_name}_tempo",
         source_details      = source_details)
-    response = BlockstorageClient.create_volume_group(vg_details)
+    response = BlockstorageClient.create_volume_group(vg_details, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
     vg_id    = response.data.id
 
     # -- clone the volume group to make a consistent copy of boot volume and block volume(s)
@@ -341,7 +351,7 @@ def create_snapshot(instance_id, snapshot_name):
         compartment_id      = cpt_id, 
         display_name        = f"snapshot_{snapshot_name}_clone",
         source_details      = c_source_details)
-    response         = BlockstorageClient.create_volume_group(cvg_details)
+    response         = BlockstorageClient.create_volume_group(cvg_details, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
     cvg_id           = response.data.id
     clone_volume_ids = response.data.volume_ids
 
@@ -351,7 +361,7 @@ def create_snapshot(instance_id, snapshot_name):
     vg_status = response.data.lifecycle_state
     while vg_status == "PROVISIONING":
         sleep(5)
-        response  = BlockstorageClient.get_volume_group(cvg_id)
+        response  = BlockstorageClient.get_volume_group(cvg_id,  retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
         vg_status = response.data.lifecycle_state
     print ("Cloning operation completed !")
 
@@ -365,13 +375,13 @@ def create_snapshot(instance_id, snapshot_name):
 
     # -- delete the 2 volume groups, keeping only the cloned volumes
     print ("Deleting the 2 temporary volumes groups")
-    response = BlockstorageClient.delete_volume_group(volume_group_id=vg_id)
-    response = BlockstorageClient.delete_volume_group(volume_group_id=cvg_id)
+    response = BlockstorageClient.delete_volume_group(volume_group_id=vg_id,  retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
+    response = BlockstorageClient.delete_volume_group(volume_group_id=cvg_id, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
 
     # -- add tag to compute instance
     print ("Adding a freeform tag for this snapshot to the compute instance")
     ff_tags_inst[tag_key] = tag_value
-    response = ComputeClient.update_instance(instance_id, oci.core.models.UpdateInstanceDetails(freeform_tags=ff_tags_inst))
+    response = ComputeClient.update_instance(instance_id, oci.core.models.UpdateInstanceDetails(freeform_tags=ff_tags_inst), retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
 
 # ==== Rollback a compute instance to a snapshot
 def rollback_snapshot(instance_id, snapshot_name):
@@ -409,12 +419,13 @@ def rollback_snapshot(instance_id, snapshot_name):
     # -- get the current block volume attachments details
     response = ComputeClient.list_volume_attachments(
         compartment_id = instance.compartment_id,
-        instance_id    = instance_id)
+        instance_id    = instance_id,
+        retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
     blkvol_attachments = response.data
 
     # -- delete instance and boot volume
     print (f"Terminating current compute instance ...{instance_id[-6:]} and associated boot volume")
-    response = ComputeClient.terminate_instance(instance_id, preserve_boot_volume=False)
+    response = ComputeClient.terminate_instance(instance_id, preserve_boot_volume=False, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
     wait_for_instance_status(instance_id, "TERMINATED")
 
     # -- rename boot volume 
@@ -458,7 +469,7 @@ def rollback_snapshot(instance_id, snapshot_name):
             boot_volume_id  = new_bootvol_id,
         ),
     )
-    response = ComputeClient.launch_instance(details)
+    response = ComputeClient.launch_instance(details, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
     new_instance_id = response.data.id
     wait_for_instance_status(new_instance_id, "RUNNING")
 
@@ -501,7 +512,8 @@ def rollback_snapshot(instance_id, snapshot_name):
         new_private_ip_id = get_private_ip_id(new_primary_vnic.id)
         VirtualNetworkClient.update_public_ip(
             public_ip_id             = public_ip_id, 
-            update_public_ip_details = oci.core.models.UpdatePublicIpDetails(private_ip_id = new_private_ip_id))
+            update_public_ip_details = oci.core.models.UpdatePublicIpDetails(private_ip_id = new_private_ip_id),
+            retry_strategy           = oci.retry.DEFAULT_RETRY_STRATEGY)
 
     # -- new compute instance is ready
     print (f"The new compute instance is ready. OCID = {new_instance_id}")
@@ -526,16 +538,16 @@ def delete_snapshot(instance_id, snapshot_name):
     # -- delete the cloned block volume(s)
     for blkvol_id in blkvol_ids:
         print (f"Deleting the cloned block volume ...{blkvol_id[-6:]}")
-        response = BlockstorageClient.delete_volume(blkvol_id)
+        response = BlockstorageClient.delete_volume(blkvol_id, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
 
     # -- delete the cloned boot volume
     print (f"Deleting the cloned boot volume ...{bootvol_id[-6:]}")
-    response = BlockstorageClient.delete_boot_volume(bootvol_id)
+    response = BlockstorageClient.delete_boot_volume(bootvol_id, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
 
     # -- remove the freeform tag from the compute instance
     print (f"Removing the freeform tags from the compute instance ...{instance_id[-6:]}")
     del ff_tags[tag_key]
-    ComputeClient.update_instance(instance_id, oci.core.models.UpdateInstanceDetails(freeform_tags=ff_tags))
+    ComputeClient.update_instance(instance_id, oci.core.models.UpdateInstanceDetails(freeform_tags=ff_tags), retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
 
 # -------- main
 
@@ -563,10 +575,6 @@ except:
 IdentityClient = oci.identity.IdentityClient(config)
 user = IdentityClient.get_user(config["user"]).data
 RootCompartmentID = user.compartment_id
-
-# -- get list of compartments
-response = oci.pagination.list_call_get_all_results(IdentityClient.list_compartments, RootCompartmentID,compartment_id_in_subtree=True)
-compartments = response.data
 
 # -- OCI clients
 ComputeClient        = oci.core.ComputeClient(config)
