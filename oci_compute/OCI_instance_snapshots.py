@@ -10,12 +10,14 @@
 #            (new instance will have same private IP and same public IP if a reserved public IP was used)
 #
 # IMPORTANT: This script has the following limitations:
-# - For rollback: new instance will have a single VNIC with a single IP address
+# - For rollback: new instance will have a single VNIC with a single IP address (multi-VNICs and multi-IP not supported)
 # - For rollback: very specific parameters of the original instance may not be present in the new instance after rollback
-# - Compute instances with ephemeral public IP adress are not supported
-# - The snapshot name must be unique on all instances (cannot use same name for 2 instances)
+# - Compute instances with ephemeral public IP adress are not supported (use private IP only or private IP + reserved public IP)
 #
-# Note: OCI tenant and region given by an OCI CLI PROFILE
+# Notes: 
+# - OCI tenant and region given by an OCI CLI PROFILE
+# - The number of block volumes attached to the instance can be different in different snapshots
+# - The block volumes can be resized between snapshots
 #
 # Author        : Christophe Pauliat
 # Platforms     : MacOS / Linux
@@ -29,6 +31,12 @@
 #    2022-02-24: Store snapshots information in local JSON files in snapshots_db folder instead of tags only (quicker and more robust)
 #    2022-02-25: Option to store snaphosts information in JSON files in an OCI bucket (preferred storage)
 #    2022-02-25: Add required description field when creating a snapshot
+#    2022-02-25: Add support for variable number of block volumes attached to instance
+#
+# TO DO:
+# - add lock on instance json files to avoid 2 or more snapshots operations on the same instance at the same time
+# - add support for multiple IP address per VNIC
+# - add support for multiple VNICs per instance
 # ---------------------------------------------------------------------------------------------------------------------------------
 
 # -------- import
@@ -43,10 +51,10 @@ from datetime import datetime
 from time import sleep
 
 # -------- variables
-configfile = "~/.oci/config"        # Define config file to be used.
-db_mode    = "oci_bucket"           # "local_file" or "oci_bucket"
+db_mode    = "oci_bucket"           # "local_file" or "oci_bucket" ("oci_bucket" recommended)
 db_folder  = "./.snapshots_db"      # Folder to be created locally to store snapshots information
-db_bucket  = "compute_snapshots"    # OCI bucket (standard mode) to store snapshots information
+db_bucket  = "compute_snapshots"    # OCI bucket (standard mode) to store snapshots information (must be manually created before using the script)
+configfile = "~/.oci/config"        # OCI config file to be used (usually, no need to change this)
 
 # -------- functions
 
@@ -55,43 +63,14 @@ def stop_if_bucket_does_not_exist():
     try:
         ObjectStorageClient.get_bucket(os_namespace, db_bucket, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
     except Exception as error:
-        print (f"ERROR 13: {error.message}")
-        exit(13)
-
-# ---- Get the OCID of the cloned boot volume
-def get_bootvol_id(snapshot_name):
-    query = f"query bootvolume resources where freeformTags.key = 'snapshot_{snapshot_name}'"
-    response = SearchClient.search_resources(
-        oci.resource_search.models.StructuredSearchDetails(type="Structured", query=query),
-        retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
-
-    if len(response.data.items) == 0:
-        print (f"ERROR 04: no cloned boot volume found for snapshot {snapshot_name} !")
-        print ("If you created the cloned boot volume a few minutes ago, it may not yet be fully available: wait and retry !")
-        exit(4)
-    elif len(response.data.items) > 1:
-        print (f"ERROR 05: 2 or more cloned boot volumes found for snapshot {snapshot_name} !")
-        exit(5)
-    bootvol_id = response.data.items[0].identifier
-    return bootvol_id
-
-# ---- Get the OCIDs of the cloned block volume(s) if they exist
-def get_blkvol_ids(snapshot_name):
-    query      = f"query volume resources where freeformTags.key = 'snapshot_{snapshot_name}'"
-    response   = SearchClient.search_resources(
-        oci.resource_search.models.StructuredSearchDetails(type="Structured", query=query),
-        retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
-    blkvol_ids = []
-    if len(response.data.items) > 0:
-        for bkv in response.data.items:
-            blkvol_ids.append(bkv.identifier)
-    return blkvol_ids
+        print (f"ERROR 11: {error}")
+        exit(11)
 
 # ---- Get the primary VNIC of the compute instance
 def get_primary_vnic(cpt_id, instance_id):
-    response        = ComputeClient.list_vnic_attachments(cpt_id, instance_id=instance_id,  retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
+    response        = ComputeClient.list_vnic_attachments(cpt_id, instance_id=instance_id, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
     primary_vnic_id = response.data[0].vnic_id
-    reponse         = VirtualNetworkClient.get_vnic(primary_vnic_id)
+    reponse         = VirtualNetworkClient.get_vnic(primary_vnic_id, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
     primary_vnic    = reponse.data
     return primary_vnic
 
@@ -145,42 +124,6 @@ def get_source_volume_id(cloned_blkvol_id):
         exit(10)
 
     return source_blkvol_id
-
-# ---- Check if a block volume exists and is not TERMINATED
-def is_volume_available(blkvol_id):
-    try:
-        response = BlockstorageClient.get_volume(blkvol_id, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
-        if response.data.lifecycle_state == "TERMINATED":
-            return False
-        else:
-            return True
-    except:
-        return False
-
-# ---- If the source volume does not exist any more, return the ID of the currently attached volume with same source volume
-def get_alternate_source_volume_id(blkvol_attachments, source_blkvol_id, cloned_blkvol_id):
-    for blkvol_attachment in blkvol_attachments:
-        if get_source_volume_id(blkvol_attachment.volume_id) == source_blkvol_id:
-            return blkvol_attachment.volume_id
-
-    print (f"ERROR 12: cannot find the alternate source volume from cloned volume {cloned_blkvol_id} !")
-    exit(12)
-
-# ---- Get the volume attachment for a source volume
-def get_source_volume_attachment(blkvol_attachments, source_blkvol_id):
-    for blkvol_attachment in blkvol_attachments:
-        if blkvol_attachment.volume_id == source_blkvol_id:
-            return blkvol_attachment
-    print (f"ERROR 11: cannot find volume attachment for block volume {source_blkvol_id} !")
-    exit(11)
-
-# ---- Get the name of the current boot volume for an instance
-def get_boot_volume_name(ad_name, cpt_id, instance_id):
-    response   = ComputeClient.list_boot_volume_attachments(ad_name, cpt_id, instance_id=instance_id, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
-    bootvol_id = response.data[0].boot_volume_id
-    response   = BlockstorageClient.get_boot_volume(bootvol_id, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
-    vol_name   = response.data.display_name
-    return vol_name
 
 # ---- Rename a boot volume
 def rename_boot_volume(bootvol_id, bootvol_name):
@@ -269,28 +212,17 @@ def rename_and_tag_block_volume(blkvol_id, snapshot_name, tag_key, tag_value):
     )
 
 # ---- Attach block volume to new instance
-def attach_block_volume_to_instance(blkvol_id, old_blkvol_attachments, new_instance_id, source_blkvol_id):
-    source_volume_attachment = get_source_volume_attachment(old_blkvol_attachments, source_blkvol_id)
+def attach_block_volume_to_instance(blkvol, new_instance_id):
     response = ComputeClient.attach_volume(oci.core.models.AttachVolumeDetails(
-        device       = source_volume_attachment.device,
-        display_name = source_volume_attachment.display_name,
-        is_read_only = source_volume_attachment.is_read_only,
-        is_shareable = source_volume_attachment.is_shareable,
-        type         = source_volume_attachment.attachment_type,
-        instance_id  = new_instance_id,
-        volume_id    = blkvol_id),
-        retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY
+        device       = blkvol["device"],
+        display_name = blkvol["display_name"],
+        is_read_only = blkvol["is_read_only"],
+        is_shareable = blkvol["is_shareable"],
+        type         = blkvol["attachment_type"],
+        volume_id    = blkvol["cloned_id"],
+        instance_id  = new_instance_id),
+        retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY
     )
-
-# ---- Stop if the snapshot name is used on another instance
-def stop_if_snapshot_name_used(snapshot_name):
-    query    = f"query instance resources where freeformTags.key = 'snapshot_{snapshot_name}'"
-    response = SearchClient.search_resources(
-        oci.resource_search.models.StructuredSearchDetails(type="Structured", query=query),
-        retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
-    if len(response.data.items) > 0:
-        print (f"ERROR 07: the snapshot name {snapshot_name} is already used on another instance. Please choose a different snapshot name !")
-        exit(7)
 
 # ---- load the dictionary containing snapshots details for this instance id 
 # ---- from the corresponding json file stored in local folder or in oci bucket
@@ -309,8 +241,8 @@ def load_snapshots_dict(instance_id, verbose = True):
                     data = f.read()
                 snapshots_dict = json.loads(data)
             except Exception as error:
-                print ("ERROR 16: ",error)                    
-                exit(16)            
+                print ("ERROR 04: ",error)                    
+                exit(4)            
             return snapshots_dict
 
     elif db_mode == "oci_bucket":
@@ -334,10 +266,10 @@ def save_snapshots_dict(dict, instance_id, verbose = True):
         if len(dict["snapshots"]) > 0:
             with open(json_file, "w") as f:
                 try:
-                    f.write(json.dumps(dict))
+                    f.write(json.dumps(dict, indent=4))
                 except Exception as error:
-                    print ("ERROR 15: ",error)                    
-                    exit(15)
+                    print ("ERROR 05: ",error)                    
+                    exit(5)
         else:
             try:
                 os.remove(json_file)
@@ -350,10 +282,10 @@ def save_snapshots_dict(dict, instance_id, verbose = True):
             if verbose:
                 print (f"Saving snapshots information for this instance to object {object_name} in OCI bucket {db_bucket}")
             try:
-                response = ObjectStorageClient.put_object(os_namespace, db_bucket, object_name, json.dumps(dict), retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
+                response = ObjectStorageClient.put_object(os_namespace, db_bucket, object_name, json.dumps(dict, indent=4), retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
             except Exception as error:
-                print ("ERROR 14: ",error.message)
-                exit(14)
+                print ("ERROR 07: ",error)
+                exit(7)
         else:
             try:
                 response = ObjectStorageClient.delete_object(os_namespace, db_bucket, object_name, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
@@ -374,7 +306,7 @@ def delete_snapshots_dict(instance_id):
         try:
             response = ObjectStorageClient.delete_object(os_namespace, db_bucket, old_object_name, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
         except Exception as error:
-            print ("WARNING: ",error.message)
+            print ("WARNING: ",error)
 
 # ---- Stop if the snapshot does not exist
 def stop_if_snapsnot_does_not_exist(snap_dict, snapshot_name):
@@ -389,7 +321,7 @@ def stop_if_snapsnot_does_not_exist(snap_dict, snapshot_name):
 # ==== List snapshots of a compute instance
 # - get the list of snapshots from compute instance tags
 # - display them sorted by most recent dates stored in tag value
-def list_snapshots_local_db(instance_id):
+def list_snapshots(instance_id):
 
     # -- stop if instance does not exist
     instance = get_instance_details(instance_id)
@@ -400,7 +332,7 @@ def list_snapshots_local_db(instance_id):
     # -- 
     if len(snap_dict["snapshots"]) > 0:
         for snap in snap_dict["snapshots"]:
-            print (f"- Snapshot '{snap['name']}' created {snap['date_time']}, description = '{snap['description']}'")
+            print (f"- Snapshot '{snap['name']}' created {snap['date_time']}, contains {len(snap['block_volumes'])} block volume(s), description = '{snap['description']}'")
     else:
         print ("No snapshot found for this compute instance !")
 
@@ -410,7 +342,7 @@ def list_snapshots_local_db(instance_id):
 # - add a freeform tag to the compute instance and the cloned volumes
 # - tag key   = snapshot_<snapshot_name>
 # - tag value = date in YYYY/MM/DD_HH:DD format
-def create_snapshot_local_db(instance_id, snapshot_name, description):
+def create_snapshot(instance_id, snapshot_name, description):
 
     # -- load the dictionary containing snapshots details for this instance
     snap_dict = load_snapshots_dict(instance_id)
@@ -425,10 +357,11 @@ def create_snapshot_local_db(instance_id, snapshot_name, description):
     # -- make sure the snapshot_name is not already used on this compute instance
     for snap in snap_dict["snapshots"]:
         if snap["name"] == snapshot_name:
-            print ("ERROR 01: A snapshot with that name already exists. Please retry using a different name !")
+            print (f"ERROR 01: A snapshot with name '{snapshot_name}' already exists. Please retry using a different name !")
             exit(1)
 
     # -- make sure the compute instance does not use an ephemeral public IP
+    print (f"Getting details of primary VNIC")
     primary_vnic = get_primary_vnic(cpt_id, instance_id)
     stop_if_ephemeral_public_ip(primary_vnic.public_ip)
 
@@ -436,18 +369,18 @@ def create_snapshot_local_db(instance_id, snapshot_name, description):
     response   = ComputeClient.list_boot_volume_attachments(ad_name, cpt_id, instance_id=instance_id, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
     bootvol_id = response.data[0].boot_volume_id
 
-    # -- get the OCIDs of attached block volume(s) 
-    response   = ComputeClient.list_volume_attachments(cpt_id, instance_id=instance_id, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
-    blkvol_ids = []
-    nb_blkvols = len(response.data)
-    if nb_blkvols > 0:
-        for bkv in response.data:
-            blkvol_ids.append(bkv.volume_id)
+    # -- get the block volume(s) attachment(s) (ignore non ATTACHED volumes)
+    response           = ComputeClient.list_volume_attachments(cpt_id, instance_id=instance_id, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
+    blkvol_attachments = []
+    for blkvol_attachment in response.data:
+        if blkvol_attachment.lifecycle_state == "ATTACHED":
+            blkvol_attachments.append(blkvol_attachment)
 
     # -- create a temporary volume group containing boot volume and block volume(s)
-    print (f"Creating a temporary volume group (containing 1 boot volume and {nb_blkvols} block volume(s)) for data consistency")
+    print (f"Creating a temporary volume group (containing 1 boot volume and {len(blkvol_attachments)} block volume(s)) for data consistency")
     volume_ids = [ bootvol_id ]
-    volume_ids.extend(blkvol_ids)
+    for blkvol_attachment in blkvol_attachments:
+        volume_ids.append(blkvol_attachment.volume_id)
     source_details = oci.core.models.VolumeGroupSourceFromVolumesDetails(type="volumeIds", volume_ids=volume_ids)
     vg_details     = oci.core.models.CreateVolumeGroupDetails(
         availability_domain = ad_name, 
@@ -490,21 +423,19 @@ def create_snapshot_local_db(instance_id, snapshot_name, description):
     # -- rename cloned volumes and add tags to them
     tag_key   = f"snapshot_{snapshot_name}"
     tag_value = datetime.utcnow().strftime("%Y/%m/%d_%T")
-    blkvols_list = []
-    for id in cloned_volume_ids:
-        if "ocid1.bootvolume" in id:
+    cloned_block_volume_ids = {}
+    for cloned_volume_id in cloned_volume_ids:
+        if "ocid1.bootvolume" in cloned_volume_id:
             try:
-                rename_and_tag_boot_volume(id, snapshot_name, tag_key, tag_value)
-                bootvol_name = get_boot_volume_name_from_id(bootvol_id)
-                bootvol_dict = { "name": bootvol_name, "source": bootvol_id, "cloned": id }
+                rename_and_tag_boot_volume(cloned_volume_id, snapshot_name, tag_key, tag_value)
+                cloned_boot_volume_id = cloned_volume_id
             except Exception as error:
                 print ("WARNING: ",error)
         else:
             try:
-                rename_and_tag_block_volume(id, snapshot_name, tag_key, tag_value)
-                source_blkvol_id = get_source_volume_id(id)
-                blkvol_name = get_volume_name_from_id(source_blkvol_id)
-                blkvols_list.append({ "name": blkvol_name, "source": source_blkvol_id, "cloned": id })
+                rename_and_tag_block_volume(cloned_volume_id, snapshot_name, tag_key, tag_value)
+                source_volume_id = get_source_volume_id(cloned_volume_id)
+                cloned_block_volume_ids[source_volume_id] = cloned_volume_id
             except Exception as error:
                 print ("WARNING: ",error)
 
@@ -522,15 +453,36 @@ def create_snapshot_local_db(instance_id, snapshot_name, description):
     try:
         response = ComputeClient.update_instance(instance_id, oci.core.models.UpdateInstanceDetails(freeform_tags=ff_tags_inst), retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
     except Exception as error:
-        print (error)
+        print ("WARNING: ",error)
 
     # -- Update snapshots database
-    new_snap = { "name": snapshot_name, "description": description, "date_time": tag_value, "boot_volume": bootvol_dict, "block_volumes": blkvols_list }
+    # boot volume
+    bootvol_name = get_boot_volume_name_from_id(bootvol_id)
+    bootvol_dict = { "name": bootvol_name, "cloned_id": cloned_boot_volume_id }
+    # block volume
+    blkvols_list = []
+    for blkvol_attachment in blkvol_attachments:
+        blkvol_dict = {} 
+        blkvol_dict["name"]            = get_volume_name_from_id(blkvol_attachment.volume_id) 
+        blkvol_dict["cloned_id"]       = cloned_block_volume_ids[blkvol_attachment.volume_id]
+        blkvol_dict["device"]          = blkvol_attachment.device
+        blkvol_dict["attachment_type"] = blkvol_attachment.attachment_type
+        blkvol_dict["display_name"]    = blkvol_attachment.display_name
+        blkvol_dict["is_read_only"]    = blkvol_attachment.is_read_only
+        blkvol_dict["is_shareable"]    = blkvol_attachment.is_shareable
+        blkvols_list.append(blkvol_dict)
+    # save all
+    new_snap = {}
+    new_snap["name"]          = snapshot_name
+    new_snap["description"]   = description
+    new_snap["date_time"]     = tag_value
+    new_snap["boot_volume"]   = bootvol_dict
+    new_snap["block_volumes"] = blkvols_list 
     snap_dict["snapshots"].append(new_snap)
     save_snapshots_dict(snap_dict, instance_id)
 
 # ==== Rollback a compute instance to a snapshot
-def rollback_snapshot_local_db(instance_id, snapshot_name):
+def rollback_snapshot(instance_id, snapshot_name):
 
     # -- get the instance details and stop if instance does not exist
     print (f"Getting details of compute instance ...{instance_id[-6:]}")
@@ -553,13 +505,6 @@ def rollback_snapshot_local_db(instance_id, snapshot_name):
     # --
     print (f"Getting details of boot volume and block volume(s)")
 
-    # -- get the name of the current boot volume
-    bootvol_id   = snap["boot_volume"]["source"]
-    bootvol_name = get_boot_volume_name_from_id(bootvol_id)
-
-    # -- get the id of the cloned boot volume
-    new_bootvol_id = snap["boot_volume"]["cloned"]
-
     # -- get the current block volume attachments details
     response = ComputeClient.list_volume_attachments(
         compartment_id = instance.compartment_id,
@@ -572,12 +517,14 @@ def rollback_snapshot_local_db(instance_id, snapshot_name):
     response = ComputeClient.terminate_instance(instance_id, preserve_boot_volume=False, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
     wait_for_instance_status(instance_id, "TERMINATED")
 
-    # -- rename boot volume 
+    # -- rename boot volume (use the name of the boot volume when snapshot was created)
+    bootvol_name   = snap["boot_volume"]["name"]
+    new_bootvol_id = snap["boot_volume"]["cloned_id"]
     print (f"Renaming cloned boot volume ...{new_bootvol_id[-6:]}")
     try:
         rename_boot_volume(new_bootvol_id, bootvol_name)
     except Exception as error:
-        print (error)
+        print ("WARNING: ",error)
 
     # -- remove the freeform tag for this snapshot in the new compute instance
     tag_key  = f"snapshot_{snapshot_name}"
@@ -585,7 +532,7 @@ def rollback_snapshot_local_db(instance_id, snapshot_name):
     try:
         del new_ff_tags[tag_key]
     except Exception as error:
-        print (error)
+        print ("WARNING: ",error)
 
     # -- create new instance using cloned boot volume
     print (f"Creating new compute instance using cloned boot volume ...{new_bootvol_id[-6:]}")
@@ -625,22 +572,21 @@ def rollback_snapshot_local_db(instance_id, snapshot_name):
 
     print (f"New compute instance ...{new_instance_id[-6:]} created !")
 
-    # -- attach and rename cloned block volume(s)
+    # -- attach and rename cloned block volume(s) (use name of the block volumes when the snapshot was created)
     if len(snap["block_volumes"]) > 0:
         for blkvol in snap["block_volumes"]:
-            new_blkvol_id    = blkvol["cloned"]
-            source_blkvol_id = blkvol["source"]
+            new_blkvol_id    = blkvol["cloned_id"]
             print (f"Attaching cloned block volume ...{new_blkvol_id[-6:]} to new instance ...{new_instance_id[-6:]}")
             try:
-                attach_block_volume_to_instance(new_blkvol_id, blkvol_attachments, new_instance_id, source_blkvol_id)
+                attach_block_volume_to_instance(blkvol, new_instance_id)
             except Exception as error:
-                print (error)
+                print ("WARNING: ",error)
 
             print (f"Renaming cloned block volume ...{new_blkvol_id[-6:]}")
             try:
-                rename_block_volume(new_blkvol_id, get_volume_name_from_id(source_blkvol_id))
+                rename_block_volume(new_blkvol_id, blkvol["name"])
             except Exception as error:
-                print (error)
+                print ("WARNING: ",error)
                 
     # -- delete the previously attached block volume(s)
     if len(blkvol_attachments) > 0:
@@ -655,7 +601,7 @@ def rollback_snapshot_local_db(instance_id, snapshot_name):
     # -- remove freeforms tags from block volume(s)
     #TODO if len(snap["block_volumes"]) > 0:
     for blkvol in snap["block_volumes"]:
-        new_blkvol_id = blkvol["cloned"]            
+        new_blkvol_id = blkvol["cloned_id"]            
         print (f"Removing tag from block volume ...{new_blkvol_id[-6:]}")
         remove_block_volume_tag(new_blkvol_id, snapshot_name)
 
@@ -671,22 +617,13 @@ def rollback_snapshot_local_db(instance_id, snapshot_name):
 
     # -- Update snapshots database
     snap2 = snap.copy()
+
     # delete the snapshot
     for i in range(len(snap_dict["snapshots"])):
         if snap_dict["snapshots"][i]['name'] == snapshot_name:
             del snap_dict["snapshots"][i]
             break
-    # update source volumes (as original are deleted)
-    snap_dict["instance_id"] = new_instance_id
-    for i in range(len(snap_dict["snapshots"])):
-        if snap_dict["snapshots"][i]["boot_volume"]["source"] == bootvol_id:
-            snap_dict["snapshots"][i]["boot_volume"]["source"] = new_bootvol_id
-        for blkvol2 in snap2["block_volumes"]:
-            blkvol_source = blkvol2["source"]
-            blkvol_cloned = blkvol2["cloned"]
-            for j in range(len(snap_dict["snapshots"][i]["block_volumes"])):
-                if snap_dict["snapshots"][i]["block_volumes"][j]["source"] == blkvol_source:
-                    snap_dict["snapshots"][i]["block_volumes"][j]["source"] = blkvol_cloned
+
     # save
     save_snapshots_dict(snap_dict, new_instance_id)
 
@@ -697,7 +634,7 @@ def rollback_snapshot_local_db(instance_id, snapshot_name):
     print (f"The new compute instance is ready. OCID = {new_instance_id}")
 
 # ==== Delete a snapshot of a compute instance
-def delete_snapshot_local_db(instance_id, snapshot_name):
+def delete_snapshot(instance_id, snapshot_name):
 
     # -- load the dictionary containing snapshots details for this instance
     snap_dict = load_snapshots_dict(instance_id)
@@ -711,7 +648,7 @@ def delete_snapshot_local_db(instance_id, snapshot_name):
 
     # -- delete the cloned block volume(s)
     for blkvol in snap["block_volumes"]:
-        cloned_blkvol_id = blkvol["cloned"]
+        cloned_blkvol_id = blkvol["cloned_id"]
         print (f"Deleting the cloned block volume ...{cloned_blkvol_id[-6:]}")
         try:
             response = BlockstorageClient.delete_volume(cloned_blkvol_id, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
@@ -719,7 +656,7 @@ def delete_snapshot_local_db(instance_id, snapshot_name):
             print ("WARNING: ",error)
 
     # -- delete the cloned boot volume
-    cloned_bootvol_id = snap["boot_volume"]["cloned"]
+    cloned_bootvol_id = snap["boot_volume"]["cloned_id"]
     print (f"Deleting the cloned boot volume ...{cloned_bootvol_id[-6:]}")
     try:
         response = BlockstorageClient.delete_boot_volume(cloned_bootvol_id, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
@@ -796,13 +733,13 @@ if db_mode == "local_file":
 
 # -- do the job
 if args.list:
-    list_snapshots_local_db(instance_id)
+    list_snapshots(instance_id)
 elif args.create:
-    create_snapshot_local_db(instance_id, args.create, args.desc)
+    create_snapshot(instance_id, args.create, args.desc)
 elif args.rollback:
-    rollback_snapshot_local_db(instance_id, args.rollback)
+    rollback_snapshot(instance_id, args.rollback)
 elif args.delete:
-    delete_snapshot_local_db(instance_id, args.delete)
+    delete_snapshot(instance_id, args.delete)
 
 # -- the end
 exit(0)
