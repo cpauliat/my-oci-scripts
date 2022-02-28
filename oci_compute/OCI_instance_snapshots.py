@@ -555,7 +555,7 @@ def rollback_snapshot(instance_id, snapshot_name):
         extended_metadata = instance.extended_metadata,
         fault_domain      = instance.fault_domain,
         freeform_tags     = new_ff_tags,
-        metadata          = {},
+        metadata          = instance.metadata,
         shape             = instance.shape,
         shape_config      = oci.core.models.LaunchInstanceShapeConfigDetails(
             ocpus           = instance.shape_config.ocpus,
