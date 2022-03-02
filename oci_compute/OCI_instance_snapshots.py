@@ -3,11 +3,14 @@
 # ---------------------------------------------------------------------------------------------------------------------------------
 # This script implements snapshot-like feature for OCI compute instance using OCI Python SDK
 # It can:
-# - list existing snapshots for an instance (names saved as tags in the instance)
-# - take a new snapshot for a compute instance (cloned the boot volume and the block volumes and tag the cloneds volumes)
+# - list existing snapshots for all compute instances
+# - list existing snapshots for an instance 
+# - take a new snapshot for a compute instance (cloned the boot volume and the block volumes and tag the instance and cloned volumes)
 # - delete a snapshot (delete cloned volumes and remove tag from the instance)
 # - rollback to a snapshot (delete the compute instance, and recreate a new one with same parameters using cloned volumes)
 #            (new instance will have same private IP and same public IP if a reserved public IP was used)
+# - rename a snapshot (rename cloned volumes and update tags for instance and cloned volumes)
+# - change the description of a snapshot
 #
 # IMPORTANT: This script has the following limitations:
 # - For rollback: new instance will have a single VNIC with a single IP address (multi-VNICs and multi-IP not supported)
@@ -15,7 +18,9 @@
 # - Compute instances with ephemeral public IP adress are not supported (use private IP only or private IP + reserved public IP)
 #
 # Notes: 
-# - OCI tenant and region given by an OCI CLI PROFILE
+# - The snapshots information is stored in several JSON files (1 per instance) locally or in a OCI bucket (preferred solution)
+# - Those JSON files are updated by all operations (except listing snapshots)
+# - OCI tenant and region given by an OCI CLI PROFILE            
 # - The number of block volumes attached to the instance can be different in different snapshots
 # - The block volumes can be resized between snapshots
 #
@@ -32,6 +37,8 @@
 #    2022-02-25: Option to store snaphosts information in JSON files in an OCI bucket (preferred storage)
 #    2022-02-25: Add required description field when creating a snapshot
 #    2022-02-25: Add support for variable number of block volumes attached to instance
+#    2022-03-01: Add --rename, --change_desc and --list-all operations
+#    2022-03-01: Simplify arguments parsing using nargs and metavar in argparse
 #
 # TO DO:
 # - add lock on instance json files to avoid 2 or more snapshots operations on the same instance at the same time
@@ -58,12 +65,42 @@ configfile = "~/.oci/config"        # OCI config file to be used (usually, no ne
 
 # -------- functions
 
+# ---- Get the full name of a compartment from its id
+def get_cpt_parent(cpt):
+    if (cpt.id == RootCompartmentID):
+        return "root"
+    else:
+        for c in compartments:
+            if c.id == cpt.compartment_id:
+                break
+        return (c)
+
+def cpt_full_name(cpt):
+    if cpt.id == RootCompartmentID:
+        return ""
+    else:
+        # if direct child of root compartment
+        if cpt.compartment_id == RootCompartmentID:
+            return cpt.name
+        else:
+            parent_cpt = get_cpt_parent(cpt)
+            return cpt_full_name(parent_cpt)+":"+cpt.name
+
+def get_cpt_full_name_from_id(cpt_id):
+    if cpt_id == RootCompartmentID:
+        return "root"
+    else:
+        for c in compartments:
+            if (c.id == cpt_id):
+                return cpt_full_name(c)
+    return
+
 # ---- Check that the OCI bucket exists
 def stop_if_bucket_does_not_exist():
     try:
         ObjectStorageClient.get_bucket(os_namespace, db_bucket, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
     except Exception as error:
-        print (f"ERROR 11: {error}")
+        print (f"ERROR 11: {error.message}")
         exit(11)
 
 # ---- Get the primary VNIC of the compute instance
@@ -101,17 +138,24 @@ def wait_for_instance_status(instance_id, expected_status):
         response = ComputeClient.get_instance(instance_id, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
         current_status = response.data.lifecycle_state
 
-# ---- Get instance details and exits if instance does not exist
-def get_instance_details(instance_id):
+# ---- Get instance details and exits if instance does not exist (unless stop==False)
+def get_instance_details(instance_id, stop=True):
     try:
         response = ComputeClient.get_instance(instance_id, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
     except:
-        print ("ERROR 09: compute instance not found !")
-        exit(9)
+        if stop:
+            print ("ERROR 09: compute instance not found !")
+            exit(9)
+        else:
+            return None
 
     if response.data.lifecycle_state in ["TERMINATED", "TERMINATING"]:
-        print (f"ERROR 08: compute instance in status {response.data.lifecycle_state} !")
-        exit(8)            
+        if stop:
+            print (f"ERROR 08: compute instance in status {response.data.lifecycle_state} !")
+            exit(8)    
+        else:
+            return None
+
     return response.data
 
 # ---- Get the OCID of the source block volume for a cloned block volume
@@ -182,14 +226,15 @@ def remove_block_volume_tag(blkvol_id, snapshot_name):
     )
 
 # ---- Rename and tag boot volume
-def rename_and_tag_boot_volume(bootvol_id, snapshot_name, tag_key, tag_value):
+def rename_and_tag_boot_volume(bootvol_id, snapshot_name, tag_key, tag_value, keyword="cloned"):
     response          = BlockstorageClient.get_boot_volume(bootvol_id, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
-    vol_name_prefix   = re.search('^(.+?)_cloned.*$',response.data.display_name).group(1)
+    vol_name_prefix   = re.search(f'^(.+?)_{keyword}.*$',response.data.display_name).group(1)
     vol_new_name      = f"{vol_name_prefix}_snapshot_{snapshot_name}"
     ff_tags           = response.data.freeform_tags
     ff_tags[tag_key]  = tag_value
 
-    print (f"Adding a freeform tag for this snapshot to the cloned boot volume ...{bootvol_id[-6:]}")
+    if keyword == "cloned":
+        print (f"Adding a freeform tag for this snapshot to the cloned boot volume ...{bootvol_id[-6:]}")
     response = BlockstorageClient.update_boot_volume(
         bootvol_id, 
         oci.core.models.UpdateBootVolumeDetails(display_name=vol_new_name, freeform_tags=ff_tags),
@@ -197,14 +242,15 @@ def rename_and_tag_boot_volume(bootvol_id, snapshot_name, tag_key, tag_value):
     )
 
 # ---- Rename and tag block volume
-def rename_and_tag_block_volume(blkvol_id, snapshot_name, tag_key, tag_value):
+def rename_and_tag_block_volume(blkvol_id, snapshot_name, tag_key, tag_value, keyword="cloned"):
     response          = BlockstorageClient.get_volume(blkvol_id, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
-    vol_name_prefix   = re.search('^(.+?)_cloned.*$',response.data.display_name).group(1)
+    vol_name_prefix   = re.search(f'^(.+?)_{keyword}.*$',response.data.display_name).group(1)
     vol_new_name      = f"{vol_name_prefix}_snapshot_{snapshot_name}"
     ff_tags           = response.data.freeform_tags
     ff_tags[tag_key]  = tag_value
 
-    print (f"Adding a freeform tag for this snapshot to the cloned block volume ...{blkvol_id[-6:]}")
+    if keyword == "cloned":
+        print (f"Adding a freeform tag for this snapshot to the cloned block volume ...{blkvol_id[-6:]}")
     response = BlockstorageClient.update_volume(
         blkvol_id, 
         oci.core.models.UpdateBootVolumeDetails(display_name=vol_new_name, freeform_tags=ff_tags),
@@ -317,6 +363,38 @@ def stop_if_snapsnot_does_not_exist(snap_dict, snapshot_name):
     # if snapshot_name not found in snapshots list
     print (f"ERROR 03: there is no snapshot named {snapshot_name} for this compute instance !")
     exit(3)
+
+# ==== List snapshots of all compute instances
+def list_snapshots_for_all_instances():
+    # get the list of objects ocid*.json in the OCI bucket
+    response = ObjectStorageClient.list_objects(os_namespace, db_bucket, prefix="ocid1.instance",
+                                                retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
+    for object in response.data.objects:
+        instance_id = object.name[:-5]
+
+        # -- get instance details if it exists
+        instance = get_instance_details(instance_id, stop=False)
+        # if instance does not exist or is in TERMINATING/TERMINATED status, delete JSON file
+        if instance == None:
+            try:
+                print ("")
+                print (f"Deleting JSON file '{object.name}' as this instance does not exist any more !")
+                response = ObjectStorageClient.delete_object(os_namespace, db_bucket, object.name, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
+            except Exception as error:
+                pass      
+            continue
+
+        # load the dictionary containing snapshots details for this instance
+        snap_dict = load_snapshots_dict(instance_id, False)
+
+        # display the snapshots list for this instance 
+        if len(snap_dict["snapshots"]) > 0:
+            print ("")
+            inst_name = instance.display_name
+            inst_cpt  = get_cpt_full_name_from_id(instance.compartment_id)
+            print (f"Compute instance '{inst_name}' in compartment '{inst_cpt}' ({instance_id}):")
+            for snap in snap_dict["snapshots"]:
+                print (f"- Snapshot '{snap['name']}' created {snap['date_time']}, contains {len(snap['block_volumes'])} block volume(s), description = '{snap['description']}'")
 
 # ==== List snapshots of a compute instance
 # - get the list of snapshots from compute instance tags
@@ -599,7 +677,6 @@ def rollback_snapshot(instance_id, snapshot_name):
     remove_boot_volume_tag(new_bootvol_id, snapshot_name)
 
     # -- remove freeforms tags from block volume(s)
-    #TODO if len(snap["block_volumes"]) > 0:
     for blkvol in snap["block_volumes"]:
         new_blkvol_id = blkvol["cloned_id"]            
         print (f"Removing tag from block volume ...{new_blkvol_id[-6:]}")
@@ -679,28 +756,91 @@ def delete_snapshot(instance_id, snapshot_name):
             break
     save_snapshots_dict(snap_dict, instance_id)
 
+# ==== Rename a snapshot of a compute instance
+def rename_snapshot(instance_id, snapshot_old_name, snapshot_new_name):
+    # -- load the dictionary containing snapshots details for this instance
+    snap_dict = load_snapshots_dict(instance_id)
+
+    # -- make sure the new snapshot_name is not already used on this compute instance
+    for snap in snap_dict["snapshots"]:
+        if snap["name"] == snapshot_new_name:
+            print (f"ERROR 01: A snapshot with name '{snapshot_new_name}' already exists. Please retry using a different name !")
+            exit(1)
+
+    # -- check that the snapshot exists
+    snap = stop_if_snapsnot_does_not_exist(snap_dict, snapshot_old_name)
+
+    # -- get the instance details and stop if instance does not exist
+    print (f"Getting details of compute instance ...{instance_id[-6:]}")
+    instance = get_instance_details(instance_id)
+
+    # -- update name for this snapshot
+    print (f"Modifying snapshot name: old name = {snapshot_old_name}, new name = {snapshot_new_name}")
+    snap["name"] = snapshot_new_name
+
+    # -- updates freeform tags for compute instance
+    print ("Updating free form tags for the compute instance")
+    ff_tags_inst = instance.freeform_tags
+    tag_old_key  = f"snapshot_{snapshot_old_name}"
+    tag_new_key  = f"snapshot_{snapshot_new_name}"
+    try:
+        tag_value = ff_tags_inst[tag_old_key]
+        del ff_tags_inst[tag_old_key]
+        ff_tags_inst[tag_new_key] = tag_value
+        response = ComputeClient.update_instance(instance_id, oci.core.models.UpdateInstanceDetails(freeform_tags=ff_tags_inst), retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
+    except Exception as error:
+        print ("WARNING: ",error)
+
+    # -- rename and update freeform tags for cloned boot volume
+    bootvol_id = snap["boot_volume"]["cloned_id"]
+    print (f"Updating freeform tag on cloned boot volume ...{bootvol_id[-6:]}")
+    remove_boot_volume_tag(bootvol_id, snapshot_old_name)
+    print (f"Renaming cloned boot volume ...{bootvol_id[-6:]}")
+    rename_and_tag_boot_volume(bootvol_id, snapshot_new_name, tag_new_key, tag_value, keyword="snapshot")
+
+    # -- rename and update freeform tags for cloned block volume(s)
+    for blkvol in snap["block_volumes"]:
+        blkvol_id = blkvol["cloned_id"]
+        print (f"Updating freeform tag on cloned block volume ...{blkvol_id[-6:]}")
+        remove_block_volume_tag(blkvol_id, snapshot_old_name)
+        print (f"Renaming cloned block volume ...{blkvol_id[-6:]}")
+        rename_and_tag_block_volume(blkvol_id, snapshot_new_name, tag_new_key, tag_value, keyword="snapshot")
+
+    # -- save snapshots database
+    save_snapshots_dict(snap_dict, instance_id)
+
+# ==== Change the description of a snapshot of a compute instance
+def change_snapshot_decription(instance_id, snapshot_name, new_desc):
+    # -- load the dictionary containing snapshots details for this instance
+    snap_dict = load_snapshots_dict(instance_id)
+
+    # -- check that the snapshot exists
+    snap = stop_if_snapsnot_does_not_exist(snap_dict, snapshot_name)
+
+    # -- update description for this snapshot
+    print (f"Modifying description for snapshot {snapshot_name}")
+    snap["description"] = new_desc
+
+    # -- save snapshots database
+    save_snapshots_dict(snap_dict, instance_id)
+
 # -------- main
 
 # -- parse arguments
 parser = argparse.ArgumentParser(description = "Implement snapshot-like feature on OCI compute instances")
-parser.add_argument("-p", "--profile", help="OCI profile", required=True)
-parser.add_argument("-i", "--instance-id", help="compute instance OCID", required=True)
+parser.add_argument("--profile",    help="OCI profile", required=True)
+
 group = parser.add_mutually_exclusive_group(required=True)
-group.add_argument("-c", "--create", help="Create a snapshot (name required)")
-group.add_argument("-r", "--rollback", help="Rollback to a snapshot (name required)")
-group.add_argument("-d", "--delete", help="Delete a snapshot (name required)")
-group.add_argument("-l", "--list", help="List snapshots", action="store_true")
-parser.add_argument("-ds", "--desc", help="Snapshot description (use with -c)")
+group.add_argument("--list-all",     help="List snapshots for all compute instances", action="store_true")
+group.add_argument("--list",         help="List snapshots for the specified compute instance",                       nargs=1, metavar="<INSTANCE_OCID>")
+group.add_argument("--create",       help="Create a snapshot for the specified compute instance",                    nargs=3, metavar=("<SNAPSHOT_NAME>","<SNAPSHOT_DESCRIPTION>","<INSTANCE_OCID>"))
+group.add_argument("--rollback",     help="Rollback to a snapshot for the specified compute instance",               nargs=2, metavar=("<SNAPSHOT_NAME>","<INSTANCE_OCID>"))
+group.add_argument("--delete",       help="Delete a snapshot for the specified compute instance",                    nargs=2, metavar=("<SNAPSHOT_NAME>","<INSTANCE_OCID>"))
+group.add_argument("--rename",       help="Rename a snapshot for the specified compute instance",                    nargs=3, metavar=("<SNAPSHOT_OLD_NAME>","<SNAPSHOT_NEW_NAME>","<INSTANCE_OCID>"))
+group.add_argument("--change-desc",  help="Change the description of a snapshot for the specified compute instance", nargs=3, metavar=("<SNAPSHOT_NAME>","<SNAPSHOT_NEW_DESCRIPTION>","<INSTANCE_OCID>"))
 args = parser.parse_args()
 
-if args.create and not args.desc:
-    parser.error("-c/--create requires -ds/--desc !")
-
-if args.desc and not args.create:
-    parser.error("-ds/--desc only requires -c/--create !")
-
-profile     = args.profile
-instance_id = args.instance_id
+profile = args.profile
 
 # -- load profile from config file
 try:
@@ -709,11 +849,8 @@ except:
     print ("ERROR 02: profile '{}' not found in config file {} !".format(profile,configfile))
     exit(2)
 
-IdentityClient = oci.identity.IdentityClient(config)
-user = IdentityClient.get_user(config["user"]).data
-RootCompartmentID = user.compartment_id
-
 # -- OCI clients
+IdentityClient       = oci.identity.IdentityClient(config)
 ComputeClient        = oci.core.ComputeClient(config)
 BlockstorageClient   = oci.core.BlockstorageClient(config)
 ObjectStorageClient  = oci.object_storage.ObjectStorageClient(config)
@@ -731,15 +868,41 @@ if db_mode == "local_file":
         os.makedirs(db_folder)
         print ("Create dir")
 
+# -- get list of compartments with all sub-compartments
+user              = IdentityClient.get_user(config["user"]).data
+RootCompartmentID = user.compartment_id
+response          = oci.pagination.list_call_get_all_results(IdentityClient.list_compartments,RootCompartmentID,compartment_id_in_subtree=True)
+compartments      = response.data
+
 # -- do the job
-if args.list:
+if args.list_all:
+    list_snapshots_for_all_instances()
+elif args.list:
+    instance_id = args.list[0]
     list_snapshots(instance_id)
 elif args.create:
-    create_snapshot(instance_id, args.create, args.desc)
+    snapshot_name = args.create[0]
+    snapshot_desc = args.create[1]
+    instance_id   = args.create[2]
+    create_snapshot(instance_id, snapshot_name, snapshot_desc)
 elif args.rollback:
-    rollback_snapshot(instance_id, args.rollback)
+    snapshot_name = args.rollback[0]
+    instance_id   = args.rollback[1]
+    rollback_snapshot(instance_id, snapshot_name)
 elif args.delete:
-    delete_snapshot(instance_id, args.delete)
+    snapshot_name = args.delete[0]
+    instance_id   = args.delete[1]
+    delete_snapshot(instance_id, snapshot_name)
+elif args.rename:
+    snapshot_old_name = args.rename[0]
+    snapshot_new_name = args.rename[1]
+    instance_id       = args.rename[2]
+    rename_snapshot(instance_id, snapshot_old_name, snapshot_new_name)
+elif args.change_desc:
+    snapshot_name     = args.change_desc[0]
+    snapshot_new_desc = args.change_desc[1]
+    instance_id       = args.change_desc[2]
+    change_snapshot_decription(instance_id, snapshot_name, snapshot_new_desc)
 
 # -- the end
 exit(0)
