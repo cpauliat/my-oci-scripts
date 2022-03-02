@@ -4,13 +4,13 @@
 # This script implements snapshot-like feature for OCI compute instance using OCI Python SDK
 # It can:
 # - list existing snapshots for all compute instances
-# - list existing snapshots for an instance 
+# - list existing snapshots for a compute instance 
 # - take a new snapshot for a compute instance (cloned the boot volume and the block volumes and tag the instance and cloned volumes)
-# - delete a snapshot (delete cloned volumes and remove tag from the instance)
-# - rollback to a snapshot (delete the compute instance, and recreate a new one with same parameters using cloned volumes)
+# - delete a snapshot for a compute instance (delete cloned volumes and remove tag from the instance)
+# - rollback to a snapshot for a compute instance (delete the compute instance, and recreate a new one with same parameters using cloned volumes)
 #            (new instance will have same private IP and same public IP if a reserved public IP was used)
-# - rename a snapshot (rename cloned volumes and update tags for instance and cloned volumes)
-# - change the description of a snapshot
+# - rename a snapshot for a compute instance (rename cloned volumes and update tags for instance and cloned volumes)
+# - change the description of a snapshot for a compute instance
 #
 # IMPORTANT: This script has the following limitations:
 # - For rollback: new instance will have a single VNIC with a single IP address (multi-VNICs and multi-IP not supported)
@@ -59,8 +59,6 @@ from datetime import datetime
 from time import sleep
 
 # -------- variables
-#db_mode    = "oci_bucket"           # "local_file" or "oci_bucket" ("oci_bucket" recommended)
-#db_folder  = "./.snapshots_db"      # Folder to be created locally to store snapshots information
 db_bucket  = "compute_snapshots"    # OCI bucket (standard mode) to store snapshots information (must be manually created before using the script)
 configfile = "~/.oci/config"        # OCI config file to be used (usually, no need to change this)
 
@@ -310,24 +308,6 @@ def attach_block_volume_to_instance(blkvol, new_instance_id):
 # ---- from the corresponding json file stored in local folder or in oci bucket
 def load_snapshots_dict(instance_id, verbose = True):
     empty_dict = { "instance_id": instance_id, "snapshots": [] }
-    # if db_mode == "local_file":
-    #     json_file = f"{db_folder}/{instance_id}.json"
-    #     if not os.path.exists(json_file):
-    #         return empty_dict
-    #     else:
-    #         if verbose:
-    #             print (f"Loading snapshots information for this instance from file {json_file}")
-    #         try:
-    #             with open(json_file, "r") as f:
-    #                 data = f.read()
-    #             snapshots_dict = json.loads(data)
-    #         except Exception as error:
-    #             print ("ERROR 04: ",error)       
-    #             unlock(instance_id)             
-    #             exit(4)            
-    #         return snapshots_dict
-
-    # elif db_mode == "oci_bucket":
     try:
         object_name = f"{instance_id}.json"
         response    = ObjectStorageClient.get_object(os_namespace, db_bucket, object_name, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
@@ -341,25 +321,6 @@ def load_snapshots_dict(instance_id, verbose = True):
 # ---- save the dictionary containing snapshots details for this instance id 
 # ---- to the corresponding json file stored in local folder or in oci bucket
 def save_snapshots_dict(dict, instance_id, verbose = True):
-    # if db_mode == "local_file":
-    #     if verbose:
-    #         print (f"Saving snapshots information for this instance to file {json_file}")
-    #     json_file = f"{db_folder}/{instance_id}.json"
-    #     if len(dict["snapshots"]) > 0:
-    #         with open(json_file, "w") as f:
-    #             try:
-    #                 f.write(json.dumps(dict, indent=4))
-    #             except Exception as error:
-    #                 print ("ERROR 05: ",error)  
-    #                 unlock(instance_id)                  
-    #                 exit(5)
-    #     else:
-    #         try:
-    #             os.remove(json_file)
-    #         except Exception as error:
-    #             print ("WARNING: ",error)
-
-    # elif db_mode == "oci_bucket":
     object_name = f"{instance_id}.json"
     if len(dict["snapshots"]) > 0:
         if verbose:
@@ -378,14 +339,6 @@ def save_snapshots_dict(dict, instance_id, verbose = True):
 
 # -- Remove JSON file in local folder or OCI bucket for deleted instance
 def delete_snapshots_dict(instance_id):
-    # if db_mode == "local_file":
-    #     old_json_file = f"{db_folder}/{instance_id}.json"
-    #     try:
-    #         os.remove(old_json_file)
-    #     except Exception as error:
-    #         print ("WARNING: ",error)
-
-    # elif db_mode == "oci_bucket":
     old_object_name = f"{instance_id}.json"
     try:
         response = ObjectStorageClient.delete_object(os_namespace, db_bucket, old_object_name, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
@@ -902,12 +855,6 @@ VirtualNetworkClient = oci.core.VirtualNetworkClient(config)
 response = ObjectStorageClient.get_namespace(retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
 os_namespace = response.data
 stop_if_bucket_does_not_exist()
-
-# # -- if using local files as database, create snapshots db folder if it does not exist
-# if db_mode == "local_file":
-#     if not os.path.exists(db_folder):
-#         os.makedirs(db_folder)
-#         print ("Create dir")
 
 # -- get list of compartments with all sub-compartments
 user              = IdentityClient.get_user(config["user"]).data
