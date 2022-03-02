@@ -39,9 +39,10 @@
 #    2022-02-25: Add support for variable number of block volumes attached to instance
 #    2022-03-01: Add --rename, --change_desc and --list-all operations
 #    2022-03-01: Simplify arguments parsing using nargs and metavar in argparse
+#    2022-03-02: Add locks to avoid simultaneous operations on the same instance
+#    2022-03-02: Remove option to store snapshots information in local JSON files (mandatory usage of OCI bucket)
 #
 # TO DO:
-# - add lock on instance json files to avoid 2 or more snapshots operations on the same instance at the same time
 # - add support for multiple IP address per VNIC
 # - add support for multiple VNICs per instance
 # ---------------------------------------------------------------------------------------------------------------------------------
@@ -58,12 +59,43 @@ from datetime import datetime
 from time import sleep
 
 # -------- variables
-db_mode    = "oci_bucket"           # "local_file" or "oci_bucket" ("oci_bucket" recommended)
-db_folder  = "./.snapshots_db"      # Folder to be created locally to store snapshots information
+#db_mode    = "oci_bucket"           # "local_file" or "oci_bucket" ("oci_bucket" recommended)
+#db_folder  = "./.snapshots_db"      # Folder to be created locally to store snapshots information
 db_bucket  = "compute_snapshots"    # OCI bucket (standard mode) to store snapshots information (must be manually created before using the script)
 configfile = "~/.oci/config"        # OCI config file to be used (usually, no need to change this)
 
 # -------- functions
+
+# ---- Lock an instance (stop if lock already present)
+def lock(instance_id):
+    lock_present = False
+    object_name  = f"lock.{instance_id}"
+    try:
+        response = ObjectStorageClient.get_object(os_namespace, db_bucket, object_name, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
+        lock_present = True
+    except:
+        pass
+
+    if lock_present:
+        print ("ERROR 12: another operation is in progress on this instance (lock present) ! Please retry later.")
+        exit(12)
+
+    print ("Locking this instance to avoid simultaneous operations on it")
+    try:
+        response = ObjectStorageClient.put_object(os_namespace, db_bucket, object_name, "locked", retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
+    except Exception as error:
+        print ("ERROR 13: cannot lock compute instance: ",error)
+        exit(13)
+
+# ---- Unlock an instance
+def unlock(instance_id):
+    object_name = f"lock.{instance_id}"
+    print ("Unlocking this instance")
+    try:
+        response = ObjectStorageClient.delete_object(os_namespace, db_bucket, object_name, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
+    except Exception as error:
+        print ("ERROR 14: cannot unlock compute instance: ",error)
+        exit(14)
 
 # ---- Get the full name of a compartment from its id
 def get_cpt_parent(cpt):
@@ -126,6 +158,7 @@ def stop_if_ephemeral_public_ip(public_ip_address):
         retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
     if response.data.lifetime == "EPHEMERAL":
         print ("ERROR 06: this script does not support compute instances with ephemeral public IP. Use reserved public IP instead !")
+        unlock(instance_id)
         exit(6)
     return response.data.id
 
@@ -145,6 +178,7 @@ def get_instance_details(instance_id, stop=True):
     except:
         if stop:
             print ("ERROR 09: compute instance not found !")
+            unlock(instance_id)
             exit(9)
         else:
             return None
@@ -152,6 +186,7 @@ def get_instance_details(instance_id, stop=True):
     if response.data.lifecycle_state in ["TERMINATED", "TERMINATING"]:
         if stop:
             print (f"ERROR 08: compute instance in status {response.data.lifecycle_state} !")
+            unlock(instance_id)
             exit(8)    
         else:
             return None
@@ -165,6 +200,7 @@ def get_source_volume_id(cloned_blkvol_id):
         source_blkvol_id = response.data.source_details.id
     except:
         print (f"ERROR 10: cannot find the source volume from cloned volume {cloned_blkvol_id} !")
+        unlock(instance_id)
         exit(10)
 
     return source_blkvol_id
@@ -274,85 +310,87 @@ def attach_block_volume_to_instance(blkvol, new_instance_id):
 # ---- from the corresponding json file stored in local folder or in oci bucket
 def load_snapshots_dict(instance_id, verbose = True):
     empty_dict = { "instance_id": instance_id, "snapshots": [] }
+    # if db_mode == "local_file":
+    #     json_file = f"{db_folder}/{instance_id}.json"
+    #     if not os.path.exists(json_file):
+    #         return empty_dict
+    #     else:
+    #         if verbose:
+    #             print (f"Loading snapshots information for this instance from file {json_file}")
+    #         try:
+    #             with open(json_file, "r") as f:
+    #                 data = f.read()
+    #             snapshots_dict = json.loads(data)
+    #         except Exception as error:
+    #             print ("ERROR 04: ",error)       
+    #             unlock(instance_id)             
+    #             exit(4)            
+    #         return snapshots_dict
 
-    if db_mode == "local_file":
-        json_file = f"{db_folder}/{instance_id}.json"
-        if not os.path.exists(json_file):
-            return empty_dict
-        else:
-            if verbose:
-                print (f"Loading snapshots information for this instance from file {json_file}")
-            try:
-                with open(json_file, "r") as f:
-                    data = f.read()
-                snapshots_dict = json.loads(data)
-            except Exception as error:
-                print ("ERROR 04: ",error)                    
-                exit(4)            
-            return snapshots_dict
-
-    elif db_mode == "oci_bucket":
-        try:
-            object_name = f"{instance_id}.json"
-            response    = ObjectStorageClient.get_object(os_namespace, db_bucket, object_name, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
-            snapshots_dict = json.loads(response.data.text)
-            if verbose:
-                print (f"Loading snapshots information for this instance from object {object_name} in OCI bucket {db_bucket}")
-            return snapshots_dict
-        except:
-            return empty_dict     
+    # elif db_mode == "oci_bucket":
+    try:
+        object_name = f"{instance_id}.json"
+        response    = ObjectStorageClient.get_object(os_namespace, db_bucket, object_name, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
+        snapshots_dict = json.loads(response.data.text)
+        if verbose:
+            print (f"Loading snapshots information for this instance from object {object_name} in OCI bucket {db_bucket}")
+        return snapshots_dict
+    except:
+        return empty_dict     
 
 # ---- save the dictionary containing snapshots details for this instance id 
 # ---- to the corresponding json file stored in local folder or in oci bucket
 def save_snapshots_dict(dict, instance_id, verbose = True):
-    if db_mode == "local_file":
-        if verbose:
-            print (f"Saving snapshots information for this instance to file {json_file}")
-        json_file = f"{db_folder}/{instance_id}.json"
-        if len(dict["snapshots"]) > 0:
-            with open(json_file, "w") as f:
-                try:
-                    f.write(json.dumps(dict, indent=4))
-                except Exception as error:
-                    print ("ERROR 05: ",error)                    
-                    exit(5)
-        else:
-            try:
-                os.remove(json_file)
-            except Exception as error:
-                print ("WARNING: ",error)
+    # if db_mode == "local_file":
+    #     if verbose:
+    #         print (f"Saving snapshots information for this instance to file {json_file}")
+    #     json_file = f"{db_folder}/{instance_id}.json"
+    #     if len(dict["snapshots"]) > 0:
+    #         with open(json_file, "w") as f:
+    #             try:
+    #                 f.write(json.dumps(dict, indent=4))
+    #             except Exception as error:
+    #                 print ("ERROR 05: ",error)  
+    #                 unlock(instance_id)                  
+    #                 exit(5)
+    #     else:
+    #         try:
+    #             os.remove(json_file)
+    #         except Exception as error:
+    #             print ("WARNING: ",error)
 
-    elif db_mode == "oci_bucket":
-        object_name = f"{instance_id}.json"
-        if len(dict["snapshots"]) > 0:
-            if verbose:
-                print (f"Saving snapshots information for this instance to object {object_name} in OCI bucket {db_bucket}")
-            try:
-                response = ObjectStorageClient.put_object(os_namespace, db_bucket, object_name, json.dumps(dict, indent=4), retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
-            except Exception as error:
-                print ("ERROR 07: ",error)
-                exit(7)
-        else:
-            try:
-                response = ObjectStorageClient.delete_object(os_namespace, db_bucket, object_name, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
-            except Exception as error:
-                pass            
+    # elif db_mode == "oci_bucket":
+    object_name = f"{instance_id}.json"
+    if len(dict["snapshots"]) > 0:
+        if verbose:
+            print (f"Saving snapshots information for this instance to object {object_name} in OCI bucket {db_bucket}")
+        try:
+            response = ObjectStorageClient.put_object(os_namespace, db_bucket, object_name, json.dumps(dict, indent=4), retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
+        except Exception as error:
+            print ("ERROR 07: ",error)
+            unlock(instance_id)
+            exit(7)
+    else:
+        try:
+            response = ObjectStorageClient.delete_object(os_namespace, db_bucket, object_name, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
+        except Exception as error:
+            pass            
 
 # -- Remove JSON file in local folder or OCI bucket for deleted instance
 def delete_snapshots_dict(instance_id):
-    if db_mode == "local_file":
-        old_json_file = f"{db_folder}/{instance_id}.json"
-        try:
-            os.remove(old_json_file)
-        except Exception as error:
-            print ("WARNING: ",error)
+    # if db_mode == "local_file":
+    #     old_json_file = f"{db_folder}/{instance_id}.json"
+    #     try:
+    #         os.remove(old_json_file)
+    #     except Exception as error:
+    #         print ("WARNING: ",error)
 
-    elif db_mode == "oci_bucket":
-        old_object_name = f"{instance_id}.json"
-        try:
-            response = ObjectStorageClient.delete_object(os_namespace, db_bucket, old_object_name, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
-        except Exception as error:
-            print ("WARNING: ",error)
+    # elif db_mode == "oci_bucket":
+    old_object_name = f"{instance_id}.json"
+    try:
+        response = ObjectStorageClient.delete_object(os_namespace, db_bucket, old_object_name, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
+    except Exception as error:
+        print ("WARNING: ",error)
 
 # ---- Stop if the snapshot does not exist
 def stop_if_snapsnot_does_not_exist(snap_dict, snapshot_name):
@@ -362,6 +400,7 @@ def stop_if_snapsnot_does_not_exist(snap_dict, snapshot_name):
 
     # if snapshot_name not found in snapshots list
     print (f"ERROR 03: there is no snapshot named {snapshot_name} for this compute instance !")
+    unlock(instance_id)
     exit(3)
 
 # ==== List snapshots of all compute instances
@@ -436,6 +475,7 @@ def create_snapshot(instance_id, snapshot_name, description):
     for snap in snap_dict["snapshots"]:
         if snap["name"] == snapshot_name:
             print (f"ERROR 01: A snapshot with name '{snapshot_name}' already exists. Please retry using a different name !")
+            unlock(instance_id)
             exit(1)
 
     # -- make sure the compute instance does not use an ephemeral public IP
@@ -765,6 +805,7 @@ def rename_snapshot(instance_id, snapshot_old_name, snapshot_new_name):
     for snap in snap_dict["snapshots"]:
         if snap["name"] == snapshot_new_name:
             print (f"ERROR 01: A snapshot with name '{snapshot_new_name}' already exists. Please retry using a different name !")
+            unlock(instance_id)
             exit(1)
 
     # -- check that the snapshot exists
@@ -862,11 +903,11 @@ response = ObjectStorageClient.get_namespace(retry_strategy=oci.retry.DEFAULT_RE
 os_namespace = response.data
 stop_if_bucket_does_not_exist()
 
-# -- if using local files as database, create snapshots db folder if it does not exist
-if db_mode == "local_file":
-    if not os.path.exists(db_folder):
-        os.makedirs(db_folder)
-        print ("Create dir")
+# # -- if using local files as database, create snapshots db folder if it does not exist
+# if db_mode == "local_file":
+#     if not os.path.exists(db_folder):
+#         os.makedirs(db_folder)
+#         print ("Create dir")
 
 # -- get list of compartments with all sub-compartments
 user              = IdentityClient.get_user(config["user"]).data
@@ -884,25 +925,35 @@ elif args.create:
     snapshot_name = args.create[0]
     snapshot_desc = args.create[1]
     instance_id   = args.create[2]
+    lock(instance_id)
     create_snapshot(instance_id, snapshot_name, snapshot_desc)
+    unlock(instance_id)
 elif args.rollback:
     snapshot_name = args.rollback[0]
     instance_id   = args.rollback[1]
+    lock(instance_id)
     rollback_snapshot(instance_id, snapshot_name)
+    unlock(instance_id)
 elif args.delete:
     snapshot_name = args.delete[0]
     instance_id   = args.delete[1]
+    lock(instance_id)
     delete_snapshot(instance_id, snapshot_name)
+    unlock(instance_id)
 elif args.rename:
     snapshot_old_name = args.rename[0]
     snapshot_new_name = args.rename[1]
     instance_id       = args.rename[2]
+    lock(instance_id)
     rename_snapshot(instance_id, snapshot_old_name, snapshot_new_name)
+    unlock(instance_id)
 elif args.change_desc:
     snapshot_name     = args.change_desc[0]
     snapshot_new_desc = args.change_desc[1]
     instance_id       = args.change_desc[2]
+    lock(instance_id)
     change_snapshot_decription(instance_id, snapshot_name, snapshot_new_desc)
+    unlock(instance_id)
 
 # -- the end
 exit(0)
