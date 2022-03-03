@@ -46,7 +46,7 @@
 #    2022-03-02: Add locks to avoid simultaneous operations on the same instance
 #    2022-03-02: Remove option to store snapshots information in local JSON files (mandatory usage of OCI bucket)
 #    2022-03-03: Add --create-multi operation to create a consistent snap for several compute instances
-#    2022-03-03: Add --delete-all operation to all snapshots for a compute instance
+#    2022-03-03: Add --delete-all operation to delete all snapshots for a compute instance
 # ---------------------------------------------------------------------------------------------------------------------------------
 
 # -------- import
