@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
 # ---------------------------------------------------------------------------------------------------------------------------------
-# This script implements snapshot-like feature for OCI compute instance using OCI Python SDK
+# This script implements snapshot-like feature for Oracle Cloud Infrastructure(OCI) compute instances using OCI Python SDK
 #
 # The user can execute the following operations:
 # --list-all     : list existing snapshots for all compute instances
 # --list         : list existing snapshots for a compute instance 
-# --create       : - take a new snapshot for a compute instance (cloned the boot volume and the block volumes and tag the instance and cloned volumes)
+# --create       : take a new snapshot for a compute instance (cloned the boot volume and the block volumes and tag the instance and cloned volumes)
 # --create-multi : take a new snapshot for several compute instances (cloned the boot volumes and the block volumes and tag the instances and cloned volumes)
 # --delete       : delete a snapshot for a compute instance (delete cloned volumes and remove tag from the instance)
 # --delete-all   : delete all snapshots for a compute instance (delete cloned volumes and remove tag from the instance)
