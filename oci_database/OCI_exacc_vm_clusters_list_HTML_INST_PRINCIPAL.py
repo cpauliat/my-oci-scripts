@@ -28,13 +28,19 @@
 #    2022-01-03: use argparse to parse arguments
 #    2022-04-27: Add the 'Quarterly maintenances" column
 #    2022-05-03: Fix minor bug in HTML code (</tr> instead of <tr> for table end line)
-#    2022-06-02: Replace user authentication by instance principal authentication
+#    2020-06-03: Add the --email option to send the HTML report by email
+#    2022-06-03: Replace user authentication by instance principal authentication
 # --------------------------------------------------------------------------------------------------------------
 
 # -------- import
 import oci
 import sys
 import argparse
+import os
+import smtplib
+import email.utils
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from datetime import datetime, timedelta, timezone
 
 # -------- variables
@@ -168,7 +174,7 @@ def search_autonomousvmclusters():
 
 # ---- Generate HTML page 
 def generate_html_headers():
-    my_str = """<!DOCTYPE html>
+    html_content = """<!DOCTYPE html>
 <html>
 <head>
     <meta http-equiv="content-type" content="text/html; charset=UTF-8">
@@ -200,12 +206,13 @@ def generate_html_headers():
         }
     </style>
 </head>"""
-    print (my_str)
+
+    return html_content
 
 def generate_html_table_exadatainfrastructures():
-    print ("    <table>")
-    print (f"        <caption>ExaCC Exadata infrastructures in tenant <b>{tenant_name.upper()}</b> on <b>{now_str}</b></caption>")
-    my_str = """        <tbody>
+    html_content  =   "    <table>"
+    html_content +=  f"        <caption>ExaCC Exadata infrastructures in tenant <b>{tenant_name.upper()}</b> on <b>{now_str}</b></caption>"
+    html_content += """        <tbody>
             <tr>
                 <th>Region</th>
                 <th>Compartment</th>
@@ -218,43 +225,43 @@ def generate_html_table_exadatainfrastructures():
                 <th>VM cluster(s)</th>
                 <th>Autonomous<br>VM cluster(s)</th>
             </tr>"""
-    print (my_str)
 
     for exadatainfrastructure in exadatainfrastructures:
         format   = "%b %d %Y %H:%M %Z"
         # format   = "%Y/%m/%d %H:%M %Z"
         cpt_name = get_cpt_name_from_id(exadatainfrastructure.compartment_id)
         url      = get_url_link_for_exadatainfrastructure(exadatainfrastructure)
-        print ( '            <tr>')
-        print (f'                <td>&nbsp;{exadatainfrastructure.region}&nbsp;</td>')
-        print (f'                <td>&nbsp;{cpt_name}&nbsp;</td>')
-        print (f'                <td>&nbsp;<a href="{url}">{exadatainfrastructure.display_name}</a> &nbsp;</td>')
-        print (f'                <td style="text-align: left">&nbsp;Last maintenance: <br>')
+        html_content +=  '            <tr>'
+        html_content += f'                <td>&nbsp;{exadatainfrastructure.region}&nbsp;</td>'
+        html_content += f'                <td>&nbsp;{cpt_name}&nbsp;</td>'
+        html_content += f'                <td>&nbsp;<a href="{url}">{exadatainfrastructure.display_name}</a> &nbsp;</td>'
+        html_content += f'                <td style="text-align: left">&nbsp;Last maintenance: <br>'
         try:
-            print (f'                    &nbsp; - {exadatainfrastructure.last_maintenance_start.strftime(format)} (start)&nbsp;<br>')
+            html_content += f'                    &nbsp; - {exadatainfrastructure.last_maintenance_start.strftime(format)} (start)&nbsp;<br>'
         except:
-            print (f'                    &nbsp; - no date/time (start)&nbsp;<br>')
+            html_content += f'                    &nbsp; - no date/time (start)&nbsp;<br>'
         try:
-            print (f'                    &nbsp; - {exadatainfrastructure.last_maintenance_end.strftime(format)} (end)&nbsp;<br><br>')
+            html_content += f'                    &nbsp; - {exadatainfrastructure.last_maintenance_end.strftime(format)} (end)&nbsp;<br><br>'
         except:
-            print (f'                    &nbsp; - no date/time (end)&nbsp;<br><br>')
-        print (f'                    &nbsp;Next maintenance: <br>')
+            html_content += f'                    &nbsp; - no date/time (end)&nbsp;<br><br>'
+        
+        html_content += f'                    &nbsp;Next maintenance: <br>'
         if exadatainfrastructure.next_maintenance == "":
-            print (f'                    &nbsp; - Not yet scheduled &nbsp;</td>')
+            html_content += f'                    &nbsp; - Not yet scheduled &nbsp;</td>'
         else:
             # if the next maintenance date is soon, display it in red
             if (exadatainfrastructure.next_maintenance - now < timedelta(days=15)):
-                print (f'                    &nbsp; - <span style="color: #ff0000">{exadatainfrastructure.next_maintenance.strftime(format)}</span>&nbsp;</td>')
+                html_content += f'                    &nbsp; - <span style="color: #ff0000">{exadatainfrastructure.next_maintenance.strftime(format)}</span>&nbsp;</td>'
             else:
-                print (f'                    &nbsp; - {exadatainfrastructure.next_maintenance.strftime(format)}&nbsp;</td>')
+                html_content += f'                    &nbsp; - {exadatainfrastructure.next_maintenance.strftime(format)}&nbsp;</td>'
 
-        print (f'                <td>&nbsp;{exadatainfrastructure.shape}&nbsp;</td>')
-        print (f'                <td>&nbsp;{exadatainfrastructure.compute_count} / {exadatainfrastructure.storage_count}&nbsp;</td>')
-        print (f'                <td>&nbsp;{exadatainfrastructure.cpus_enabled} / {exadatainfrastructure.max_cpu_count}&nbsp;</td>')
+        html_content += f'                <td>&nbsp;{exadatainfrastructure.shape}&nbsp;</td>'
+        html_content += f'                <td>&nbsp;{exadatainfrastructure.compute_count} / {exadatainfrastructure.storage_count}&nbsp;</td>'
+        html_content += f'                <td>&nbsp;{exadatainfrastructure.cpus_enabled} / {exadatainfrastructure.max_cpu_count}&nbsp;</td>'
         if (exadatainfrastructure.lifecycle_state != "ACTIVE"):
-            print (f'                <td>&nbsp;<span style="color: #ff0000">{exadatainfrastructure.lifecycle_state}&nbsp;</span></td>')
+            html_content += f'                <td>&nbsp;<span style="color: #ff0000">{exadatainfrastructure.lifecycle_state}&nbsp;</span></td>'
         else:
-            print (f'                <td>&nbsp;{exadatainfrastructure.lifecycle_state}&nbsp;</td>')
+            html_content += f'                <td>&nbsp;{exadatainfrastructure.lifecycle_state}&nbsp;</td>'
 
         vmc = []
         for vmcluster in vmclusters:
@@ -262,7 +269,7 @@ def generate_html_table_exadatainfrastructures():
                 url = get_url_link_for_vmcluster(vmcluster)
                 vmc.append(f'<a href="{url}">{vmcluster.display_name}</a>')
         separator = '&nbsp;<br>&nbsp;'
-        print (f'                <td>&nbsp;{separator.join(vmc)}&nbsp;</td>')
+        html_content += f'                <td>&nbsp;{separator.join(vmc)}&nbsp;</td>'
 
         avmc = []
         for autonomousvmcluster in autonomousvmclusters:
@@ -270,17 +277,18 @@ def generate_html_table_exadatainfrastructures():
                 url = get_url_link_for_autonomousvmcluster(autonomousvmcluster)
                 avmc.append(f'<a href="{url}">{autonomousvmcluster.display_name}</a>')
         separator = ', '
-        print (f'                <td>&nbsp;{separator.join(avmc)}&nbsp;</td>')
+        html_content += f'                <td>&nbsp;{separator.join(avmc)}&nbsp;</td>'
+        html_content +=  '            </tr>'
 
-        print ('            </tr>')
+    html_content +=  "        </tbody>"
+    html_content +=  "    </table>"
 
-    print ("        </tbody>")
-    print ("    </table>")
+    return html_content
 
 def generate_html_table_vmclusters():
-    print ("    <table>")
-    print (f"        <caption>ExaCC VM clusters in tenant <b>{tenant_name.upper()}</b> on <b>{now_str}</b></caption>")
-    my_str = """        <tbody>
+    html_content  =   "    <table>"
+    html_content +=  f"        <caption>ExaCC VM clusters in tenant <b>{tenant_name.upper()}</b> on <b>{now_str}</b></caption>"
+    html_content += """        <tbody>
             <tr>
                 <th>Region</th>
                 <th>Compartment</th>
@@ -291,35 +299,36 @@ def generate_html_table_vmclusters():
                 <th>Memory (GB)</th>
                 <th>Exadata infrastructure</th>
             </tr>"""
-    print (my_str)
 
     for vmcluster in vmclusters:
         cpt_name = get_cpt_name_from_id(vmcluster.compartment_id)
         url      = get_url_link_for_vmcluster(vmcluster)
-        print ( '            <tr>')
-        print (f'                <td>&nbsp;{vmcluster.region}&nbsp;</td>')
-        print (f'                <td>&nbsp;{cpt_name}&nbsp;</td>')
-        print (f'                <td>&nbsp;<a href="{url}">{vmcluster.display_name}</a> &nbsp;</td>')
+        html_content +=  '            <tr>'
+        html_content += f'                <td>&nbsp;{vmcluster.region}&nbsp;</td>'
+        html_content += f'                <td>&nbsp;{cpt_name}&nbsp;</td>'
+        html_content += f'                <td>&nbsp;<a href="{url}">{vmcluster.display_name}</a> &nbsp;</td>'
         if (vmcluster.lifecycle_state != "AVAILABLE"):
-            print (f'                <td>&nbsp;<span style="color: #ff0000">{vmcluster.lifecycle_state}&nbsp;</span></td>')
+            html_content +=f'                <td>&nbsp;<span style="color: #ff0000">{vmcluster.lifecycle_state}&nbsp;</span></td>'
         else:
-            print (f'                <td>&nbsp;{vmcluster.lifecycle_state}&nbsp;</td>')
-        print (f'                <td>&nbsp;{len(vmcluster.db_servers)}&nbsp;</td>')
-        print (f'                <td>&nbsp;{vmcluster.cpus_enabled}&nbsp;</td>')
-        print (f'                <td>&nbsp;{vmcluster.memory_size_in_gbs}&nbsp;</td>')
+            html_content +=f'                <td>&nbsp;{vmcluster.lifecycle_state}&nbsp;</td>'
+        html_content += f'                <td>&nbsp;{len(vmcluster.db_servers)}&nbsp;</td>'
+        html_content += f'                <td>&nbsp;{vmcluster.cpus_enabled}&nbsp;</td>'
+        html_content += f'                <td>&nbsp;{vmcluster.memory_size_in_gbs}&nbsp;</td>'
 
         exadatainfrastructure = get_exadata_infrastructure_from_id(vmcluster.exadata_infrastructure_id)
         url  = get_url_link_for_exadatainfrastructure(exadatainfrastructure)      
-        print (f'                <td>&nbsp;<a href="{url}">{exadatainfrastructure.display_name}</a>&nbsp;</td>')
-        print ('            </tr>')
+        html_content += f'                <td>&nbsp;<a href="{url}">{exadatainfrastructure.display_name}</a>&nbsp;</td>'
+        html_content +=  '            </tr>'
 
-    print ("        </tbody>")
-    print ("    </table>")
+    html_content += "        </tbody>"
+    html_content += "    </table>"
+
+    return html_content
 
 def generate_html_table_autonomousvmclusters():
-    print ("    <table>")
-    print (f"        <caption>ExaCC autonomous VM clusters in tenant <b>{tenant_name.upper()}</b> on <b>{now_str}</b></caption>")
-    my_str = """        <tbody>
+    html_content  =   "    <table>"
+    html_content +=  f"        <caption>ExaCC autonomous VM clusters in tenant <b>{tenant_name.upper()}</b> on <b>{now_str}</b></caption>"
+    html_content += """        <tbody>
             <tr>
                 <th>Region</th>
                 <th>Compartment</th>
@@ -328,71 +337,139 @@ def generate_html_table_autonomousvmclusters():
                 <th>OCPUs</th>
                 <th>Exadata infrastructure</th>
             </tr>"""
-    print (my_str)
 
     for autonomousvmcluster in autonomousvmclusters:
         cpt_name = get_cpt_name_from_id(autonomousvmcluster.compartment_id)
         url      = get_url_link_for_autonomousvmcluster(autonomousvmcluster)
-        print ( '            <tr>')
-        print (f'                <td>&nbsp;{autonomousvmcluster.region}&nbsp;</td>')
-        print (f'                <td>&nbsp;{cpt_name}&nbsp;</td>')
-        print (f'                <td>&nbsp;<a href="{url}">{autonomousvmcluster.display_name}</a> &nbsp;</td>')
+        html_content += '            <tr>'
+        html_content += f'                <td>&nbsp;{autonomousvmcluster.region}&nbsp;</td>'
+        html_content += f'                <td>&nbsp;{cpt_name}&nbsp;</td>'
+        html_content += f'                <td>&nbsp;<a href="{url}">{autonomousvmcluster.display_name}</a> &nbsp;</td>'
         if (autonomousvmcluster.lifecycle_state != "AVAILABLE"):
-            print (f'                <td>&nbsp;<span style="color: #ff0000">{autonomousvmcluster.lifecycle_state}&nbsp;</span></td>')
+            html_content += f'                <td>&nbsp;<span style="color: #ff0000">{autonomousvmcluster.lifecycle_state}&nbsp;</span></td>'
         else:
-            print (f'                <td>&nbsp;{autonomousvmcluster.lifecycle_state}&nbsp;</td>')
-        print (f'                <td>&nbsp;{autonomousvmcluster.cpus_enabled}&nbsp;</td>')
+            html_content += f'                <td>&nbsp;{autonomousvmcluster.lifecycle_state}&nbsp;</td>'
+        html_content += f'                <td>&nbsp;{autonomousvmcluster.cpus_enabled}&nbsp;</td>'
 
         exadatainfrastructure = get_exadata_infrastructure_from_id(autonomousvmcluster.exadata_infrastructure_id)
         url  = get_url_link_for_exadatainfrastructure(exadatainfrastructure)      
-        print (f'                <td>&nbsp;<a href="{url}">{exadatainfrastructure.display_name}</a>&nbsp;</td>')
-        print ('            </tr>')
+        html_content += f'                <td>&nbsp;<a href="{url}">{exadatainfrastructure.display_name}</a>&nbsp;</td>'
+        html_content +=  '            </tr>'
 
-    print ("        </tbody>")
-    print ("    </table>")
+    html_content += "        </tbody>"
+    html_content += "    </table>"
 
-def generate_html():
+    return html_content
+
+def generate_html_report():
 
     # headers
-    generate_html_headers()
+    html_report = generate_html_headers()
 
     # body start
-    print ("<body>")
+    html_report += "<body>"
 
     # ExaCC Exadata infrastructures
-    print ("    <h2>ExaCC Exadata infrastructures</h2>")
+    html_report += "    <h2>ExaCC Exadata infrastructures</h2>"
     if len(exadatainfrastructures) > 0:
-        generate_html_table_exadatainfrastructures()
+        html_report += generate_html_table_exadatainfrastructures()
     else:
-        print ("    None")
+        html_report += "    None"
 
     # ExaCC VM Clusters
-    print ("    <h2>ExaCC VM Clusters</h2>")
+    html_report += "    <h2>ExaCC VM Clusters</h2>"
     if len(vmclusters) > 0:
-        generate_html_table_vmclusters()
+        html_report += generate_html_table_vmclusters()
     else:
-        print ("    None")
+        html_report += "    None"
 
     # ExaCC Autonomous VM Clusters
-    print ("    <h2>ExaCC Autonomous VM Clusters</h2>")
+    html_report += "    <h2>ExaCC Autonomous VM Clusters</h2>"
     if len(autonomousvmclusters) > 0:
-        generate_html_table_autonomousvmclusters()
+        html_report += generate_html_table_autonomousvmclusters()
     else:
-        print ("    None")
+        html_report += "    None"
 
     # end of body and html page
-    print ("    <p>")
-    print ("</body>")
-    print ("</html>")
+    html_report += "    <p>"
+    html_report += "</body>"
+    html_report += "</html>"
+
+    #
+    return html_report
+
+# ---- send an email to 1 or more recipients 
+def send_email(email_recipients, html_report):
+
+    # The email subject
+    email_subject = f"{tenant_name.upper()}: ExaCC status report"
+
+    # Create message container - the correct MIME type is multipart/alternative.
+    msg = MIMEMultipart('alternative')
+    msg['Subject'] = email_subject
+    msg['From']    = email.utils.formataddr((email_sender_name, email_sender_address))
+    msg['To']      = email_recipients
+
+    # The email body for recipients with non-HTML email clients.
+    # email_body_text = ( "The quarterly maintenance for Exadata Cloud @ Customer group  just COMPLETED.\n\n" 
+    #                     f"The maintenance report is stored as object \n" )
+
+    # The email body for recipients with HTML email clients.
+    email_body_html = html_report
+
+    # Record the MIME types: text/plain and html
+    # part1 = MIMEText(email_body_text, 'plain')
+    part2 = MIMEText(email_body_html, 'html')
+
+    # Attach parts into message container.
+    # According to RFC 2046, the last part of a multipart message, in this case the HTML message, is best and preferred.
+    # msg.attach(part1)
+    msg.attach(part2)
+
+    # send the EMAIL
+    email_recipients_list = email_recipients.split(",")
+    server = smtplib.SMTP(email_smtp_host, email_smtp_port)
+    server.ehlo()
+    server.starttls()
+    #smtplib docs recommend calling ehlo() before & after starttls()
+    server.ehlo()
+    server.login(email_smtp_user, email_smtp_password)
+    server.sendmail(email_sender_address, email_recipients_list, msg.as_string())
+    server.close()
+
+# ---- get the email configuration from environment variables:
+#      EMAIL_SMTP_USER, EMAIL_SMTP_PASSWORD, EMAIL_SMTP_HOST, EMAIL_SMTP_PORT, EMAIL_SENDER_NAME, EMAIL_SENDER_ADDRESS 
+def get_email_configuration():
+    global email_smtp_user
+    global email_smtp_password
+    global email_smtp_host
+    global email_smtp_port
+    global email_sender_name
+    global email_sender_address
+
+    try:
+        email_smtp_user      = os.environ['EMAIL_SMTP_USER']
+        email_smtp_password  = os.environ['EMAIL_SMTP_PASSWORD']
+        email_smtp_host      = os.environ['EMAIL_SMTP_HOST']
+        email_smtp_port      = os.environ['EMAIL_SMTP_PORT']
+        email_sender_name    = os.environ['EMAIL_SENDER_NAME']
+        email_sender_address = os.environ['EMAIL_SENDER_ADDRESS']
+    except:
+        print ("ERROR: the following environments variables must be set for emails: EMAIL_SMTP_USER, EMAIL_SMTP_PASSWORD, EMAIL_SMTP_HOST, EMAIL_SMTP_PORT, EMAIL_SENDER_NAME, EMAIL_SENDER_ADDRESS !")
+        exit (3)
 
 # -------- main
 
 # -- parse arguments
 parser = argparse.ArgumentParser(description = "List ExaCC VM clusters in HTML format")
 parser.add_argument("-a", "--all_regions", help="Do this for all regions", action="store_true")
+parser.add_argument("-e", "--email", help="email the HTML report to a list of comma separated email addresses")
 args = parser.parse_args()
 
 all_regions = args.all_regions
+
+if args.email:
+    get_email_configuration()
 
 # -- authentication using instance principal
 signer = oci.auth.signers.InstancePrincipalsSecurityTokenSigner()
@@ -452,7 +529,14 @@ else:
         search_autonomousvmclusters()
 
 # -- Generate HTML page with results
-generate_html()
+html_report = generate_html_report()
+
+# -- Display HTML report 
+print(html_report)
+
+# -- Send email if requested
+if args.email:
+    send_email(args.email, html_report)
 
 # -- the end
 exit (0)
