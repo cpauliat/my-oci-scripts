@@ -203,13 +203,13 @@ def generate_html_headers():
             font-style: italic;
         }
     </style>
-</head>"""
+</head>\n"""
 
     return html_content
 
 def generate_html_table_exadatainfrastructures():
-    html_content  =   "    <table>"
-    html_content +=  f"        <caption>ExaCC Exadata infrastructures in tenant <b>{tenant_name.upper()}</b> on <b>{now_str}</b></caption>"
+    html_content  =   "    <table>\n"
+    html_content +=  f"        <caption>ExaCC Exadata infrastructures in tenant <b>{tenant_name.upper()}</b> on <b>{now_str}</b></caption>\n"
     html_content += """        <tbody>
             <tr>
                 <th>Region</th>
@@ -222,44 +222,44 @@ def generate_html_table_exadatainfrastructures():
                 <th>Status</th>
                 <th>VM cluster(s)</th>
                 <th>Autonomous<br>VM cluster(s)</th>
-            </tr>"""
+            </tr>\n"""
 
     for exadatainfrastructure in exadatainfrastructures:
         format   = "%b %d %Y %H:%M %Z"
         # format   = "%Y/%m/%d %H:%M %Z"
         cpt_name = get_cpt_name_from_id(exadatainfrastructure.compartment_id)
         url      = get_url_link_for_exadatainfrastructure(exadatainfrastructure)
-        html_content +=  '            <tr>'
-        html_content += f'                <td>&nbsp;{exadatainfrastructure.region}&nbsp;</td>'
-        html_content += f'                <td>&nbsp;{cpt_name}&nbsp;</td>'
-        html_content += f'                <td>&nbsp;<a href="{url}">{exadatainfrastructure.display_name}</a> &nbsp;</td>'
-        html_content += f'                <td style="text-align: left">&nbsp;Last maintenance: <br>'
+        html_content +=  '            <tr>\n'
+        html_content += f'                <td>&nbsp;{exadatainfrastructure.region}&nbsp;</td>\n'
+        html_content += f'                <td>&nbsp;{cpt_name}&nbsp;</td>\n'
+        html_content += f'                <td>&nbsp;<a href="{url}">{exadatainfrastructure.display_name}</a> &nbsp;</td>\n'
+        html_content += f'                <td style="text-align: left">&nbsp;Last maintenance: <br>\n'
         try:
-            html_content += f'                    &nbsp; - {exadatainfrastructure.last_maintenance_start.strftime(format)} (start)&nbsp;<br>'
+            html_content += f'                    &nbsp; - {exadatainfrastructure.last_maintenance_start.strftime(format)} (start)&nbsp;<br>\n'
         except:
-            html_content += f'                    &nbsp; - no date/time (start)&nbsp;<br>'
+            html_content += f'                    &nbsp; - no date/time (start)&nbsp;<br>\n'
         try:
-            html_content += f'                    &nbsp; - {exadatainfrastructure.last_maintenance_end.strftime(format)} (end)&nbsp;<br><br>'
+            html_content += f'                    &nbsp; - {exadatainfrastructure.last_maintenance_end.strftime(format)} (end)&nbsp;<br><br>\n'
         except:
-            html_content += f'                    &nbsp; - no date/time (end)&nbsp;<br><br>'
+            html_content += f'                    &nbsp; - no date/time (end)&nbsp;<br><br>\n'
         
-        html_content += f'                    &nbsp;Next maintenance: <br>'
+        html_content += f'                    &nbsp;Next maintenance: <br>\n'
         if exadatainfrastructure.next_maintenance == "":
-            html_content += f'                    &nbsp; - Not yet scheduled &nbsp;</td>'
+            html_content += f'                    &nbsp; - Not yet scheduled &nbsp;</td>\n'
         else:
             # if the next maintenance date is soon, display it in red
             if (exadatainfrastructure.next_maintenance - now < timedelta(days=15)):
-                html_content += f'                    &nbsp; - <span style="color: #ff0000">{exadatainfrastructure.next_maintenance.strftime(format)}</span>&nbsp;</td>'
+                html_content += f'                    &nbsp; - <span style="color: #ff0000">{exadatainfrastructure.next_maintenance.strftime(format)}</span>&nbsp;</td>\n'
             else:
-                html_content += f'                    &nbsp; - {exadatainfrastructure.next_maintenance.strftime(format)}&nbsp;</td>'
+                html_content += f'                    &nbsp; - {exadatainfrastructure.next_maintenance.strftime(format)}&nbsp;</td>\n'
 
-        html_content += f'                <td>&nbsp;{exadatainfrastructure.shape}&nbsp;</td>'
-        html_content += f'                <td>&nbsp;{exadatainfrastructure.compute_count} / {exadatainfrastructure.storage_count}&nbsp;</td>'
-        html_content += f'                <td>&nbsp;{exadatainfrastructure.cpus_enabled} / {exadatainfrastructure.max_cpu_count}&nbsp;</td>'
+        html_content += f'                <td>&nbsp;{exadatainfrastructure.shape}&nbsp;</td>\n'
+        html_content += f'                <td>&nbsp;{exadatainfrastructure.compute_count} / {exadatainfrastructure.storage_count}&nbsp;</td>\n'
+        html_content += f'                <td>&nbsp;{exadatainfrastructure.cpus_enabled} / {exadatainfrastructure.max_cpu_count}&nbsp;</td>\n'
         if (exadatainfrastructure.lifecycle_state != "ACTIVE"):
-            html_content += f'                <td>&nbsp;<span style="color: #ff0000">{exadatainfrastructure.lifecycle_state}&nbsp;</span></td>'
+            html_content += f'                <td>&nbsp;<span style="color: #ff0000">{exadatainfrastructure.lifecycle_state}&nbsp;</span></td>\n'
         else:
-            html_content += f'                <td>&nbsp;{exadatainfrastructure.lifecycle_state}&nbsp;</td>'
+            html_content += f'                <td>&nbsp;{exadatainfrastructure.lifecycle_state}&nbsp;</td>\n'
 
         vmc = []
         for vmcluster in vmclusters:
@@ -267,7 +267,7 @@ def generate_html_table_exadatainfrastructures():
                 url = get_url_link_for_vmcluster(vmcluster)
                 vmc.append(f'<a href="{url}">{vmcluster.display_name}</a>')
         separator = '&nbsp;<br>&nbsp;'
-        html_content += f'                <td>&nbsp;{separator.join(vmc)}&nbsp;</td>'
+        html_content += f'                <td>&nbsp;{separator.join(vmc)}&nbsp;</td>\n'
 
         avmc = []
         for autonomousvmcluster in autonomousvmclusters:
@@ -275,17 +275,17 @@ def generate_html_table_exadatainfrastructures():
                 url = get_url_link_for_autonomousvmcluster(autonomousvmcluster)
                 avmc.append(f'<a href="{url}">{autonomousvmcluster.display_name}</a>')
         separator = ', '
-        html_content += f'                <td>&nbsp;{separator.join(avmc)}&nbsp;</td>'
-        html_content +=  '            </tr>'
+        html_content += f'                <td>&nbsp;{separator.join(avmc)}&nbsp;</td>\n'
+        html_content +=  '            </tr>\n'
 
-    html_content +=  "        </tbody>"
-    html_content +=  "    </table>"
+    html_content +=  "        </tbody>\n"
+    html_content +=  "    </table>\n"
 
     return html_content
 
 def generate_html_table_vmclusters():
-    html_content  =   "    <table>"
-    html_content +=  f"        <caption>ExaCC VM clusters in tenant <b>{tenant_name.upper()}</b> on <b>{now_str}</b></caption>"
+    html_content  =   "    <table>\n"
+    html_content +=  f"        <caption>ExaCC VM clusters in tenant <b>{tenant_name.upper()}</b> on <b>{now_str}</b></caption>\n"
     html_content += """        <tbody>
             <tr>
                 <th>Region</th>
@@ -296,36 +296,36 @@ def generate_html_table_vmclusters():
                 <th>OCPUs</th>
                 <th>Memory (GB)</th>
                 <th>Exadata infrastructure</th>
-            </tr>"""
+            </tr>\n"""
 
     for vmcluster in vmclusters:
         cpt_name = get_cpt_name_from_id(vmcluster.compartment_id)
         url      = get_url_link_for_vmcluster(vmcluster)
-        html_content +=  '            <tr>'
-        html_content += f'                <td>&nbsp;{vmcluster.region}&nbsp;</td>'
-        html_content += f'                <td>&nbsp;{cpt_name}&nbsp;</td>'
-        html_content += f'                <td>&nbsp;<a href="{url}">{vmcluster.display_name}</a> &nbsp;</td>'
+        html_content +=  '            <tr>\n'
+        html_content += f'                <td>&nbsp;{vmcluster.region}&nbsp;</td>\n'
+        html_content += f'                <td>&nbsp;{cpt_name}&nbsp;</td>\n'
+        html_content += f'                <td>&nbsp;<a href="{url}">{vmcluster.display_name}</a> &nbsp;</td>\n'
         if (vmcluster.lifecycle_state != "AVAILABLE"):
-            html_content +=f'                <td>&nbsp;<span style="color: #ff0000">{vmcluster.lifecycle_state}&nbsp;</span></td>'
+            html_content +=f'                <td>&nbsp;<span style="color: #ff0000">{vmcluster.lifecycle_state}&nbsp;</span></td>\n'
         else:
-            html_content +=f'                <td>&nbsp;{vmcluster.lifecycle_state}&nbsp;</td>'
-        html_content += f'                <td>&nbsp;{len(vmcluster.db_servers)}&nbsp;</td>'
-        html_content += f'                <td>&nbsp;{vmcluster.cpus_enabled}&nbsp;</td>'
-        html_content += f'                <td>&nbsp;{vmcluster.memory_size_in_gbs}&nbsp;</td>'
+            html_content +=f'                <td>&nbsp;{vmcluster.lifecycle_state}&nbsp;</td>\n'
+        html_content += f'                <td>&nbsp;{len(vmcluster.db_servers)}&nbsp;</td>\n'
+        html_content += f'                <td>&nbsp;{vmcluster.cpus_enabled}&nbsp;</td>\n'
+        html_content += f'                <td>&nbsp;{vmcluster.memory_size_in_gbs}&nbsp;</td>\n'
 
         exadatainfrastructure = get_exadata_infrastructure_from_id(vmcluster.exadata_infrastructure_id)
         url  = get_url_link_for_exadatainfrastructure(exadatainfrastructure)      
-        html_content += f'                <td>&nbsp;<a href="{url}">{exadatainfrastructure.display_name}</a>&nbsp;</td>'
-        html_content +=  '            </tr>'
+        html_content += f'                <td>&nbsp;<a href="{url}">{exadatainfrastructure.display_name}</a>&nbsp;</td>\n'
+        html_content +=  '            </tr>\n'
 
-    html_content += "        </tbody>"
-    html_content += "    </table>"
+    html_content += "        </tbody>\n"
+    html_content += "    </table>\n"
 
     return html_content
 
 def generate_html_table_autonomousvmclusters():
-    html_content  =   "    <table>"
-    html_content +=  f"        <caption>ExaCC autonomous VM clusters in tenant <b>{tenant_name.upper()}</b> on <b>{now_str}</b></caption>"
+    html_content  =   "    <table>\n"
+    html_content +=  f"        <caption>ExaCC autonomous VM clusters in tenant <b>{tenant_name.upper()}</b> on <b>{now_str}</b></caption>\n"
     html_content += """        <tbody>
             <tr>
                 <th>Region</th>
@@ -334,28 +334,28 @@ def generate_html_table_autonomousvmclusters():
                 <th>Status</th>
                 <th>OCPUs</th>
                 <th>Exadata infrastructure</th>
-            </tr>"""
+            </tr>\n"""
 
     for autonomousvmcluster in autonomousvmclusters:
         cpt_name = get_cpt_name_from_id(autonomousvmcluster.compartment_id)
         url      = get_url_link_for_autonomousvmcluster(autonomousvmcluster)
-        html_content += '            <tr>'
-        html_content += f'                <td>&nbsp;{autonomousvmcluster.region}&nbsp;</td>'
-        html_content += f'                <td>&nbsp;{cpt_name}&nbsp;</td>'
-        html_content += f'                <td>&nbsp;<a href="{url}">{autonomousvmcluster.display_name}</a> &nbsp;</td>'
+        html_content += '            <tr>\n'
+        html_content += f'                <td>&nbsp;{autonomousvmcluster.region}&nbsp;</td>\n'
+        html_content += f'                <td>&nbsp;{cpt_name}&nbsp;</td>\n'
+        html_content += f'                <td>&nbsp;<a href="{url}">{autonomousvmcluster.display_name}</a> &nbsp;</td>\n'
         if (autonomousvmcluster.lifecycle_state != "AVAILABLE"):
-            html_content += f'                <td>&nbsp;<span style="color: #ff0000">{autonomousvmcluster.lifecycle_state}&nbsp;</span></td>'
+            html_content += f'                <td>&nbsp;<span style="color: #ff0000">{autonomousvmcluster.lifecycle_state}&nbsp;</span></td>\n'
         else:
-            html_content += f'                <td>&nbsp;{autonomousvmcluster.lifecycle_state}&nbsp;</td>'
-        html_content += f'                <td>&nbsp;{autonomousvmcluster.cpus_enabled}&nbsp;</td>'
+            html_content += f'                <td>&nbsp;{autonomousvmcluster.lifecycle_state}&nbsp;</td>\n'
+        html_content += f'                <td>&nbsp;{autonomousvmcluster.cpus_enabled}&nbsp;</td>\n'
 
         exadatainfrastructure = get_exadata_infrastructure_from_id(autonomousvmcluster.exadata_infrastructure_id)
         url  = get_url_link_for_exadatainfrastructure(exadatainfrastructure)      
-        html_content += f'                <td>&nbsp;<a href="{url}">{exadatainfrastructure.display_name}</a>&nbsp;</td>'
-        html_content +=  '            </tr>'
+        html_content += f'                <td>&nbsp;<a href="{url}">{exadatainfrastructure.display_name}</a>&nbsp;</td>\n'
+        html_content +=  '            </tr>\n'
 
-    html_content += "        </tbody>"
-    html_content += "    </table>"
+    html_content += "        </tbody>\n"
+    html_content += "    </table>\n"
 
     return html_content
 
@@ -365,33 +365,33 @@ def generate_html_report():
     html_report = generate_html_headers()
 
     # body start
-    html_report += "<body>"
+    html_report += "<body>\n"
 
     # ExaCC Exadata infrastructures
-    html_report += "    <h2>ExaCC Exadata infrastructures</h2>"
+    html_report += "    <h2>ExaCC Exadata infrastructures</h2>\n"
     if len(exadatainfrastructures) > 0:
         html_report += generate_html_table_exadatainfrastructures()
     else:
-        html_report += "    None"
+        html_report += "    None\n"
 
     # ExaCC VM Clusters
-    html_report += "    <h2>ExaCC VM Clusters</h2>"
+    html_report += "    <h2>ExaCC VM Clusters</h2>\n"
     if len(vmclusters) > 0:
         html_report += generate_html_table_vmclusters()
     else:
-        html_report += "    None"
+        html_report += "    None\n"
 
     # ExaCC Autonomous VM Clusters
-    html_report += "    <h2>ExaCC Autonomous VM Clusters</h2>"
+    html_report += "    <h2>ExaCC Autonomous VM Clusters</h2>\n"
     if len(autonomousvmclusters) > 0:
         html_report += generate_html_table_autonomousvmclusters()
     else:
-        html_report += "    None"
+        html_report += "    None\n"
 
     # end of body and html page
-    html_report += "    <p>"
-    html_report += "</body>"
-    html_report += "</html>"
+    html_report += "    <p>\n"
+    html_report += "</body>\n"
+    html_report += "</html>\n"
 
     #
     return html_report
