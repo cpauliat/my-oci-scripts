@@ -27,6 +27,8 @@
 #    2022-04-27: Add the 'Quarterly maintenances" column
 #    2022-05-03: Fix minor bug in HTML code (</tr> instead of <tr> for table end line)
 #    2020-06-03: Add the --email option to send the HTML report by email
+#    2020-06-08: Add the --inst-principal option to use instance principal authentication instead of user authentication
+#    2020-06-08: Add the --bucket-name option to store the reports in an OCI object storage bucket
 # --------------------------------------------------------------------------------------------------------------
 
 # -------- import
@@ -108,10 +110,16 @@ def exadatainfrastructure_get_details (exadatainfrastructure_id):
     global exadatainfrastructures
 
     # get details about exadatainfrastructure from regular API 
-    DatabaseClient = oci.database.DatabaseClient(config)
+    if authentication_mode == "user_profile":
+        DatabaseClient = oci.database.DatabaseClient(config)
+    else:
+        DatabaseClient = oci.database.DatabaseClient(config={}, signer=signer)
     response = DatabaseClient.get_exadata_infrastructure (exadata_infrastructure_id = exadatainfrastructure_id, retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
     exainfra = response.data
-    exainfra.region = config["region"]
+    if authentication_mode == "user_profile":
+        exainfra.region = config["region"]
+    else:
+        exainfra.region = signer.region
     # print (f"<pre>DEBUG: {exainfra}</pre>")
     exainfra.last_maintenance_start, exainfra.last_maintenance_end = get_last_maintenance_dates(DatabaseClient, exainfra.last_maintenance_run_id)
     exainfra.next_maintenance = get_next_maintenance_date(DatabaseClient, exainfra.next_maintenance_run_id)
@@ -122,10 +130,16 @@ def vmcluster_get_details (vmcluster_id):
     global vmclusters
 
     # get details about vmcluster from regular API 
-    DatabaseClient = oci.database.DatabaseClient(config)
+    if authentication_mode == "user_profile":
+        DatabaseClient = oci.database.DatabaseClient(config)
+    else:
+        DatabaseClient = oci.database.DatabaseClient(config={}, signer=signer)
     response = DatabaseClient.get_vm_cluster (vm_cluster_id = vmcluster_id, retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
     vmclust = response.data
-    vmclust.region = config["region"]
+    if authentication_mode == "user_profile":
+        vmclust.region = config["region"]
+    else:
+        vmclust.region = signer.region
     vmclusters.append (vmclust)
 
 # ---- Get details for an autonomous VM cluster
@@ -133,16 +147,25 @@ def autonomousvmcluster_get_details (autonomousvmcluster_id):
     global autonomousvmclusters
 
     # get details about autonomous vmcluster from regular API 
-    DatabaseClient = oci.database.DatabaseClient(config)
+    if authentication_mode == "user_profile":
+        DatabaseClient = oci.database.DatabaseClient(config)
+    else:
+        DatabaseClient = oci.database.DatabaseClient(config={}, signer=signer)
     response = DatabaseClient.get_autonomous_vm_cluster (autonomous_vm_cluster_id = autonomousvmcluster_id, retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
     autovmclust = response.data
-    autovmclust.region = config["region"]
+    if authentication_mode == "user_profile":
+        autovmclust.region = config["region"]
+    else:
+        autovmclust.region = signer.region
     autonomousvmclusters.append (autovmclust)
 
 # ---- Get the list of Exadata infrastructures
 def search_exadatainfrastructures():
     query = "query exadatainfrastructure resources"
-    SearchClient = oci.resource_search.ResourceSearchClient(config)
+    if authentication_mode == "user_profile":
+        SearchClient = oci.resource_search.ResourceSearchClient(config)
+    else:
+        SearchClient = oci.resource_search.ResourceSearchClient(config={}, signer=signer)
     response = SearchClient.search_resources(
         oci.resource_search.models.StructuredSearchDetails(type="Structured", query=query), 
         retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
@@ -152,7 +175,10 @@ def search_exadatainfrastructures():
 # ---- Get the list of VM clusters
 def search_vmclusters():
     query = "query vmcluster resources"
-    SearchClient = oci.resource_search.ResourceSearchClient(config)
+    if authentication_mode == "user_profile":
+        SearchClient = oci.resource_search.ResourceSearchClient(config)
+    else:
+        SearchClient = oci.resource_search.ResourceSearchClient(config={}, signer=signer)
     response = SearchClient.search_resources(
         oci.resource_search.models.StructuredSearchDetails(type="Structured", query=query),
         retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
@@ -162,7 +188,10 @@ def search_vmclusters():
 # ---- Get the list of autonomous VM clusters
 def search_autonomousvmclusters():
     query = "query autonomousvmcluster resources"
-    SearchClient = oci.resource_search.ResourceSearchClient(config)
+    if authentication_mode == "user_profile":
+        SearchClient = oci.resource_search.ResourceSearchClient(config)
+    else:
+        SearchClient = oci.resource_search.ResourceSearchClient(config={}, signer=signer)
     response = SearchClient.search_resources(
         oci.resource_search.models.StructuredSearchDetails(type="Structured", query=query),
         retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
@@ -456,31 +485,74 @@ def get_email_configuration():
         print ("ERROR: the following environments variables must be set for emails: EMAIL_SMTP_USER, EMAIL_SMTP_PASSWORD, EMAIL_SMTP_HOST, EMAIL_SMTP_PORT, EMAIL_SENDER_NAME, EMAIL_SENDER_ADDRESS !")
         exit (3)
 
+def set_region(region_name):
+    global signer
+    global config
+
+    if authentication_mode == "user_profile":
+        config["region"] = region_name
+    else:
+        signer.region = region_name
+
+# ---- Store the HTML report in an OCI bucket
+def store_report_in_bucket(bucket_name, html_report):
+    if authentication_mode == "user_profile":
+        ObjectStorageClient = oci.object_storage.ObjectStorageClient(config)
+    else:
+        ObjectStorageClient = oci.object_storage.ObjectStorageClient(config={}, signer=signer)
+
+    # Save report to bucket
+    now_str = now.strftime("%Y-%m-%d_%H:%M")
+    namespace = ObjectStorageClient.get_namespace().data
+    print (config["region"])
+    response  = ObjectStorageClient.put_object(
+        namespace_name  = namespace,
+        bucket_name     = bucket_name,
+        object_name     = f"ExaCC_report_{now_str}.html",
+        put_object_body = html_report,
+        content_type    = "text/html",
+        retry_strategy  = oci.retry.DEFAULT_RETRY_STRATEGY) 
+
 # -------- main
 
 # -- parse arguments
 parser = argparse.ArgumentParser(description = "List ExaCC VM clusters in HTML format")
-parser.add_argument("-p", "--profile", help="OCI profile", required=True)
 parser.add_argument("-a", "--all_regions", help="Do this for all regions", action="store_true")
 parser.add_argument("-e", "--email", help="email the HTML report to a list of comma separated email addresses")
+parser.add_argument("-bn", "--bucket-name", help="Store the HTML report in an OCI bucket")
+group = parser.add_mutually_exclusive_group(required=True)
+group.add_argument("-p", "--profile", help="OCI profile for user authentication")
+group.add_argument("-ip", "--inst-principal", help="Use instance principal authentication", action="store_true")
+
 args = parser.parse_args()
 
 profile     = args.profile
 all_regions = args.all_regions
 
+if args.inst_principal:
+    authentication_mode = "instance_principal"
+else:
+    authentication_mode = "user_profile"
+
 if args.email:
     get_email_configuration()
 
-# -- get info from profile    
-try:
-    config = oci.config.from_file(configfile,profile)
-except:
-    print (f"ERROR: profile '{profile}' not found in config file {configfile} !")
-    exit (2)
-
-IdentityClient = oci.identity.IdentityClient(config)
-user = IdentityClient.get_user(config["user"], retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY).data
-RootCompartmentID = user.compartment_id
+# -- authentication to OCI
+if authentication_mode == "user_profile":
+    # authentication using user profile
+    try:
+        config = oci.config.from_file(configfile,profile)
+    except:
+        print (f"ERROR: profile '{profile}' not found in config file {configfile} !")
+        exit (2)
+    IdentityClient = oci.identity.IdentityClient(config)
+    user = IdentityClient.get_user(config["user"], retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY).data
+    RootCompartmentID = user.compartment_id
+else:
+    # authentication using instance principal
+    signer = oci.auth.signers.InstancePrincipalsSecurityTokenSigner()
+    IdentityClient = oci.identity.IdentityClient(config={}, signer=signer)
+    RootCompartmentID = signer.tenancy_id
 
 # -- get list of subscribed regions
 response = oci.pagination.list_call_get_all_results(
@@ -502,20 +574,21 @@ response = oci.pagination.list_call_get_all_results(
     retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
 compartments = response.data
 
-# -- Get current Date and Time (UTC timezone)
-now = datetime.now(timezone.utc)
-now_str = now.strftime("%c %Z")
-
 # -- Get Tenancy Name
 response = IdentityClient.get_tenancy(RootCompartmentID, retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
 tenant_name = response.data.name
 
+# -- Get current Date and Time (UTC timezone)
+now = datetime.now(timezone.utc)
+now_str = now.strftime("%c %Z")
+
+# -- OCI 
 # -- Run the search query/queries for ExaCC Exadata infrastructures and save results in exadatainfrastructures list
 if not(all_regions):
     search_exadatainfrastructures()
 else:
     for region in regions:
-        config["region"]=region.region_name
+        set_region(region.region_name)
         search_exadatainfrastructures()
 
 # -- Run the search query/queries for ExaCC VM clusters and save results in vmclusters list
@@ -523,7 +596,7 @@ if not(all_regions):
     search_vmclusters()
 else:
     for region in regions:
-        config["region"]=region.region_name
+        set_region(region.region_name)
         search_vmclusters()
 
 # -- Run the search query/queries for ExaCC autonomous VM clusters and save results in autonomousvmclusters list
@@ -531,7 +604,7 @@ if not(all_regions):
     search_autonomousvmclusters()
 else:
     for region in regions:
-        config["region"]=region.region_name
+        set_region(region.region_name)
         search_autonomousvmclusters()
 
 # -- Generate HTML page with results
@@ -540,9 +613,16 @@ html_report = generate_html_report()
 # -- Display HTML report 
 print(html_report)
 
-# -- Send email if requested
+# -- Send HTML report by email if requested
 if args.email:
     send_email(args.email, html_report)
+
+# -- Store HTML report into OCI object storage bucket if requested
+# -- If processing all regions, then the bucket must be in the home region
+if args.bucket_name:
+    if all_regions:
+        set_region(home_region)
+    store_report_in_bucket(args.bucket_name, html_report)
 
 # -- the end
 exit (0)
