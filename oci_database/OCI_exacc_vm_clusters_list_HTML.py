@@ -617,11 +617,9 @@ print(html_report)
 if args.email:
     send_email(args.email, html_report)
 
-# -- Store HTML report into OCI object storage bucket if requested
-# -- If processing all regions, then the bucket must be in the home region
+# -- Store HTML report into an OCI object storage bucket (in the home region) if requested
 if args.bucket_name:
-    if all_regions:
-        set_region(home_region)
+    set_region(home_region)
     store_report_in_bucket(args.bucket_name, html_report)
 
 # -- the end
