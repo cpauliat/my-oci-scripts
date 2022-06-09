@@ -504,7 +504,6 @@ def store_report_in_bucket(bucket_name, html_report):
     # Save report to bucket
     now_str = now.strftime("%Y-%m-%d_%H:%M")
     namespace = ObjectStorageClient.get_namespace().data
-    print (config["region"])
     response  = ObjectStorageClient.put_object(
         namespace_name  = namespace,
         bucket_name     = bucket_name,
