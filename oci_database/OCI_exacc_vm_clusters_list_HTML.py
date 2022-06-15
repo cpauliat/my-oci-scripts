@@ -26,9 +26,11 @@
 #    2022-01-03: use argparse to parse arguments
 #    2022-04-27: Add the 'Quarterly maintenances" column
 #    2022-05-03: Fix minor bug in HTML code (</tr> instead of <tr> for table end line)
-#    2020-06-03: Add the --email option to send the HTML report by email
-#    2020-06-08: Add the --inst-principal option to use instance principal authentication instead of user authentication
-#    2020-06-08: Add the --bucket-name option to store the reports in an OCI object storage bucket
+#    2022-06-03: Add the --email option to send the HTML report by email
+#    2022-06-08: Add the --inst-principal option to use instance principal authentication instead of user authentication
+#    2022-06-08: Add the --bucket-name option to store the reports in an OCI object storage bucket
+#    2022-06-15: Replace console.{home_region}.oraclecloud.com by cloud.oracle.com in get_url_link*() functions
+#    2022-06-15: Print error messages to stderr instead of stdout
 # --------------------------------------------------------------------------------------------------------------
 
 # -------- import
@@ -79,15 +81,15 @@ def get_exadata_infrastructure_from_id (exadatainfrastructure_id):
 
 # ---- Get url link to a specific Exadata infrastructure in OCI Console
 def get_url_link_for_exadatainfrastructure(exadatainfrastructure):
-    return f"https://console.{home_region}.oraclecloud.com/exacc/infrastructures/{exadatainfrastructure.id}?tenant={tenant_name}&region={exadatainfrastructure.region}"
+    return f"https://cloud.oracle.com/exacc/infrastructures/{exadatainfrastructure.id}?tenant={tenant_name}&region={exadatainfrastructure.region}"
 
 # ---- Get url link to a specific VM cluster in OCI Console
 def get_url_link_for_vmcluster(vmcluster):
-    return f"https://console.{home_region}.oraclecloud.com/exacc/clusters/{vmcluster.id}?tenant={tenant_name}&region={vmcluster.region}"
+    return f"https://cloud.oracle.com/exacc/clusters/{vmcluster.id}?tenant={tenant_name}&region={vmcluster.region}"
 
 # ---- Get url link to a specific autonomous VM cluster in OCI Console
 def get_url_link_for_autonomousvmcluster(vmcluster):
-    return f"https://console.{home_region}.oraclecloud.com/exacc/clusters/{vmcluster.id}?tenant={tenant_name}&region={vmcluster.region}"
+    return f"https://cloud.oracle.com/exacc/autonomousExaVmClusters/{vmcluster.id}?tenant={tenant_name}&region={vmcluster.region}"
 
 # ---- Get the details for a next maintenance run
 def get_next_maintenance_date(DatabaseClient, maintenance_run_id):
@@ -482,7 +484,7 @@ def get_email_configuration():
         email_sender_name    = os.environ['EMAIL_SENDER_NAME']
         email_sender_address = os.environ['EMAIL_SENDER_ADDRESS']
     except:
-        print ("ERROR: the following environments variables must be set for emails: EMAIL_SMTP_USER, EMAIL_SMTP_PASSWORD, EMAIL_SMTP_HOST, EMAIL_SMTP_PORT, EMAIL_SENDER_NAME, EMAIL_SENDER_ADDRESS !")
+        print ("ERROR: the following environments variables must be set for emails: EMAIL_SMTP_USER, EMAIL_SMTP_PASSWORD, EMAIL_SMTP_HOST, EMAIL_SMTP_PORT, EMAIL_SENDER_NAME, EMAIL_SENDER_ADDRESS !", file=sys.stderr )
         exit (3)
 
 def set_region(region_name):
@@ -542,7 +544,7 @@ if authentication_mode == "user_profile":
     try:
         config = oci.config.from_file(configfile,profile)
     except:
-        print (f"ERROR: profile '{profile}' not found in config file {configfile} !")
+        print (f"ERROR: profile '{profile}' not found in config file {configfile} !", file=sys.stderr)
         exit (2)
     IdentityClient = oci.identity.IdentityClient(config)
     user = IdentityClient.get_user(config["user"], retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY).data
