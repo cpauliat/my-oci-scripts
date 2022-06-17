@@ -37,7 +37,8 @@
 #    2020-08-10: add support for Security Vaults
 #    2022-01-03: use argparse to parse arguments
 #    2022-01-04: add --no_color option
-#    2021-06-17: fix bug on availability domain for all regions
+#    2022-06-17: fix bug on availability domain for all regions
+#    2022-06-17: add exceptions handlings (try/except)
 # ---------------------------------------------------------------------------------------------------------------------------------
 
 # -------- import
@@ -82,24 +83,33 @@ def disable_colored_output():
 # ---- List objects common to all regions
 def list_networking_dns_zones(lcpt_ocid):
     print (COLOR_TITLE2+"========== NETWORKING: DNS zones "+COLOR_NORMAL)
-    response = oci.pagination.list_call_get_all_results(DnsClient.list_zones,compartment_id=lcpt_ocid)
-    if len(response.data) > 0:
-        for zone in response.data:
-            print ('{0:100s} {1:30s} {2:10s}'.format(zone.id, zone.name, zone.lifecycle_state))
+    try:
+        response = oci.pagination.list_call_get_all_results(DnsClient.list_zones,compartment_id=lcpt_ocid)
+        if len(response.data) > 0:
+            for zone in response.data:
+                print ('{0:100s} {1:30s} {2:10s}'.format(zone.id, zone.name, zone.lifecycle_state))
+    except Exception as err:
+        print (f"ERROR: {err}")
 
 def list_identity_policies(lcpt_ocid):
     print (COLOR_TITLE2+"========== IDENTITY: Policies "+COLOR_NORMAL)
     response = oci.pagination.list_call_get_all_results(IdentityClient.list_policies,compartment_id=lcpt_ocid)
-    if len(response.data) > 0:
-        for policy in response.data:
-            print ('{0:100s} {1:30s} {2:10s}'.format(policy.id, policy.name, policy.lifecycle_state))
+    try:
+        if len(response.data) > 0:
+            for policy in response.data:
+                print ('{0:100s} {1:30s} {2:10s}'.format(policy.id, policy.name, policy.lifecycle_state))
+    except Exception as err:
+        print (f"ERROR: {err}")
 
 def list_governance_tag_namespaces(lcpt_ocid):
     print (COLOR_TITLE2+"========== GOVERNANCE: Tag Namespaces "+COLOR_NORMAL)
-    response = oci.pagination.list_call_get_all_results(IdentityClient.list_tag_namespaces,compartment_id=lcpt_ocid)
-    if len(response.data) > 0:
-        for tag_namespace in response.data:
-            print ('{0:100s} {1:30s} {2:10s}'.format(tag_namespace.id, tag_namespace.name, tag_namespace.lifecycle_state))
+    try:
+        response = oci.pagination.list_call_get_all_results(IdentityClient.list_tag_namespaces,compartment_id=lcpt_ocid)
+        if len(response.data) > 0:
+            for tag_namespace in response.data:
+                print ('{0:100s} {1:30s} {2:10s}'.format(tag_namespace.id, tag_namespace.name, tag_namespace.lifecycle_state))
+    except Exception as err:
+        print (f"ERROR: {err}")
 
 def list_objects_common_to_all_regions(cpt_ocid,cpt_name):
     global DnsClient
@@ -129,264 +139,356 @@ def list_objects_common_to_all_regions(cpt_ocid,cpt_name):
 # -- Compute
 def list_compute_instances (lcpt_ocid):
     print (COLOR_TITLE2+"========== COMPUTE: Instances "+COLOR_NORMAL)
-    response = oci.pagination.list_call_get_all_results(ComputeClient.list_instances, compartment_id=lcpt_ocid)
-    if len(response.data) > 0:
-        for instance in response.data:
-            print ('{0:100s} {1:20s} {2:20s} {3:10s}'.format(instance.id, instance.display_name, instance.shape,  instance.lifecycle_state))
+    try:
+        response = oci.pagination.list_call_get_all_results(ComputeClient.list_instances, compartment_id=lcpt_ocid)
+        if len(response.data) > 0:
+            for instance in response.data:
+                print ('{0:100s} {1:20s} {2:20s} {3:10s}'.format(instance.id, instance.display_name, instance.shape,  instance.lifecycle_state))
+    except Exception as err:
+        print (f"ERROR: {err}")
 
 def list_compute_dedicated_vm_hosts (lcpt_ocid):
     print (COLOR_TITLE2+"========== COMPUTE: Dedicated virtual machines hosts "+COLOR_NORMAL)
-    response = oci.pagination.list_call_get_all_results(ComputeClient.list_dedicated_vm_hosts,compartment_id=lcpt_ocid)
-    if len(response.data) > 0:
-        for host in response.data:
-            print ('{0:100s} {1:20s} {2:20s} {3:10s}'.format(host.id, host.display_name, host.dedicated_vm_host_shape, host.lifecycle_state))
+    try:
+        response = oci.pagination.list_call_get_all_results(ComputeClient.list_dedicated_vm_hosts,compartment_id=lcpt_ocid)
+        if len(response.data) > 0:
+            for host in response.data:
+                print ('{0:100s} {1:20s} {2:20s} {3:10s}'.format(host.id, host.display_name, host.dedicated_vm_host_shape, host.lifecycle_state))
+    except Exception as err:
+        print (f"ERROR: {err}")
 
 def list_compute_instance_configurations (lcpt_ocid):
     print (COLOR_TITLE2+"========== COMPUTE: Instance Configurations "+COLOR_NORMAL)
-    response = oci.pagination.list_call_get_all_results(ComputeManagementClient.list_instance_configurations, compartment_id=lcpt_ocid)
-    if len(response.data) > 0:
-        for configuration in response.data:
-            print ('{0:100s} {1:20s}'.format(configuration.id, configuration.display_name))
+    try:
+        response = oci.pagination.list_call_get_all_results(ComputeManagementClient.list_instance_configurations, compartment_id=lcpt_ocid)
+        if len(response.data) > 0:
+            for configuration in response.data:
+                print ('{0:100s} {1:20s}'.format(configuration.id, configuration.display_name))
+    except Exception as err:
+        print (f"ERROR: {err}")
 
 def list_compute_instance_pools (lcpt_ocid):
     print (COLOR_TITLE2+"========== COMPUTE: Instance Pools "+COLOR_NORMAL)
-    response = oci.pagination.list_call_get_all_results(ComputeManagementClient.list_instance_pools, compartment_id=lcpt_ocid)
-    if len(response.data) > 0:
-        for pool in response.data:
-            print ('{0:100s} {1:20s} {2:10s}'.format(pool.id, pool.display_name, pool.lifecycle_state))
+    try:
+        response = oci.pagination.list_call_get_all_results(ComputeManagementClient.list_instance_pools, compartment_id=lcpt_ocid)
+        if len(response.data) > 0:
+            for pool in response.data:
+                print ('{0:100s} {1:20s} {2:10s}'.format(pool.id, pool.display_name, pool.lifecycle_state))
+    except Exception as err:
+        print (f"ERROR: {err}")
 
 def list_compute_custom_images(lcpt_ocid):
     print (COLOR_TITLE2+"========== COMPUTE: Images "+COLOR_NORMAL)
-    response = oci.pagination.list_call_get_all_results(ComputeClient.list_images, compartment_id=lcpt_ocid)
-    if len(response.data) > 0:
-        for image in response.data:
-            print ('{0:100s} {1:s}'.format(image.id, image.display_name))
+    # try:
+    #     response = oci.pagination.list_call_get_all_results(ComputeClient.list_images, compartment_id=lcpt_ocid)
+    #     if len(response.data) > 0:
+    #         for image in response.data:
+    #             print ('{0:100s} {1:s}'.format(image.id, image.display_name))
+    # except Exception as err:
+    #     print (f"ERROR: {err}")
 
 # -- Block Storage
 def list_block_storage_volumes(lcpt_ocid):
     print (COLOR_TITLE2+"========== BLOCK STORAGE: Block volumes "+COLOR_NORMAL)
     for ad in ads:
         print (COLOR_AD+"== Availability-domain {:s}".format(ad.name)+COLOR_NORMAL)
-
-        response = oci.pagination.list_call_get_all_results(BlockstorageClient.list_volumes,availability_domain=ad.name,compartment_id=lcpt_ocid)
-        if len(response.data) > 0:
-            for bkvol in response.data:
-                print ('{0:100s} {1:30s} {2:10s}'.format(bkvol.id, bkvol.display_name, bkvol.lifecycle_state))
+        try:
+            response = oci.pagination.list_call_get_all_results(BlockstorageClient.list_volumes,availability_domain=ad.name,compartment_id=lcpt_ocid)
+            if len(response.data) > 0:
+                for bkvol in response.data:
+                    print ('{0:100s} {1:30s} {2:10s}'.format(bkvol.id, bkvol.display_name, bkvol.lifecycle_state))
+        except Exception as err:
+            print (f"ERROR: {err}")
 
 def list_block_storage_volume_backups(lcpt_ocid):
     print (COLOR_TITLE2+"========== BLOCK STORAGE: Block volume backups "+COLOR_NORMAL)
-    response = oci.pagination.list_call_get_all_results(BlockstorageClient.list_volume_backups,compartment_id=lcpt_ocid)
-    if len(response.data) > 0:
-        for bkvol_backup in response.data:
-            print ('{0:100s} {1:30s} {2:10s}'.format(bkvol_backup.id, bkvol_backup.display_name, bkvol_backup.lifecycle_state))
-
+    try:
+        response = oci.pagination.list_call_get_all_results(BlockstorageClient.list_volume_backups,compartment_id=lcpt_ocid)
+        if len(response.data) > 0:
+            for bkvol_backup in response.data:
+                print ('{0:100s} {1:30s} {2:10s}'.format(bkvol_backup.id, bkvol_backup.display_name, bkvol_backup.lifecycle_state))
+    except Exception as err:
+        print (f"ERROR: {err}")
 
 def list_block_storage_boot_volumes(lcpt_ocid):
     print (COLOR_TITLE2+"========== COMPUTE: Boot Volumes "+COLOR_NORMAL)
     for ad in ads:
         print (COLOR_AD+"== Availability-domain {:s}".format(ad.name)+COLOR_NORMAL)
-
-        response = oci.pagination.list_call_get_all_results(BlockstorageClient.list_boot_volumes,availability_domain=ad.name,compartment_id=lcpt_ocid)
-        if len(response.data) > 0:
-            for bootvol in response.data:
-                print ('{0:100s} {1:30s} {2:10s}'.format(bootvol.id, bootvol.display_name, bootvol.lifecycle_state))
-
+        try:
+            response = oci.pagination.list_call_get_all_results(BlockstorageClient.list_boot_volumes,availability_domain=ad.name,compartment_id=lcpt_ocid)
+            if len(response.data) > 0:
+                for bootvol in response.data:
+                    print ('{0:100s} {1:30s} {2:10s}'.format(bootvol.id, bootvol.display_name, bootvol.lifecycle_state))
+        except Exception as err:
+            print (f"ERROR: {err}")
 
 def list_block_storage_boot_volume_backups(lcpt_ocid):
     print (COLOR_TITLE2+"========== COMPUTE: Boot Volume Backups "+COLOR_NORMAL)
-    response = oci.pagination.list_call_get_all_results(BlockstorageClient.list_boot_volume_backups,compartment_id=lcpt_ocid)
-    if len(response.data) > 0:
-        for bootvol_backup in response.data:
-            print ('{0:100s} {1:30s} {2:10s}'.format(bootvol_backup.id, bootvol_backup.display_name, bootvol_backup.lifecycle_state))
+    try:
+        response = oci.pagination.list_call_get_all_results(BlockstorageClient.list_boot_volume_backups,compartment_id=lcpt_ocid)
+        if len(response.data) > 0:
+            for bootvol_backup in response.data:
+                print ('{0:100s} {1:30s} {2:10s}'.format(bootvol_backup.id, bootvol_backup.display_name, bootvol_backup.lifecycle_state))
+    except Exception as err:
+        print (f"ERROR: {err}")
 
 def list_block_storage_volume_groups(lcpt_ocid):
     print (COLOR_TITLE2+"========== BLOCK STORAGE: Volumes groups "+COLOR_NORMAL)
     for ad in ads:
         print (COLOR_AD+"== Availability-domain {:s}".format(ad.name)+COLOR_NORMAL)
-
-        response = oci.pagination.list_call_get_all_results(BlockstorageClient.list_volume_groups,availability_domain=ad.name,compartment_id=lcpt_ocid)
-        if len(response.data) > 0:
-            for vg in response.data:
-                print ('{0:100s} {1:30s} {2:10s}'.format(vg.id, vg.display_name, vg.lifecycle_state))
+        try:
+            response = oci.pagination.list_call_get_all_results(BlockstorageClient.list_volume_groups,availability_domain=ad.name,compartment_id=lcpt_ocid)
+            if len(response.data) > 0:
+                for vg in response.data:
+                    print ('{0:100s} {1:30s} {2:10s}'.format(vg.id, vg.display_name, vg.lifecycle_state))
+        except Exception as err:
+            print (f"ERROR: {err}")
 
 def list_block_storage_volume_group_backups(lcpt_ocid):
     print (COLOR_TITLE2+"========== BLOCK STORAGE: Volumes group backups "+COLOR_NORMAL)
-    response = oci.pagination.list_call_get_all_results(BlockstorageClient.list_volume_group_backups,compartment_id=lcpt_ocid)
-    if len(response.data) > 0:
-        for vg_backup in response.data:
-            print ('{0:100s} {1:30s} {2:10s}'.format(vg_backup.id, vg_backup.display_name, vg_backup.lifecycle_state))
+    try:
+        response = oci.pagination.list_call_get_all_results(BlockstorageClient.list_volume_group_backups,compartment_id=lcpt_ocid)
+        if len(response.data) > 0:
+            for vg_backup in response.data:
+                print ('{0:100s} {1:30s} {2:10s}'.format(vg_backup.id, vg_backup.display_name, vg_backup.lifecycle_state))
+    except Exception as err:
+        print (f"ERROR: {err}")
 
 # -- Object Storage
 def list_object_storage_buckets(lcpt_ocid):
     namespace = ObjectStorageClient.get_namespace().data
     print (COLOR_TITLE2+"========== OBJECT STORAGE: Buckets (namespace {})".format(namespace)+COLOR_NORMAL)
-    response = oci.pagination.list_call_get_all_results(ObjectStorageClient.list_buckets,namespace_name=namespace,compartment_id=lcpt_ocid)
-    if len(response.data) > 0:
-        for bucket in response.data:
-            print ('{0:s}'.format(bucket.name))
+    try:
+        response = oci.pagination.list_call_get_all_results(ObjectStorageClient.list_buckets,namespace_name=namespace,compartment_id=lcpt_ocid)
+        if len(response.data) > 0:
+            for bucket in response.data:
+                print ('{0:s}'.format(bucket.name))
+    except Exception as err:
+        print (f"ERROR: {err}")
 
 # -- File Storage
 def list_file_storage_filesystems(lcpt_ocid):
     print (COLOR_TITLE2+"========== FILE STORAGE: Filesystems "+COLOR_NORMAL)
     for ad in ads:
         print (COLOR_AD+"== Availability-domain {:s}".format(ad.name)+COLOR_NORMAL)
-
-        response = oci.pagination.list_call_get_all_results(FileStorageClient.list_file_systems,availability_domain=ad.name,compartment_id=lcpt_ocid)
-        if len(response.data) > 0:
-            for fs in response.data:
-                print ('{0:100s} {1:30s} {2:10s}'.format(fs.id, fs.display_name, fs.lifecycle_state))
+        try:
+            response = oci.pagination.list_call_get_all_results(FileStorageClient.list_file_systems,availability_domain=ad.name,compartment_id=lcpt_ocid)
+            if len(response.data) > 0:
+                for fs in response.data:
+                    print ('{0:100s} {1:30s} {2:10s}'.format(fs.id, fs.display_name, fs.lifecycle_state))
+        except Exception as err:
+            print (f"ERROR: {err}")
 
 def list_file_storage_mount_targets(lcpt_ocid):
     print (COLOR_TITLE2+"========== FILE STORAGE: Mount targets "+COLOR_NORMAL)
     for ad in ads:
         print (COLOR_AD+"== Availability-domain {:s}".format(ad.name)+COLOR_NORMAL)
-
-        response = oci.pagination.list_call_get_all_results(FileStorageClient.list_mount_targets,availability_domain=ad.name,compartment_id=lcpt_ocid)
-        if len(response.data) > 0:
-            for mt in response.data:
-                print ('{0:100s} {1:30s} {2:10s}'.format(mt.id, mt.display_name, mt.lifecycle_state))
+        try:
+            response = oci.pagination.list_call_get_all_results(FileStorageClient.list_mount_targets,availability_domain=ad.name,compartment_id=lcpt_ocid)
+            if len(response.data) > 0:
+                for mt in response.data:
+                    print ('{0:100s} {1:30s} {2:10s}'.format(mt.id, mt.display_name, mt.lifecycle_state))
+        except Exception as err:
+            print (f"ERROR: {err}")
 
 # -- Networking
 def list_networking_vcns(lcpt_ocid):
     print (COLOR_TITLE2+"========== NETWORKING: Virtal Cloud Networks (VCNs)"+COLOR_NORMAL)
-    response = oci.pagination.list_call_get_all_results(VirtualNetworkClient.list_vcns,compartment_id=lcpt_ocid)
-    if len(response.data) > 0:
-        for vcn in response.data:
-            print ('{0:100s} {1:30s} {2:10s}'.format(vcn.id, vcn.display_name, vcn.lifecycle_state))
+    try:
+        response = oci.pagination.list_call_get_all_results(VirtualNetworkClient.list_vcns,compartment_id=lcpt_ocid)
+        if len(response.data) > 0:
+            for vcn in response.data:
+                print ('{0:100s} {1:30s} {2:10s}'.format(vcn.id, vcn.display_name, vcn.lifecycle_state))
+    except Exception as err:
+        print (f"ERROR: {err}")
 
 def list_networking_drgs(lcpt_ocid):
     print (COLOR_TITLE2+"========== NETWORKING: Dynamic Routing Gateways (DRGs)"+COLOR_NORMAL)
-    response = oci.pagination.list_call_get_all_results(VirtualNetworkClient.list_drgs,compartment_id=lcpt_ocid)
-    if len(response.data) > 0:
-        for drg in response.data:
-            print ('{0:100s} {1:30s} {2:10s}'.format(drg.id, drg.display_name, drg.lifecycle_state))
+    try:
+        response = oci.pagination.list_call_get_all_results(VirtualNetworkClient.list_drgs,compartment_id=lcpt_ocid)
+        if len(response.data) > 0:
+            for drg in response.data:
+                print ('{0:100s} {1:30s} {2:10s}'.format(drg.id, drg.display_name, drg.lifecycle_state))
+    except Exception as err:
+        print (f"ERROR: {err}")
 
 def list_networking_cpes(lcpt_ocid):
     print (COLOR_TITLE2+"========== NETWORKING: Customer Premises Equipments (CPEs)"+COLOR_NORMAL)
-    response = oci.pagination.list_call_get_all_results(VirtualNetworkClient.list_cpes,compartment_id=lcpt_ocid)
-    if len(response.data) > 0:
-        for cpe in response.data:
-            print ('{0:100s} {1:30s}'.format(cpe.id, cpe.display_name))
+    try:
+        response = oci.pagination.list_call_get_all_results(VirtualNetworkClient.list_cpes,compartment_id=lcpt_ocid)
+        if len(response.data) > 0:
+            for cpe in response.data:
+                print ('{0:100s} {1:30s}'.format(cpe.id, cpe.display_name))
+    except Exception as err:
+        print (f"ERROR: {err}")
 
 def list_networking_ipsecs(lcpt_ocid):
     print (COLOR_TITLE2+"========== NETWORKING: IPsec connections"+COLOR_NORMAL)
-    response = oci.pagination.list_call_get_all_results(VirtualNetworkClient.list_ip_sec_connections,compartment_id=lcpt_ocid)
-    if len(response.data) > 0:
-        for ipsec in response.data:
-            print ('{0:100s} {1:30s} {2:10s}'.format(ipsec.id, ipsec.display_name, ipsec.lifecycle_state))
+    try:
+        response = oci.pagination.list_call_get_all_results(VirtualNetworkClient.list_ip_sec_connections,compartment_id=lcpt_ocid)
+        if len(response.data) > 0:
+            for ipsec in response.data:
+                print ('{0:100s} {1:30s} {2:10s}'.format(ipsec.id, ipsec.display_name, ipsec.lifecycle_state))
+    except Exception as err:
+        print (f"ERROR: {err}")
 
 def list_networking_lbs(lcpt_ocid):
     print (COLOR_TITLE2+"========== NETWORKING: Load balancers"+COLOR_NORMAL)
-    response = oci.pagination.list_call_get_all_results(LoadBalancerClient.list_load_balancers,compartment_id=lcpt_ocid)
-    if len(response.data) > 0:
-        for lb in response.data:
-            print ('{0:100s} {1:30s} {2:10s}'.format(lb.id, lb.display_name, lb.lifecycle_state))
+    try:
+        response = oci.pagination.list_call_get_all_results(LoadBalancerClient.list_load_balancers,compartment_id=lcpt_ocid)
+        if len(response.data) > 0:
+            for lb in response.data:
+                print ('{0:100s} {1:30s} {2:10s}'.format(lb.id, lb.display_name, lb.lifecycle_state))
+    except Exception as err:
+        print (f"ERROR: {err}")
 
 def list_networking_public_ips(lcpt_ocid):
     print (COLOR_TITLE2+"========== NETWORKING: Reserved Public IPs"+COLOR_NORMAL)
-    response = oci.pagination.list_call_get_all_results(VirtualNetworkClient.list_public_ips,scope="REGION",lifetime="RESERVED",compartment_id=lcpt_ocid)
-    if len(response.data) > 0:
-        for ip in response.data:
-            print ('{0:100s} {1:30s} {2:10s}'.format(ip.id, ip.display_name, ip.lifecycle_state))
+    try:
+        response = oci.pagination.list_call_get_all_results(VirtualNetworkClient.list_public_ips,scope="REGION",lifetime="RESERVED",compartment_id=lcpt_ocid)
+        if len(response.data) > 0:
+            for ip in response.data:
+                print ('{0:100s} {1:30s} {2:10s}'.format(ip.id, ip.display_name, ip.lifecycle_state))
+    except Exception as err:
+        print (f"ERROR: {err}")
 
 # -- Database
 def list_database_db_systems(lcpt_ocid):
     print (COLOR_TITLE2+"========== DATABASE: DB Systems"+COLOR_NORMAL)
-    response = oci.pagination.list_call_get_all_results(DatabaseClient.list_db_systems,compartment_id=lcpt_ocid)
-    if len(response.data) > 0:
-        for dbs in response.data:
-            print ('{0:100s} {1:30s} {2:10s}'.format(dbs.id, dbs.display_name, dbs.lifecycle_state))
+    try:
+        response = oci.pagination.list_call_get_all_results(DatabaseClient.list_db_systems,compartment_id=lcpt_ocid)
+        if len(response.data) > 0:
+            for dbs in response.data:
+                print ('{0:100s} {1:30s} {2:10s}'.format(dbs.id, dbs.display_name, dbs.lifecycle_state))
+    except Exception as err:
+        print (f"ERROR: {err}")
 
 def list_database_db_systems_backups(lcpt_ocid):
     print (COLOR_TITLE2+"========== DATABASE: DB Systems backups"+COLOR_NORMAL)
-    response = oci.pagination.list_call_get_all_results(DatabaseClient.list_backups,compartment_id=lcpt_ocid)
-    if len(response.data) > 0:
-        for dbs_backup in response.data:
-            print ('{0:100s} {1:30s} {2:10s}'.format(dbs_backup.id, dbs_backup.display_name, dbs_backup.lifecycle_state))
+    try:
+        response = oci.pagination.list_call_get_all_results(DatabaseClient.list_backups,compartment_id=lcpt_ocid)
+        if len(response.data) > 0:
+            for dbs_backup in response.data:
+                print ('{0:100s} {1:30s} {2:10s}'.format(dbs_backup.id, dbs_backup.display_name, dbs_backup.lifecycle_state))
+    except Exception as err:
+        print (f"ERROR: {err}")
 
 def list_database_autonomous_db(lcpt_ocid):
     print (COLOR_TITLE2+"========== DATABASE: Autonomous databases (ATP/ADW)"+COLOR_NORMAL)
-    response = oci.pagination.list_call_get_all_results(DatabaseClient.list_autonomous_databases,compartment_id=lcpt_ocid)
-    if len(response.data) > 0:
-        for adb in response.data:
-            print ('{0:100s} {1:30s} {2:10s}'.format(adb.id, adb.display_name, adb.lifecycle_state))
+    try:
+        response = oci.pagination.list_call_get_all_results(DatabaseClient.list_autonomous_databases,compartment_id=lcpt_ocid)
+        if len(response.data) > 0:
+            for adb in response.data:
+                print ('{0:100s} {1:30s} {2:10s}'.format(adb.id, adb.display_name, adb.lifecycle_state))
+    except Exception as err:
+        print (f"ERROR: {err}")
 
 def list_database_autonomous_backups(lcpt_ocid):
     print (COLOR_TITLE2+"========== DATABASE: Autonomous databases backups"+COLOR_NORMAL)
-    response = oci.pagination.list_call_get_all_results(DatabaseClient.list_autonomous_database_backups,compartment_id=lcpt_ocid)
-    if len(response.data) > 0:
-        for adb_backup in response.data:
-            print ('{0:100s} {1:30s} {2:10s}'.format(adb_backup.id, adb_backup.display_name, adb_backup.lifecycle_state))
+    try:
+        response = oci.pagination.list_call_get_all_results(DatabaseClient.list_autonomous_database_backups,compartment_id=lcpt_ocid)
+        if len(response.data) > 0:
+            for adb_backup in response.data:
+                print ('{0:100s} {1:30s} {2:10s}'.format(adb_backup.id, adb_backup.display_name, adb_backup.lifecycle_state))
+    except Exception as err:
+        print (f"ERROR: {err}")
 
 def list_database_nosql_database_tables(lcpt_ocid):
     print (COLOR_TITLE2+"========== DATABASE: NoSQL database tables"+COLOR_NORMAL)
-    response = oci.pagination.list_call_get_all_results(NoSQLClient.list_tables,compartment_id=lcpt_ocid)
-    if len(response.data) > 0:
-        for table in response.data:
-            print ('{0:100s} {1:30s} {2:10s}'.format(table.id, table.name, table.lifecycle_state))
+    try:
+        response = oci.pagination.list_call_get_all_results(NoSQLClient.list_tables,compartment_id=lcpt_ocid)
+        if len(response.data) > 0:
+            for table in response.data:
+                print ('{0:100s} {1:30s} {2:10s}'.format(table.id, table.name, table.lifecycle_state))
+    except Exception as err:
+        print (f"ERROR: {err}")
 
 # -- Data Safe
 def list_data_safe_private_endpoints(lcpt_ocid):
     print (COLOR_TITLE2+"========== DATA SAFE: Private endpoints"+COLOR_NORMAL)
-    response = oci.pagination.list_call_get_all_results(DataSafeClient.list_data_safe_private_endpoints,compartment_id=lcpt_ocid)
-    if len(response.data) > 0:
-        for endpt in response.data:
-            print ('{0:100s} {1:30s} {2:10s}'.format(endpt.id, endpt.display_name, endpt.lifecycle_state))
+    try:
+        response = oci.pagination.list_call_get_all_results(DataSafeClient.list_data_safe_private_endpoints,compartment_id=lcpt_ocid)
+        if len(response.data) > 0:
+            for endpt in response.data:
+                print ('{0:100s} {1:30s} {2:10s}'.format(endpt.id, endpt.display_name, endpt.lifecycle_state))
+    except Exception as err:
+        print (f"ERROR: {err}")
 
 # -- Resource manager
 def list_resource_manager_stacks(lcpt_ocid):
     print (COLOR_TITLE2+"========== RESOURCE MANAGER: Stacks"+COLOR_NORMAL)
-    response = oci.pagination.list_call_get_all_results(ResourceManagerClient.list_stacks,compartment_id=lcpt_ocid)
-    if len(response.data) > 0:
-        for stack in response.data:
-            print ('{0:100s} {1:30s} {2:10s}'.format(stack.id, stack.display_name, stack.lifecycle_state))
+    try:
+        response = oci.pagination.list_call_get_all_results(ResourceManagerClient.list_stacks,compartment_id=lcpt_ocid)
+        if len(response.data) > 0:
+            for stack in response.data:
+                print ('{0:100s} {1:30s} {2:10s}'.format(stack.id, stack.display_name, stack.lifecycle_state))
+    except Exception as err:
+        print (f"ERROR: {err}")
 
 # -- Email delivery
 def list_email_delivery_approved_senders(lcpt_ocid):
     print (COLOR_TITLE2+"========== EMAIL DELIVERY: Approved senders"+COLOR_NORMAL)
-    response = oci.pagination.list_call_get_all_results(EmailClient.list_senders,compartment_id=lcpt_ocid)
-    if len(response.data) > 0:
-        for sender in response.data:
-            print ('{0:30s} {1:10s}'.format(sender.email_address, sender.lifecycle_state))
+    try:
+        response = oci.pagination.list_call_get_all_results(EmailClient.list_senders,compartment_id=lcpt_ocid)
+        if len(response.data) > 0:
+            for sender in response.data:
+                print ('{0:30s} {1:10s}'.format(sender.email_address, sender.lifecycle_state))
+    except Exception as err:
+        print (f"ERROR: {err}")
 
 def list_email_delivery_suppressions_list(lcpt_ocid):
     # Suppressions list can only exists in the root compartment
     if lcpt_ocid == RootCompartmentID:
         print (COLOR_TITLE2+"========== EMAIL DELIVERY: Suppressions list"+COLOR_NORMAL)
-        response = oci.pagination.list_call_get_all_results(EmailClient.list_suppressions,compartment_id=lcpt_ocid)
-        if len(response.data) > 0:
-            for suppression in response.data:
-                print ('{0:30s}'.format(suppression.email_address))
+        try:
+            response = oci.pagination.list_call_get_all_results(EmailClient.list_suppressions,compartment_id=lcpt_ocid)
+            if len(response.data) > 0:
+                for suppression in response.data:
+                    print ('{0:30s}'.format(suppression.email_address))
+        except Exception as err:
+            print (f"ERROR: {err}")
 
 # -- Application integration
 def list_application_integration_notifications_topics (lcpt_ocid):
     print (COLOR_TITLE2+"========== APPLICATION INTEGRATION: Notifications topics"+COLOR_NORMAL)
-    response = oci.pagination.list_call_get_all_results(NotificationControlPlaneClient.list_topics,compartment_id=lcpt_ocid)
-    if len(response.data) > 0:
-        for topic in response.data:
-            print ('{0:100s} {1:30s} {2:10s}'.format(topic.topic_id, topic.name, topic.lifecycle_state))
+    try:
+        response = oci.pagination.list_call_get_all_results(NotificationControlPlaneClient.list_topics,compartment_id=lcpt_ocid)
+        if len(response.data) > 0:
+            for topic in response.data:
+                print ('{0:100s} {1:30s} {2:10s}'.format(topic.topic_id, topic.name, topic.lifecycle_state))
+    except Exception as err:
+        print (f"ERROR: {err}")
 
 def list_application_integration_events_rules (lcpt_ocid):
     print (COLOR_TITLE2+"========== APPLICATION INTEGRATION: Events rules"+COLOR_NORMAL)
-    response = oci.pagination.list_call_get_all_results(EventsClient.list_rules,compartment_id=lcpt_ocid)
-    if len(response.data) > 0:
-        for rule in response.data:
-            print ('{0:100s} {1:30s} {2:10s}'.format(rule.id, rule.display_name, rule.lifecycle_state))
+    try:
+        response = oci.pagination.list_call_get_all_results(EventsClient.list_rules,compartment_id=lcpt_ocid)
+        if len(response.data) > 0:
+            for rule in response.data:
+                print ('{0:100s} {1:30s} {2:10s}'.format(rule.id, rule.display_name, rule.lifecycle_state))
+    except Exception as err:
+        print (f"ERROR: {err}")
 
 def list_application_integration_cec_instances (lcpt_ocid):
     print (COLOR_TITLE2+"========== APPLICATION INTEGRATION: Content and Experience instances"+COLOR_NORMAL)
-    response = oci.pagination.list_call_get_all_results(OceInstanceClient.list_oce_instances,compartment_id=lcpt_ocid)
-    if len(response.data) > 0:
-        for instance in response.data:
-            print ('{0:100s} {1:30s} {2:10s}'.format(instance.id, instance.name, instance.lifecycle_state))
+    try:
+        response = oci.pagination.list_call_get_all_results(OceInstanceClient.list_oce_instances,compartment_id=lcpt_ocid)
+        if len(response.data) > 0:
+            for instance in response.data:
+                print ('{0:100s} {1:30s} {2:10s}'.format(instance.id, instance.name, instance.lifecycle_state))
+    except Exception as err:
+        print (f"ERROR: {err}")
 
 # -- Developer services
 def list_developer_services_oke(lcpt_ocid):
     print (COLOR_TITLE2+"========== DEVELOPER SERVICES: Container clusters (OKE)"+COLOR_NORMAL)
-    response = oci.pagination.list_call_get_all_results(ContainerEngineClient.list_clusters,compartment_id=lcpt_ocid)
-    if len(response.data) > 0:
-        for cluster in response.data:
-            print ('{0:100s} {1:30s} {2:10s}'.format(cluster.id, cluster.name, cluster.lifecycle_state))
+    try:
+        response = oci.pagination.list_call_get_all_results(ContainerEngineClient.list_clusters,compartment_id=lcpt_ocid)
+        if len(response.data) > 0:
+            for cluster in response.data:
+                print ('{0:100s} {1:30s} {2:10s}'.format(cluster.id, cluster.name, cluster.lifecycle_state))
+    except Exception as err:
+        print (f"ERROR: {err}")
 
 def list_developer_services_functions(lcpt_ocid):
     print (COLOR_TITLE2+"========== DEVELOPER SERVICES: Functions applications"+COLOR_NORMAL)
@@ -402,10 +504,13 @@ def list_developer_services_functions(lcpt_ocid):
 # -- Security
 def list_security_vaults(lcpt_ocid):
     print (COLOR_TITLE2+"========== SECURITY: Vaults"+COLOR_NORMAL)
-    response = oci.pagination.list_call_get_all_results(VaultsClient.list_secrets,compartment_id=lcpt_ocid)
-    if len(response.data) > 0:
-        for secret in response.data:
-            print ('{0:100s} {1:100s} {2:30s} {3:10s}'.format(secret.vault_id, secret.id, secret.secret_name, secret.lifecycle_state))
+    try:
+        response = oci.pagination.list_call_get_all_results(VaultsClient.list_secrets,compartment_id=lcpt_ocid)
+        if len(response.data) > 0:
+            for secret in response.data:
+                print ('{0:100s} {1:100s} {2:30s} {3:10s}'.format(secret.vault_id, secret.id, secret.secret_name, secret.lifecycle_state))
+    except Exception as err:
+        print (f"ERROR: {err}")
 
 # -- List region specific objects
 def list_region_specific_objects (cpt_ocid,cpt_name):
