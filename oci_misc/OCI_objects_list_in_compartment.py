@@ -5,8 +5,8 @@
 #
 # Supported objects:
 # - COMPUTE                : compute instances, dedicated virtual machines hosts, instance configurations, instance pools
-#                            custom images, boot volumes, boot volumes backups
-# - BLOCK STORAGE          : block volumes, block volumes backups, volume groups, volume groups backups
+#                            custom images
+# - BLOCK STORAGE          : block volumes, block volumes backups, boot volumes, boot volumes backups, volume groups, volume groups backups
 # - OBJECT STORAGE         : buckets
 # - FILE STORAGE           : file systems, mount targets
 # - NETWORKING             : VCN, DRG, CPE, IPsec connection, LB, public IPs, DNS zones (common to all regions)
@@ -37,6 +37,7 @@
 #    2020-08-10: add support for Security Vaults
 #    2022-01-03: use argparse to parse arguments
 #    2022-01-04: add --no_color option
+#    2021-06-17: fix bug on availability domain for all regions
 # ---------------------------------------------------------------------------------------------------------------------------------
 
 # -------- import
@@ -54,29 +55,11 @@ COLOR_COMP="\033[93m"               # light yellow
 COLOR_BREAK="\033[91m"              # light red
 COLOR_NORMAL="\033[39m"
 
-# -------- variables
+# -------- global variables
 configfile = "~/.oci/config"    # Define config file to be used.
+ads = []
 
 # -------- functions
-
-# ---- usage syntax
-def usage():
-    print ("Usage: {} [-nc] [-a] [-r] -p OCI_PROFILE -c compartment_ocid".format(sys.argv[0]))
-    print ("    or {} [-nc] [-a] [-r] -p OCI_PROFILE -c compartment_name".format(sys.argv[0]))
-    print ("")
-    print ("    By default, only the objects in the region provided in the profile are listed")
-    print ("    If -a is provided, the objects from all subscribed regions are listed")
-    print ("    If -r is provided (recursive option), objects in active sub-compartments will also be listed")
-    print ("")
-    print ("note: OCI_PROFILE must exist in {} file (see example below)".format(configfile))
-    print ("")
-    print ("[EMEAOSCf]")
-    print ("tenancy     = ocid1.tenancy.oc1..aaaaaaaaw7e6nkszrry6d5hxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
-    print ("user        = ocid1.user.oc1..aaaaaaaayblfepjieoxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
-    print ("fingerprint = 19:1d:7b:3a:17:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx")
-    print ("key_file    = /Users/cpauliat/.oci/api_key.pem")
-    print ("region      = eu-frankfurt-1")
-    exit (1)
 
 # ---- Disable colored output
 def disable_colored_output():
@@ -146,7 +129,7 @@ def list_objects_common_to_all_regions(cpt_ocid,cpt_name):
 # -- Compute
 def list_compute_instances (lcpt_ocid):
     print (COLOR_TITLE2+"========== COMPUTE: Instances "+COLOR_NORMAL)
-    response = oci.pagination.list_call_get_all_results(ComputeClient.list_instances,compartment_id=lcpt_ocid)
+    response = oci.pagination.list_call_get_all_results(ComputeClient.list_instances, compartment_id=lcpt_ocid)
     if len(response.data) > 0:
         for instance in response.data:
             print ('{0:100s} {1:20s} {2:20s} {3:10s}'.format(instance.id, instance.display_name, instance.shape,  instance.lifecycle_state))
@@ -160,42 +143,24 @@ def list_compute_dedicated_vm_hosts (lcpt_ocid):
 
 def list_compute_instance_configurations (lcpt_ocid):
     print (COLOR_TITLE2+"========== COMPUTE: Instance Configurations "+COLOR_NORMAL)
-    response = oci.pagination.list_call_get_all_results(ComputeManagementClient.list_instance_configurations,compartment_id=lcpt_ocid)
+    response = oci.pagination.list_call_get_all_results(ComputeManagementClient.list_instance_configurations, compartment_id=lcpt_ocid)
     if len(response.data) > 0:
         for configuration in response.data:
             print ('{0:100s} {1:20s}'.format(configuration.id, configuration.display_name))
 
 def list_compute_instance_pools (lcpt_ocid):
     print (COLOR_TITLE2+"========== COMPUTE: Instance Pools "+COLOR_NORMAL)
-    response = oci.pagination.list_call_get_all_results(ComputeManagementClient.list_instance_pools,compartment_id=lcpt_ocid)
+    response = oci.pagination.list_call_get_all_results(ComputeManagementClient.list_instance_pools, compartment_id=lcpt_ocid)
     if len(response.data) > 0:
         for pool in response.data:
             print ('{0:100s} {1:20s} {2:10s}'.format(pool.id, pool.display_name, pool.lifecycle_state))
 
 def list_compute_custom_images(lcpt_ocid):
     print (COLOR_TITLE2+"========== COMPUTE: Images "+COLOR_NORMAL)
-    response = oci.pagination.list_call_get_all_results(ComputeClient.list_images,compartment_id=lcpt_ocid)
+    response = oci.pagination.list_call_get_all_results(ComputeClient.list_images, compartment_id=lcpt_ocid)
     if len(response.data) > 0:
         for image in response.data:
             print ('{0:100s} {1:s}'.format(image.id, image.display_name))
-
-def list_compute_boot_volumes(lcpt_ocid):
-    print (COLOR_TITLE2+"========== COMPUTE: Boot Volumes "+COLOR_NORMAL)
-    for ad in ads:
-        print (COLOR_AD+"== Availability-domain {:s}".format(ad.name)+COLOR_NORMAL)
-
-        response = oci.pagination.list_call_get_all_results(BlockstorageClient.list_boot_volumes,availability_domain=ad.name,compartment_id=lcpt_ocid)
-        if len(response.data) > 0:
-            for bootvol in response.data:
-                print ('{0:100s} {1:30s} {2:10s}'.format(bootvol.id, bootvol.display_name, bootvol.lifecycle_state))
-
-
-def list_compute_boot_volume_backups(lcpt_ocid):
-    print (COLOR_TITLE2+"========== COMPUTE: Boot Volume Backups "+COLOR_NORMAL)
-    response = oci.pagination.list_call_get_all_results(BlockstorageClient.list_boot_volume_backups,compartment_id=lcpt_ocid)
-    if len(response.data) > 0:
-        for bootvol_backup in response.data:
-            print ('{0:100s} {1:30s} {2:10s}'.format(bootvol_backup.id, bootvol_backup.display_name, bootvol_backup.lifecycle_state))
 
 # -- Block Storage
 def list_block_storage_volumes(lcpt_ocid):
@@ -214,6 +179,25 @@ def list_block_storage_volume_backups(lcpt_ocid):
     if len(response.data) > 0:
         for bkvol_backup in response.data:
             print ('{0:100s} {1:30s} {2:10s}'.format(bkvol_backup.id, bkvol_backup.display_name, bkvol_backup.lifecycle_state))
+
+
+def list_block_storage_boot_volumes(lcpt_ocid):
+    print (COLOR_TITLE2+"========== COMPUTE: Boot Volumes "+COLOR_NORMAL)
+    for ad in ads:
+        print (COLOR_AD+"== Availability-domain {:s}".format(ad.name)+COLOR_NORMAL)
+
+        response = oci.pagination.list_call_get_all_results(BlockstorageClient.list_boot_volumes,availability_domain=ad.name,compartment_id=lcpt_ocid)
+        if len(response.data) > 0:
+            for bootvol in response.data:
+                print ('{0:100s} {1:30s} {2:10s}'.format(bootvol.id, bootvol.display_name, bootvol.lifecycle_state))
+
+
+def list_block_storage_boot_volume_backups(lcpt_ocid):
+    print (COLOR_TITLE2+"========== COMPUTE: Boot Volume Backups "+COLOR_NORMAL)
+    response = oci.pagination.list_call_get_all_results(BlockstorageClient.list_boot_volume_backups,compartment_id=lcpt_ocid)
+    if len(response.data) > 0:
+        for bootvol_backup in response.data:
+            print ('{0:100s} {1:30s} {2:10s}'.format(bootvol_backup.id, bootvol_backup.display_name, bootvol_backup.lifecycle_state))
 
 def list_block_storage_volume_groups(lcpt_ocid):
     print (COLOR_TITLE2+"========== BLOCK STORAGE: Volumes groups "+COLOR_NORMAL)
@@ -443,8 +427,13 @@ def list_region_specific_objects (cpt_ocid,cpt_name):
     global ContainerEngineClient
     global FunctionsManagementClient
     global VaultsClient
+    global ads
 
     print (COLOR_TITLE1+"==================== BEGIN: objects specific to region "+COLOR_COMP+config["region"]+COLOR_TITLE1+" in compartment "+COLOR_COMP+"{} ".format(cpt_name)+COLOR_NORMAL)
+
+    # get list of ADs in the region
+    response = IdentityClient.list_availability_domains (RootCompartmentID)
+    ads = response.data
 
     # Compute
     ComputeClient = oci.core.ComputeClient(config)
@@ -457,9 +446,9 @@ def list_region_specific_objects (cpt_ocid,cpt_name):
  
     # Block Storage
     BlockstorageClient = oci.core.BlockstorageClient(config)
-    list_compute_boot_volumes (cpt_ocid)
-    list_compute_boot_volume_backups (cpt_ocid)
     list_block_storage_volumes (cpt_ocid)
+    list_block_storage_boot_volumes (cpt_ocid)
+    list_block_storage_boot_volume_backups (cpt_ocid)
     list_block_storage_volume_backups (cpt_ocid)
     list_block_storage_volume_groups (cpt_ocid)
     list_block_storage_volume_group_backups (cpt_ocid)
@@ -583,24 +572,21 @@ else:
 response = oci.pagination.list_call_get_all_results(IdentityClient.list_region_subscriptions, RootCompartmentID)
 regions = response.data
 
-# -- get list of ADs
-response = oci.pagination.list_call_get_all_results(IdentityClient.list_availability_domains, RootCompartmentID)
-ads = response.data
-
 # -- list objects
 if (all_regions):
     print (COLOR_TITLE1+"==================== List of subscribed regions in tenancy "+COLOR_NORMAL)
     for region in regions:
         print (region.region_name)
 
-list_objects_common_to_all_regions(initial_cpt_ocid,initial_cpt_name)
+list_objects_common_to_all_regions(initial_cpt_ocid, initial_cpt_name)
 
 if not(all_regions):
-    list_region_specific_objects(initial_cpt_ocid,initial_cpt_name)
+    list_region_specific_objects(initial_cpt_ocid, initial_cpt_name)
 else:
     for region in regions:
-        config["region"]=region.region_name
-        list_region_specific_objects(initial_cpt_ocid,initial_cpt_name)
+        config["region"] = region.region_name
+        IdentityClient   = oci.identity.IdentityClient(config)
+        list_region_specific_objects(initial_cpt_ocid, initial_cpt_name)
 
 # -- the end
 exit (0)
