@@ -405,13 +405,13 @@ def get_instance_ids_from_file(filename):
 
     return instance_ids
 
-# ---- Check the syntax of the snapshot name (between 5 and 40 characters, accepted characters are [A-Za-z0-9_-])
+# ---- Check the syntax of the snapshot name (between 5 and 30 characters, accepted characters are [A-Za-z0-9_-])
 def check_snapshot_name_syntax(snapshot_name):
     allowedCharacters = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_-"
     validCharacters = all(char in allowedCharacters for char in snapshot_name)
-    validSize = (len(snapshot_name) >= 5 and len(snapshot_name) <= 40)
+    validSize = (len(snapshot_name) >= 5 and len(snapshot_name) <= 30)
     if not(validCharacters and validSize):
-        print (f"ERROR 04: the snapshot name '{snapshot_name}' is invalid: between 5 and 40 characters, accepted characters are [A-Za-z0-9_-] !", file=sys.stderr)
+        print (f"ERROR 04: the snapshot name '{snapshot_name}' is invalid: between 5 and 30 characters, accepted characters are [A-Za-z0-9_-] !", file=sys.stderr)
         exit(4)
 
 # ==== List snapshots of all compute instances
