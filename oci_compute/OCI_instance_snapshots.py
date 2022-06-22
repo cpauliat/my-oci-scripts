@@ -47,6 +47,9 @@
 #    2022-03-02: Remove option to store snapshots information in local JSON files (mandatory usage of OCI bucket)
 #    2022-03-03: Add --create-multi operation to create a consistent snapshot for several compute instances
 #    2022-03-03: Add --delete-all operation to delete all snapshots for a compute instance
+#    2022-06-22: Add check_snapshot_name_syntax() to check syntax of snapshot names (avoid errors when adding tag key)
+#    2022-06-22: Use stderr for error messages
+#    2022-06-22: Modify error codes
 # ---------------------------------------------------------------------------------------------------------------------------------
 
 # -------- import
@@ -82,8 +85,8 @@ def lock(instance_ids):
                 lock_present = True
                 break
     if lock_present:
-        print ("ERROR 17: another operation is in progress on one of the compute instances (lock present) ! Please retry later.")
-        exit(17)
+        print ("ERROR 14: another operation is in progress on one of the compute instances (lock present) ! Please retry later.", file=sys.stderr)
+        exit(14)
 
     # create lock files in the OCI bucket
     locked_instance_ids = []
@@ -94,9 +97,9 @@ def lock(instance_ids):
             response = ObjectStorageClient.put_object(os_namespace, db_bucket, object_name, "locked", retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
             locked_instance_ids.append(instance_id)
         except Exception as error:
-            print (f"ERROR 18: cannot lock compute instance ...{instance_id[-6:]}: ",error)
+            print (f"ERROR 15: cannot lock compute instance ...{instance_id[-6:]}: {error}", file=sys.stderr)
             unlock(locked_instance_ids)
-            exit(13)
+            exit(15)
 
 # ---- Unlock 1 or more compute instances 
 def unlock(instance_ids):
@@ -143,8 +146,8 @@ def stop_if_bucket_does_not_exist():
     try:
         ObjectStorageClient.get_bucket(os_namespace, db_bucket, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
     except Exception as error:
-        print (f"ERROR 11: {error.message}")
-        exit(11)
+        print (f"ERROR 05: Bucket does not exist: {error.message}", file=sys.stderr)
+        exit(5)
 
 # ---- Get the primary VNIC of the compute instance
 def get_primary_vnic(cpt_id, instance_id):
@@ -167,7 +170,7 @@ def stop_if_ephemeral_public_ip(public_ip_address, instance_ids):
         oci.core.models.GetPublicIpByIpAddressDetails(ip_address=public_ip_address),
         retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
     if response.data.lifetime == "EPHEMERAL":
-        print ("ERROR 06: this script does not support compute instances with ephemeral public IP. Use reserved public IP instead !")
+        print ("ERROR 06: this script does not support compute instances with ephemeral public IP. Use reserved public IP instead !", file=sys.stderr)
         unlock(instance_ids)
         exit(6)
     return response.data.id
@@ -187,7 +190,7 @@ def get_instance_details(instance_id, stop=True):
         response = ComputeClient.get_instance(instance_id, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
     except:
         if stop:
-            print ("ERROR 09: compute instance not found !")
+            print ("ERROR 09: compute instance not found !", file=sys.stderr)
             unlock([ instance_id ])
             exit(9)
         else:
@@ -195,7 +198,7 @@ def get_instance_details(instance_id, stop=True):
 
     if response.data.lifecycle_state in ["TERMINATED", "TERMINATING"]:
         if stop:
-            print (f"ERROR 08: compute instance in status {response.data.lifecycle_state} !")
+            print (f"ERROR 08: compute instance in status {response.data.lifecycle_state} !", file=sys.stderr)
             unlock([ instance_id ])
             exit(8)    
         else:
@@ -209,7 +212,7 @@ def get_source_bootvol_id(cloned_bootvol_id, instance_ids):
         response = BlockstorageClient.get_boot_volume(cloned_bootvol_id, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
         source_bootvol_id = response.data.source_details.id
     except:
-        print (f"ERROR 10: cannot find the source boot volume from cloned boot volume {cloned_bootvol_id} !")
+        print (f"ERROR 10: cannot find the source boot volume from cloned boot volume {cloned_bootvol_id} !", file=sys.stderr)
         unlock(instance_ids)
         exit(10)
 
@@ -221,9 +224,9 @@ def get_source_blkvol_id(cloned_blkvol_id, instance_ids):
         response = BlockstorageClient.get_volume(cloned_blkvol_id, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
         source_blkvol_id = response.data.source_details.id
     except:
-        print (f"ERROR 10: cannot find the source volume from cloned volume {cloned_blkvol_id} !")
+        print (f"ERROR 11: cannot find the source volume from cloned volume {cloned_blkvol_id} !", file=sys.stderr)
         unlock(instance_ids)
-        exit(10)
+        exit(11)
 
     return source_blkvol_id
 
@@ -352,7 +355,7 @@ def save_snapshots_dict(dict, instance_id, verbose = True):
         try:
             response = ObjectStorageClient.put_object(os_namespace, db_bucket, object_name, json.dumps(dict, indent=4), retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
         except Exception as error:
-            print ("ERROR 07: ",error)
+            print (f"ERROR 07: {error}", file=sys.stderr)
             unlock([ instance_id ])
             exit(7)
     else:
@@ -377,7 +380,7 @@ def stop_if_snapsnot_does_not_exist(snap_dict, snapshot_name):
             return snap
 
     # if snapshot_name not found in snapshots list
-    print (f"ERROR 03: there is no snapshot named '{snapshot_name}' for this compute instance !")
+    print (f"ERROR 03: there is no snapshot named '{snapshot_name}' for this compute instance !", file=sys.stderr)
     unlock([ instance_id ])
     exit(3)
 
@@ -388,8 +391,8 @@ def get_instance_ids_from_file(filename):
         with open(filename) as f:
             lines = f.readlines()
     except Exception as error:
-        print (f"ERROR 15: {error}")
-        exit(15)
+        print (f"ERROR 12: Cannot read file {filename}: {error}", file=sys.stderr)
+        exit(12)
     # get the list of compute instances OCIDs present in the files
     instance_ids = []
     for line in lines:
@@ -397,10 +400,19 @@ def get_instance_ids_from_file(filename):
             instance_ids.append(line.rstrip("\n"))
     # 
     if len(instance_ids) < 2:
-        print ("ERROR 16: this file must contain at least 2 compute instance ocids !")
-        exit(16)
+        print (f"ERROR 13: the file {filename} must contain at least 2 compute instance ocids !", file=sys.stderr)
+        exit(13)
 
     return instance_ids
+
+# ---- Check the syntax of the snapshot name (between 5 and 40 characters, accepted characters are [A-Za-z0-9_-])
+def check_snapshot_name_syntax(snapshot_name):
+    allowedCharacters = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_-"
+    validCharacters = all(char in allowedCharacters for char in snapshot_name)
+    validSize = (len(snapshot_name) >= 5 and len(snapshot_name) <= 40)
+    if not(validCharacters and validSize):
+        print (f"ERROR 04: the snapshot name '{snapshot_name}' is invalid: between 5 and 40 characters, accepted characters are [A-Za-z0-9_-] !", file=sys.stderr)
+        exit(4)
 
 # ==== List snapshots of all compute instances
 def list_snapshots_for_all_instances():
@@ -478,8 +490,8 @@ def create_snapshot_multi(instance_ids, snapshot_name, description):
         instance = get_instance_details(instance_id, stop=False)
         if instance == None:
             unlock(instance_ids)
-            print (f"ERROR 18: compute instance ...{instance_id[-6:]} does not exist or is in TERMINATING/TERMINATED status.")
-            exit(18)
+            print (f"ERROR 17: compute instance ...{instance_id[-6:]} does not exist or is in TERMINATING/TERMINATED status.", file=sys.stderr)
+            exit(17)
         instances_dict[instance_id] = instance
 
     # -- make sure the compute instances belong to the same compartment and are in the same availability domain
@@ -488,19 +500,19 @@ def create_snapshot_multi(instance_ids, snapshot_name, description):
     cpt_id  = instances_dict[first_instance_id].compartment_id
     for instance_id in instance_ids:
         if instances_dict[instance_id].availability_domain != ad_name:
-            print ("ERROR 19: all compute instances must be in the same availability domain !")
+            print ("ERROR 18: all compute instances must be in the same availability domain !", file=sys.stderr)
             unlock(instance_ids)
-            exit(19)
+            exit(18)
         if instances_dict[instance_id].compartment_id != cpt_id:
-            print ("ERROR 20: all compute instances must be in the same compartment !")
+            print ("ERROR 19: all compute instances must be in the same compartment !", file=sys.stderr)
             unlock(instance_ids)
-            exit(20) 
+            exit(19) 
 
     # -- make sure the snapshot_name is not already used on thoses compute instances
     for instance_id in instance_ids:
         for snap in snaps_dict[instance_id]["snapshots"]:
             if snap["name"] == snapshot_name:
-                print (f"ERROR 01: A snapshot with name '{snapshot_name}' already exists for instance ...{instance_id[-6:]}. Please retry using a different name !")
+                print (f"ERROR 01: A snapshot with name '{snapshot_name}' already exists for instance ...{instance_id[-6:]}. Please retry using a different name !", file=sys.stderr)
                 unlock(instance_ids)
                 exit(1)
 
@@ -556,9 +568,9 @@ def create_snapshot_multi(instance_ids, snapshot_name, description):
         response = BlockstorageClient.create_volume_group(vg_details, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
         vg_id    = response.data.id
     except Exception as error:
-        print (f"ERROR 18: {error.message}")
+        print (f"ERROR 16: creation of volume group failed: {error.message}", file=sys.stderr)
         unlock(instance_ids)
-        exit(18)
+        exit(16)
 
     # -- clone the volume group to make a consistent copy of boot volume and block volume(s)
     print (f"Cloning the temporary volume group")
@@ -926,7 +938,7 @@ def rename_snapshot(instance_id, snapshot_old_name, snapshot_new_name):
     # -- make sure the new snapshot_name is not already used on this compute instance
     for snap in snap_dict["snapshots"]:
         if snap["name"] == snapshot_new_name:
-            print (f"ERROR 01: A snapshot with name '{snapshot_new_name}' already exists. Please retry using a different name !")
+            print (f"ERROR 01: A snapshot with name '{snapshot_new_name}' already exists. Please retry using a different name !", file=sys.stderr)
             unlock([ instance_id ])
             exit(1)
 
@@ -1011,7 +1023,7 @@ profile = args.profile
 try:
     config = oci.config.from_file(configfile,profile)
 except:
-    print ("ERROR 02: profile '{}' not found in config file {} !".format(profile,configfile))
+    print (f"ERROR 02: profile '{profile}' not found in config file {configfile} !", file=sys.stderr)
     exit(2)
 
 # -- OCI clients
@@ -1043,6 +1055,7 @@ elif args.create:
     snapshot_name = args.create[0]
     snapshot_desc = args.create[1]
     instance_id   = args.create[2]
+    check_snapshot_name_syntax(snapshot_name)
     lock([ instance_id ])
     create_snapshot(instance_id, snapshot_name, snapshot_desc)
     unlock([ instance_id ])
@@ -1050,6 +1063,7 @@ elif args.create_multi:
     snapshot_name = args.create_multi[0]
     snapshot_desc = args.create_multi[1]
     instances_file= args.create_multi[2]
+    check_snapshot_name_syntax(snapshot_name)
     instance_ids = get_instance_ids_from_file(instances_file)
     lock(instance_ids)
     create_snapshot_multi(instance_ids, snapshot_name, snapshot_desc)
@@ -1057,12 +1071,14 @@ elif args.create_multi:
 elif args.rollback:
     snapshot_name = args.rollback[0]
     instance_id   = args.rollback[1]
+    check_snapshot_name_syntax(snapshot_name)
     lock([ instance_id ])
     rollback_snapshot(instance_id, snapshot_name)
     unlock([ instance_id ])
 elif args.delete:
     snapshot_name = args.delete[0]
     instance_id   = args.delete[1]
+    check_snapshot_name_syntax(snapshot_name)
     lock([ instance_id ])
     delete_snapshot(instance_id, snapshot_name)
     unlock([ instance_id ])
@@ -1075,6 +1091,8 @@ elif args.rename:
     snapshot_old_name = args.rename[0]
     snapshot_new_name = args.rename[1]
     instance_id       = args.rename[2]
+    check_snapshot_name_syntax(snapshot_old_name)
+    check_snapshot_name_syntax(snapshot_new_name)
     lock([ instance_id ])
     rename_snapshot(instance_id, snapshot_old_name, snapshot_new_name)
     unlock([ instance_id ])
@@ -1082,6 +1100,7 @@ elif args.change_desc:
     snapshot_name     = args.change_desc[0]
     snapshot_new_desc = args.change_desc[1]
     instance_id       = args.change_desc[2]
+    check_snapshot_name_syntax(snapshot_name)
     lock([ instance_id ])
     change_snapshot_decription(instance_id, snapshot_name, snapshot_new_desc)
     unlock([ instance_id ])
