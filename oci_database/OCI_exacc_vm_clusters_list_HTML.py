@@ -3,12 +3,12 @@
 # --------------------------------------------------------------------------------------------------------------
 # This script lists all ExaCC VM clusters and Exadata Infrastructures in a OCI tenant using OCI Python SDK 
 # It looks in all compartments in the region given by profile or in all subscribed regions
-# Note: OCI tenant given by an OCI CLI PROFILE
+# Note: OCI tenant given by an OCI CLI PROFILE or by instance principal authentication
 #
-# Author        : Christophe Pauliat
+# Authors       : Christophe Pauliat / Matthieu Bordonné
 # Platforms     : MacOS / Linux
 # prerequisites : - Python 3 with OCI Python SDK installed
-#                 - OCI config file configured with profiles
+#                 - OCI config file configured with profiles (not needed if using instance principal authentication)
 # Versions
 #    2020-09-21: Initial Version for VM clusters only
 #    2021-01-18: HTML output showing a table with VM clusters details and status
@@ -31,6 +31,8 @@
 #    2022-06-08: Add the --bucket-name option to store the reports in an OCI object storage bucket
 #    2022-06-15: Replace console.{home_region}.oraclecloud.com by cloud.oracle.com in get_url_link*() functions
 #    2022-06-15: Print error messages to stderr instead of stdout
+#    2022-07-11: Add GI/OS versions for VM Clusters
+#    2022-07-12: Add Maintenance info for Autonomous VM Clusters
 # --------------------------------------------------------------------------------------------------------------
 
 # -------- import
@@ -43,6 +45,8 @@ import email.utils
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from datetime import datetime, timedelta, timezone
+from pkg_resources import parse_version
+
 
 # -------- variables
 configfile             = "~/.oci/config"    # Define config file to be used.
@@ -142,6 +146,23 @@ def vmcluster_get_details (vmcluster_id):
         vmclust.region = config["region"]
     else:
         vmclust.region = signer.region
+
+    # Get the available GI updates for the VM Cluster
+    response = DatabaseClient.list_vm_cluster_updates (vm_cluster_id = vmcluster_id, update_type = "GI_PATCH", retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
+    vmclust_gi_updates = response.data
+    vmclust.gi_update_available = vmclust.gi_version
+    for gi_updates in vmclust_gi_updates:
+        if parse_version(gi_updates.version) > parse_version(vmclust.gi_update_available):
+            vmclust.gi_update_available = gi_updates.version
+
+    # Get the available System updates for the VM Cluster
+    response = DatabaseClient.list_vm_cluster_updates (vm_cluster_id = vmcluster_id, update_type = "OS_UPDATE", retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
+    vmclust_sys_updates = response.data
+    vmclust.system_update_available = vmclust.system_version
+    for sys_updates in vmclust_sys_updates:
+        if parse_version(sys_updates.version) > parse_version(vmclust.system_update_available):
+            vmclust.system_update_available = sys_updates.version
+
     vmclusters.append (vmclust)
 
 # ---- Get details for an autonomous VM cluster
@@ -159,6 +180,23 @@ def autonomousvmcluster_get_details (autonomousvmcluster_id):
         autovmclust.region = config["region"]
     else:
         autovmclust.region = signer.region
+
+    # last_maintenance_run_id is currently not populated, hence the workaround below 
+    # Get a list of historical maintenance runs for that AVM Cluster and find the latest
+    response = DatabaseClient.list_maintenance_runs(compartment_id= autovmclust.compartment_id,
+        target_resource_id = autovmclust.id, 
+        sort_by = "TIME_ENDED", 
+        sort_order = "ASC",
+        retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
+    if len(response.data) > 0:
+        last_maintenance_run_id = response.data[-1].id
+    else:
+        last_maintenance_run_id = autovmclust.last_maintenance_run_id
+
+    autovmclust.last_maintenance_start, autovmclust.last_maintenance_end = get_last_maintenance_dates(DatabaseClient, last_maintenance_run_id)
+    # End of workaround. Once fixed, replace by this call:
+    # autovmclust.last_maintenance_start, autovmclust.last_maintenance_end = get_last_maintenance_dates(DatabaseClient, autovmclust.last_maintenance_run_id)
+    autovmclust.next_maintenance = get_next_maintenance_date(DatabaseClient, autovmclust.next_maintenance_run_id)
     autonomousvmclusters.append (autovmclust)
 
 # ---- Get the list of Exadata infrastructures
@@ -326,6 +364,8 @@ def generate_html_table_vmclusters():
                 <th>DB nodes</th>
                 <th>OCPUs</th>
                 <th>Memory (GB)</th>
+                <th>GI Version<br>Current/Latest</th>
+                <th>OS Version<br>Current/Latest</th>
                 <th>Exadata infrastructure</th>
             </tr>\n"""
 
@@ -343,6 +383,8 @@ def generate_html_table_vmclusters():
         html_content += f'                <td>&nbsp;{len(vmcluster.db_servers)}&nbsp;</td>\n'
         html_content += f'                <td>&nbsp;{vmcluster.cpus_enabled}&nbsp;</td>\n'
         html_content += f'                <td>&nbsp;{vmcluster.memory_size_in_gbs}&nbsp;</td>\n'
+        html_content += f'                <td>&nbsp;{vmcluster.gi_version}&nbsp;/<br>&nbsp;{vmcluster.gi_update_available}&nbsp;</td>\n'
+        html_content += f'                <td>&nbsp;{vmcluster.system_version}&nbsp;/<br>&nbsp;{vmcluster.system_update_available}&nbsp;</td>\n'
 
         exadatainfrastructure = get_exadata_infrastructure_from_id(vmcluster.exadata_infrastructure_id)
         url  = get_url_link_for_exadatainfrastructure(exadatainfrastructure)      
@@ -355,6 +397,7 @@ def generate_html_table_vmclusters():
     return html_content
 
 def generate_html_table_autonomousvmclusters():
+    format   = "%b %d %Y %H:%M %Z"
     html_content  =   "    <table>\n"
     html_content +=  f"        <caption>ExaCC autonomous VM clusters in tenant <b>{tenant_name.upper()}</b> on <b>{now_str}</b></caption>\n"
     html_content += """        <tbody>
@@ -362,6 +405,7 @@ def generate_html_table_autonomousvmclusters():
                 <th>Region</th>
                 <th>Compartment</th>
                 <th>Name</th>
+                <th>Maintenance runs</th>
                 <th>Status</th>
                 <th>OCPUs</th>
                 <th>Exadata infrastructure</th>
@@ -374,6 +418,28 @@ def generate_html_table_autonomousvmclusters():
         html_content += f'                <td>&nbsp;{autonomousvmcluster.region}&nbsp;</td>\n'
         html_content += f'                <td>&nbsp;{cpt_name}&nbsp;</td>\n'
         html_content += f'                <td>&nbsp;<a href="{url}">{autonomousvmcluster.display_name}</a> &nbsp;</td>\n'
+
+        html_content += f'                <td style="text-align: left">&nbsp;Last maintenance: <br>\n'
+        try:
+            html_content += f'                    &nbsp; - {autonomousvmcluster.last_maintenance_start.strftime(format)} (start)&nbsp;<br>\n'
+        except:
+            html_content += f'                    &nbsp; - no date/time (start)&nbsp;<br>\n'
+        try:
+            html_content += f'                    &nbsp; - {autonomousvmcluster.last_maintenance_end.strftime(format)} (end)&nbsp;<br><br>\n'
+        except:
+            html_content += f'                    &nbsp; - no date/time (end)&nbsp;<br><br>\n'
+        
+        html_content += f'                    &nbsp;Next maintenance: <br>\n'
+        if autonomousvmcluster.next_maintenance == "":
+            html_content += f'                    &nbsp; - Not yet scheduled &nbsp;</td>\n'
+        else:
+            # if the next maintenance date is soon, display it in red
+            if (autonomousvmcluster.next_maintenance - now < timedelta(days=15)):
+                html_content += f'                    &nbsp; - <span style="color: #ff0000">{autonomousvmcluster.next_maintenance.strftime(format)}</span>&nbsp;</td>\n'
+            else:
+                html_content += f'                    &nbsp; - {autonomousvmcluster.next_maintenance.strftime(format)}&nbsp;</td>\n'
+
+
         if (autonomousvmcluster.lifecycle_state != "AVAILABLE"):
             html_content += f'                <td>&nbsp;<span style="color: #ff0000">{autonomousvmcluster.lifecycle_state}&nbsp;</span></td>\n'
         else:
