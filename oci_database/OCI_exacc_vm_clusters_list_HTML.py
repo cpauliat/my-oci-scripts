@@ -364,8 +364,8 @@ def generate_html_table_vmclusters():
                 <th>DB nodes</th>
                 <th>OCPUs</th>
                 <th>Memory (GB)</th>
-                <th>GI Version<br>Current/Latest</th>
-                <th>OS Version<br>Current/Latest</th>
+                <th>GI Version<br>Current / Latest</th>
+                <th>OS Version<br>Current / Latest</th>
                 <th>Exadata infrastructure</th>
             </tr>\n"""
 
