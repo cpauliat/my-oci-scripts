@@ -289,7 +289,6 @@ def auto_cdb_get_details (auto_cdb_id):
         DatabaseClient = oci.database.DatabaseClient(config)
     else:
         DatabaseClient = oci.database.DatabaseClient(config={}, signer=signer)
-    print (f"DEBUG: auto_cdb_get_details(): {auto_cdb_id}", file=sys.stderr)
     response = DatabaseClient.get_autonomous_container_database (autonomous_container_database_id = auto_cdb_id, retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
     auto_cdb = response.data
     if authentication_mode == "user_profile":
