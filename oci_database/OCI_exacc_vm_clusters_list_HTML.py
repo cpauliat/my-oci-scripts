@@ -18,8 +18,8 @@
 #    2021-08-18: Show the Exadata infrastructure for each VM cluster in the VM clusters table
 #    2021-08-18: Add a 3rd table for autonomous VM clusters
 #    2021-08-24: Optimize code for empty tables
-#    2021-08-24: Add more details for Exadata infrastructures (Matthieu Bordonne)
-#    2021-09-01: Show Memory for VM clusters (Matthieu Bordonne)
+#    2021-08-24: Add more details for Exadata infrastructures (Matthieu)
+#    2021-09-01: Show Memory for VM clusters (Matthieu)
 #    2021-11-30: Show number of DB nodes on regular VM clusters (not on Autonomous VM clusters)
 #    2021-11-30: Replace "xx".format() strings by f-strings
 #    2021-12-01: Add a retry strategy for ALL OCI calls in to avoid potential error "Too many requests for the tenants"
@@ -31,8 +31,8 @@
 #    2022-06-08: Add the --bucket-name option to store the reports in an OCI object storage bucket
 #    2022-06-15: Replace console.{home_region}.oraclecloud.com by cloud.oracle.com in get_url_link*() functions
 #    2022-06-15: Print error messages to stderr instead of stdout
-#    2022-07-11: Add GI/OS versions for VM Clusters
-#    2022-07-12: Add Maintenance info for Autonomous VM Clusters
+#    2022-07-11: Add GI/OS versions for VM Clusters (Matthieu)
+#    2022-07-12: Add Maintenance info for Autonomous VM Clusters (Matthieu)
 #    2022-07-19: Add the --databases option to list DATABASE HOMES, CDB and PDB databases
 #    2022-07-19: Sort the tables 
 #    2022-07-19: Add the --bucket-suffix option to add a suffix to object name in OCI object storage bucket
@@ -289,6 +289,7 @@ def auto_cdb_get_details (auto_cdb_id):
         DatabaseClient = oci.database.DatabaseClient(config)
     else:
         DatabaseClient = oci.database.DatabaseClient(config={}, signer=signer)
+    print (f"DEBUG: auto_cdb_get_details(): {auto_cdb_id}", file=sys.stderr)
     response = DatabaseClient.get_autonomous_container_database (autonomous_container_database_id = auto_cdb_id, retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
     auto_cdb = response.data
     if authentication_mode == "user_profile":
@@ -429,7 +430,8 @@ def search_auto_cdbs():
         retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
     sorted_items = sorted(response.data.items, key=operator.attrgetter('display_name'))
     for item in sorted_items:
-        auto_cdb_get_details (item.identifier)
+        if item.lifecycle_state == "AVAILABLE":
+            auto_cdb_get_details (item.identifier)
 
 # ---- Get the list of Autonomous Databases (for autonomous VM clusters)
 def search_auto_dbs():
