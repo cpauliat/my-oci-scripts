@@ -33,6 +33,11 @@
 #    2022-06-15: Print error messages to stderr instead of stdout
 #    2022-07-11: Add GI/OS versions for VM Clusters
 #    2022-07-12: Add Maintenance info for Autonomous VM Clusters
+#    2022-07-19: Add the --databases option to list DATABASE HOMES, CDB and PDB databases
+#    2022-07-19: Sort the tables 
+#    2022-07-19: Add the --bucket-suffix option to add a suffix to object name in OCI object storage bucket
+#    2022-07-19: Replace tables captions by title at the beginning of the page
+#    2022-07-19: Use automatic font sizes (font sizes automatically changed depending on Web/Email window size)
 # --------------------------------------------------------------------------------------------------------------
 
 # -------- import
@@ -42,17 +47,24 @@ import argparse
 import os
 import smtplib
 import email.utils
+import operator
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from datetime import datetime, timedelta, timezone
 from pkg_resources import parse_version
 
-
 # -------- variables
+days_notification      = 15                 # Number of days before scheduled maintenance
+color_date_soon        = "#FF0000"          # Color for maintenance scheduled soon (less than days_notification days)
+color_not_available    = "#FF0000"          # Color for lifecycles different than AVAILABLE and ACTIVE
 configfile             = "~/.oci/config"    # Define config file to be used.
 exadatainfrastructures = []
 vmclusters             = []
 autonomousvmclusters   = []
+db_homes               = []
+auto_cdbs              = []
+auto_dbs               = []
+automatic_fonts_sizes  = True               # automatic size for character fonts: True or False
 
 # -------- functions
 
@@ -75,13 +87,20 @@ def get_cpt_name_from_id(cpt_id):
                 name = get_cpt_name_from_id(c.compartment_id)+":"+name
                 return name
 
-# ---- Get details of an Exadata infrastructure from its id
-def get_exadata_infrastructure_from_id (exadatainfrastructure_id):
-    exainfra = {}
-    for exadatainfrastructure in exadatainfrastructures:
-        if exadatainfrastructure.id == exadatainfrastructure_id:
-            exainfra = exadatainfrastructure
-    return exainfra
+# # ---- Get details of an Exadata infrastructure from its id (TO REMOVE)
+# def get_exadata_infrastructure_from_id (exadatainfrastructure_id):
+#     exainfra = {}
+#     for exadatainfrastructure in exadatainfrastructures:
+#         if exadatainfrastructure.id == exadatainfrastructure_id:
+#             exainfra = exadatainfrastructure
+#     return exainfra
+
+# # ---- Get a VM cluster from its id (TO REMOVE)
+# def get_vmcluster_from_id(vmcluster_id):
+#     for vmcluster in vmclusters:
+#         if vmcluster.id == vmcluster_id:
+#             break
+#     return vmcluster
 
 # ---- Get url link to a specific Exadata infrastructure in OCI Console
 def get_url_link_for_exadatainfrastructure(exadatainfrastructure):
@@ -94,6 +113,22 @@ def get_url_link_for_vmcluster(vmcluster):
 # ---- Get url link to a specific autonomous VM cluster in OCI Console
 def get_url_link_for_autonomousvmcluster(vmcluster):
     return f"https://cloud.oracle.com/exacc/autonomousExaVmClusters/{vmcluster.id}?tenant={tenant_name}&region={vmcluster.region}"
+
+# ---- Get url link to a specific DB home in OCI Console
+def get_url_link_for_db_home(db_home):
+    return f"https://cloud.oracle.com/exacc/db_homes/{db_home.id}?tenant={tenant_name}&region={db_home.region}"
+
+# ---- Get url link to a specific database in OCI Console
+def get_url_link_for_database(database, region):
+    return f"https://cloud.oracle.com/exacc/databases/{database.id}?tenant={tenant_name}&region={region}"
+
+# ---- Get url link to a specific autonomous container database in OCI Console
+def get_url_link_for_auto_cdb(auto_cdb):
+    return f"https://cloud.oracle.com/exacc/autonomousContainerDatabases/{auto_cdb.id}?tenant={tenant_name}&region={auto_cdb.region}"
+
+# ---- Get url link to a specific autonomous  database in OCI Console
+def get_url_link_for_auto_db(auto_db):
+    return f"https://cloud.oracle.com/exacc/autonomousDatabases/{auto_db.id}?tenant={tenant_name}&region={auto_db.region}"
 
 # ---- Get the details for a next maintenance run
 def get_next_maintenance_date(DatabaseClient, maintenance_run_id):
@@ -109,7 +144,9 @@ def get_last_maintenance_dates(DatabaseClient, maintenance_run_id):
         response = DatabaseClient.get_maintenance_run (maintenance_run_id = maintenance_run_id, retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
         return response.data.time_started, response.data.time_ended
     else:
-        return "",""
+        date_started = ""
+        date_ended   = ""
+        return date_started, date_ended
 
 # ---- Get details for an Exadata infrastructure
 def exadatainfrastructure_get_details (exadatainfrastructure_id):
@@ -126,9 +163,10 @@ def exadatainfrastructure_get_details (exadatainfrastructure_id):
         exainfra.region = config["region"]
     else:
         exainfra.region = signer.region
-    # print (f"<pre>DEBUG: {exainfra}</pre>")
     exainfra.last_maintenance_start, exainfra.last_maintenance_end = get_last_maintenance_dates(DatabaseClient, exainfra.last_maintenance_run_id)
     exainfra.next_maintenance = get_next_maintenance_date(DatabaseClient, exainfra.next_maintenance_run_id)
+
+    # save details to list
     exadatainfrastructures.append (exainfra)
 
 # ---- Get details for a VM cluster
@@ -163,6 +201,7 @@ def vmcluster_get_details (vmcluster_id):
         if parse_version(sys_updates.version) > parse_version(vmclust.system_update_available):
             vmclust.system_update_available = sys_updates.version
 
+    # save details to list
     vmclusters.append (vmclust)
 
 # ---- Get details for an autonomous VM cluster
@@ -183,7 +222,7 @@ def autonomousvmcluster_get_details (autonomousvmcluster_id):
 
     # last_maintenance_run_id is currently not populated, hence the workaround below 
     # Get a list of historical maintenance runs for that AVM Cluster and find the latest
-    response = DatabaseClient.list_maintenance_runs(compartment_id= autovmclust.compartment_id,
+    response = DatabaseClient.list_maintenance_runs(compartment_id = autovmclust.compartment_id,
         target_resource_id = autovmclust.id, 
         sort_by = "TIME_ENDED", 
         sort_order = "ASC",
@@ -197,7 +236,129 @@ def autonomousvmcluster_get_details (autonomousvmcluster_id):
     # End of workaround. Once fixed, replace by this call:
     # autovmclust.last_maintenance_start, autovmclust.last_maintenance_end = get_last_maintenance_dates(DatabaseClient, autovmclust.last_maintenance_run_id)
     autovmclust.next_maintenance = get_next_maintenance_date(DatabaseClient, autovmclust.next_maintenance_run_id)
+
+    # save details to list
     autonomousvmclusters.append (autovmclust)
+
+# ---- Get details for a DB home
+def db_home_get_details (db_home_id):
+    global db_homes
+
+    # get details about db_home from regular API 
+    if authentication_mode == "user_profile":
+        DatabaseClient = oci.database.DatabaseClient(config)
+    else:
+        DatabaseClient = oci.database.DatabaseClient(config={}, signer=signer)
+    response = DatabaseClient.get_db_home (db_home_id = db_home_id, retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
+    db_home = response.data
+    if authentication_mode == "user_profile":
+        db_home.region = config["region"]
+    else:
+        db_home.region = signer.region
+
+    # Get the latest patch available (DB version) for the DB HOME
+    response = DatabaseClient.list_db_home_patches (db_home_id = db_home_id, retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
+    db_home_updates = response.data
+    db_home.db_update_latest = db_home.db_version
+    for update in db_home_updates:
+        if parse_version(update.version) > parse_version(db_home.db_update_latest):
+            db_home.db_update_latest = update.version
+
+    # get the list of databases (and pluggable databases) using this DB home
+    response = DatabaseClient.list_databases (compartment_id = db_home.compartment_id, db_home_id = db_home_id, retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
+    db_home.databases = response.data
+    for database in db_home.databases:
+        # print (f"DEBUG: database id = {database.id}",file=sys.stderr)
+        # OCI pluggable database management is supported only for Oracle Database 19.0 or higher
+        try:
+            if database.is_cdb:
+                response = DatabaseClient.list_pluggable_databases (database_id = database.id, retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
+                database.pdbs = response.data
+        except:
+            pass
+
+    # save details to list
+    db_homes.append (db_home)
+
+# ---- Get details for an autonomous container database
+def auto_cdb_get_details (auto_cdb_id):
+    global auto_cdbs
+
+    # get details about autonomous cdb from regular API 
+    if authentication_mode == "user_profile":
+        DatabaseClient = oci.database.DatabaseClient(config)
+    else:
+        DatabaseClient = oci.database.DatabaseClient(config={}, signer=signer)
+    response = DatabaseClient.get_autonomous_container_database (autonomous_container_database_id = auto_cdb_id, retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
+    auto_cdb = response.data
+    if authentication_mode == "user_profile":
+        auto_cdb.region = config["region"]
+    else:
+        auto_cdb.region = signer.region
+
+    # # Get the latest patch available (DB version) for the DB HOME
+    # response = DatabaseClient.list_db_home_patches (db_home_id = db_home_id, retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
+    # db_home_updates = response.data
+    # db_home.db_update_latest = db_home.db_version
+    # for update in db_home_updates:
+    #     if parse_version(update.version) > parse_version(db_home.db_update_latest):
+    #         db_home.db_update_latest = update.version
+
+    # # get the list of databases (and pluggable databases) using this DB home
+    # response = DatabaseClient.list_databases (compartment_id = db_home.compartment_id, db_home_id = db_home_id, retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
+    # db_home.databases = response.data
+    # for database in db_home.databases:
+    #     # print (f"DEBUG: database id = {database.id}",file=sys.stderr)
+    #     # OCI pluggable database management is supported only for Oracle Database 19.0 or higher
+    #     try:
+    #         if database.is_cdb:
+    #             response = DatabaseClient.list_pluggable_databases (database_id = database.id, retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
+    #             database.pdbs = response.data
+    #     except:
+    #         pass
+
+    # save details to list
+    auto_cdbs.append (auto_cdb)
+
+# ---- Get details for an autonomous database
+def auto_db_get_details (auto_db_id):
+    global auto_dbs
+
+    # get details about autonomous database from regular API 
+    if authentication_mode == "user_profile":
+        DatabaseClient = oci.database.DatabaseClient(config)
+    else:
+        DatabaseClient = oci.database.DatabaseClient(config={}, signer=signer)
+    response = DatabaseClient.get_autonomous_database (autonomous_database_id = auto_db_id, retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
+    auto_db = response.data
+    if authentication_mode == "user_profile":
+        auto_db.region = config["region"]
+    else:
+        auto_db.region = signer.region
+
+    # # Get the latest patch available (DB version) for the DB HOME
+    # response = DatabaseClient.list_db_home_patches (db_home_id = db_home_id, retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
+    # db_home_updates = response.data
+    # db_home.db_update_latest = db_home.db_version
+    # for update in db_home_updates:
+    #     if parse_version(update.version) > parse_version(db_home.db_update_latest):
+    #         db_home.db_update_latest = update.version
+
+    # # get the list of databases (and pluggable databases) using this DB home
+    # response = DatabaseClient.list_databases (compartment_id = db_home.compartment_id, db_home_id = db_home_id, retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
+    # db_home.databases = response.data
+    # for database in db_home.databases:
+    #     # print (f"DEBUG: database id = {database.id}",file=sys.stderr)
+    #     # OCI pluggable database management is supported only for Oracle Database 19.0 or higher
+    #     try:
+    #         if database.is_cdb:
+    #             response = DatabaseClient.list_pluggable_databases (database_id = database.id, retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
+    #             database.pdbs = response.data
+    #     except:
+    #         pass
+
+    # save details to list
+    auto_dbs.append (auto_db)
 
 # ---- Get the list of Exadata infrastructures
 def search_exadatainfrastructures():
@@ -209,7 +370,8 @@ def search_exadatainfrastructures():
     response = SearchClient.search_resources(
         oci.resource_search.models.StructuredSearchDetails(type="Structured", query=query), 
         retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
-    for item in response.data.items:
+    sorted_items = sorted(response.data.items, key=operator.attrgetter('display_name'))
+    for item in sorted_items:
         exadatainfrastructure_get_details (item.identifier)
 
 # ---- Get the list of VM clusters
@@ -222,7 +384,8 @@ def search_vmclusters():
     response = SearchClient.search_resources(
         oci.resource_search.models.StructuredSearchDetails(type="Structured", query=query),
         retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
-    for item in response.data.items:
+    sorted_items = sorted(response.data.items, key=operator.attrgetter('display_name'))
+    for item in sorted_items:
         vmcluster_get_details (item.identifier)
 
 # ---- Get the list of autonomous VM clusters
@@ -235,9 +398,52 @@ def search_autonomousvmclusters():
     response = SearchClient.search_resources(
         oci.resource_search.models.StructuredSearchDetails(type="Structured", query=query),
         retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
-    for item in response.data.items:
+    sorted_items = sorted(response.data.items, key=operator.attrgetter('display_name'))
+    for item in sorted_items:
         if item.lifecycle_state != "TERMINATED":
             autonomousvmcluster_get_details (item.identifier)
+
+# ---- Get the list of DB homes (for VM clusters)
+def search_db_homes():
+    query = "query dbhome resources"
+    if authentication_mode == "user_profile":
+        SearchClient = oci.resource_search.ResourceSearchClient(config)
+    else:
+        SearchClient = oci.resource_search.ResourceSearchClient(config={}, signer=signer)
+    response = SearchClient.search_resources(
+        oci.resource_search.models.StructuredSearchDetails(type="Structured", query=query),
+        retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
+    sorted_items = sorted(response.data.items, key=operator.attrgetter('display_name'))
+    for item in sorted_items:
+        db_home_get_details (item.identifier)
+
+# ---- Get the list of Autonomous Container Databases (for autonomous VM clusters)
+def search_auto_cdbs():
+    query = "query autonomouscontainerdatabase resources"
+    if authentication_mode == "user_profile":
+        SearchClient = oci.resource_search.ResourceSearchClient(config)
+    else:
+        SearchClient = oci.resource_search.ResourceSearchClient(config={}, signer=signer)
+    response = SearchClient.search_resources(
+        oci.resource_search.models.StructuredSearchDetails(type="Structured", query=query),
+        retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
+    sorted_items = sorted(response.data.items, key=operator.attrgetter('display_name'))
+    for item in sorted_items:
+        auto_cdb_get_details (item.identifier)
+
+# ---- Get the list of Autonomous Databases (for autonomous VM clusters)
+def search_auto_dbs():
+    query = "query autonomousdatabase resources"
+    if authentication_mode == "user_profile":
+        SearchClient = oci.resource_search.ResourceSearchClient(config)
+    else:
+        SearchClient = oci.resource_search.ResourceSearchClient(config={}, signer=signer)
+    response = SearchClient.search_resources(
+        oci.resource_search.models.StructuredSearchDetails(type="Structured", query=query),
+        retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
+    sorted_items = sorted(response.data.items, key=operator.attrgetter('display_name'))
+    for item in sorted_items:
+        auto_db_get_details (item.identifier)
 
 # ---- Generate HTML page 
 def generate_html_headers():
@@ -245,7 +451,7 @@ def generate_html_headers():
 <html>
 <head>
     <meta http-equiv="content-type" content="text/html; charset=UTF-8">
-    <title>ExaCC VM clusters and Exadata infrastructure list</title>
+    <title>ExaCC status report</title>
     <style type="text/css">
         tr:nth-child(odd) { background-color: #f2f2f2; }
         tr:hover          { background-color: #ffdddd; }
@@ -270,20 +476,35 @@ def generate_html_headers():
             padding: 10px;
             align: right;
             font-style: italic;
+        }"""
+    if automatic_fonts_sizes:
+        html_content += """
+        th, td {
+            font-size: 0.85vw;
         }
+        h1 {
+            font-size: 2vw;
+        }
+        h2 {
+            font-size: 1.5vw;
+        }
+        h3 {
+            font-size: 1.1vw;
+        }"""
+    html_content += """
     </style>
 </head>\n"""
 
     return html_content
 
 def generate_html_table_exadatainfrastructures():
-    html_content  =   "    <table>\n"
-    html_content +=  f"        <caption>ExaCC Exadata infrastructures in tenant <b>{tenant_name.upper()}</b> on <b>{now_str}</b></caption>\n"
+    html_content  =   '    <table id="table_exainfras">\n'
+    # html_content +=  f"        <caption>ExaCC Exadata infrastructures in tenant <b>{tenant_name.upper()}</b> on <b>{now_str}</b></caption>\n"
     html_content += """        <tbody>
             <tr>
                 <th>Region</th>
+                <th>EXADATA<br>INFRASTRUCTURE</th>
                 <th>Compartment</th>
-                <th>Name</th>
                 <th>Quarterly<br>maintenances</th>
                 <th>Shape</th>
                 <th>Compute Nodes<br>/ Storage Nodes</th>
@@ -300,8 +521,8 @@ def generate_html_table_exadatainfrastructures():
         url      = get_url_link_for_exadatainfrastructure(exadatainfrastructure)
         html_content +=  '            <tr>\n'
         html_content += f'                <td>&nbsp;{exadatainfrastructure.region}&nbsp;</td>\n'
+        html_content += f'                <td>&nbsp;<b><a href="{url}">{exadatainfrastructure.display_name}</a></b> &nbsp;</td>\n'
         html_content += f'                <td>&nbsp;{cpt_name}&nbsp;</td>\n'
-        html_content += f'                <td>&nbsp;<a href="{url}">{exadatainfrastructure.display_name}</a> &nbsp;</td>\n'
         html_content += f'                <td style="text-align: left">&nbsp;Last maintenance: <br>\n'
         try:
             html_content += f'                    &nbsp; - {exadatainfrastructure.last_maintenance_start.strftime(format)} (start)&nbsp;<br>\n'
@@ -316,17 +537,17 @@ def generate_html_table_exadatainfrastructures():
         if exadatainfrastructure.next_maintenance == "":
             html_content += f'                    &nbsp; - Not yet scheduled &nbsp;</td>\n'
         else:
-            # if the next maintenance date is soon, display it in red
-            if (exadatainfrastructure.next_maintenance - now < timedelta(days=15)):
-                html_content += f'                    &nbsp; - <span style="color: #ff0000">{exadatainfrastructure.next_maintenance.strftime(format)}</span>&nbsp;</td>\n'
+            # if the next maintenance date is soon, highlight it using a different color
+            if (exadatainfrastructure.next_maintenance - now < timedelta(days=days_notification)):
+                html_content += f'                    &nbsp; - <span style="color: {color_date_soon}">{exadatainfrastructure.next_maintenance.strftime(format)}</span>&nbsp;</td>\n'
             else:
                 html_content += f'                    &nbsp; - {exadatainfrastructure.next_maintenance.strftime(format)}&nbsp;</td>\n'
 
         html_content += f'                <td>&nbsp;{exadatainfrastructure.shape}&nbsp;</td>\n'
         html_content += f'                <td>&nbsp;{exadatainfrastructure.compute_count} / {exadatainfrastructure.storage_count}&nbsp;</td>\n'
         html_content += f'                <td>&nbsp;{exadatainfrastructure.cpus_enabled} / {exadatainfrastructure.max_cpu_count}&nbsp;</td>\n'
-        if (exadatainfrastructure.lifecycle_state != "ACTIVE"):
-            html_content += f'                <td>&nbsp;<span style="color: #ff0000">{exadatainfrastructure.lifecycle_state}&nbsp;</span></td>\n'
+        if exadatainfrastructure.lifecycle_state != "ACTIVE":
+            html_content += f'                <td>&nbsp;<span style="color: {color_not_available}">{exadatainfrastructure.lifecycle_state}&nbsp;</span></td>\n'
         else:
             html_content += f'                <td>&nbsp;{exadatainfrastructure.lifecycle_state}&nbsp;</td>\n'
 
@@ -343,116 +564,315 @@ def generate_html_table_exadatainfrastructures():
             if autonomousvmcluster.exadata_infrastructure_id == exadatainfrastructure.id:
                 url = get_url_link_for_autonomousvmcluster(autonomousvmcluster)
                 avmc.append(f'<a href="{url}">{autonomousvmcluster.display_name}</a>')
-        separator = ', '
+        separator = '&nbsp;<br>&nbsp;'
         html_content += f'                <td>&nbsp;{separator.join(avmc)}&nbsp;</td>\n'
-        html_content +=  '            </tr>\n'
-
-    html_content +=  "        </tbody>\n"
-    html_content +=  "    </table>\n"
-
-    return html_content
-
-def generate_html_table_vmclusters():
-    html_content  =   "    <table>\n"
-    html_content +=  f"        <caption>ExaCC VM clusters in tenant <b>{tenant_name.upper()}</b> on <b>{now_str}</b></caption>\n"
-    html_content += """        <tbody>
-            <tr>
-                <th>Region</th>
-                <th>Compartment</th>
-                <th>Name</th>
-                <th>Status</th>
-                <th>DB nodes</th>
-                <th>OCPUs</th>
-                <th>Memory (GB)</th>
-                <th>GI Version<br>Current / Latest</th>
-                <th>OS Version<br>Current / Latest</th>
-                <th>Exadata infrastructure</th>
-            </tr>\n"""
-
-    for vmcluster in vmclusters:
-        cpt_name = get_cpt_name_from_id(vmcluster.compartment_id)
-        url      = get_url_link_for_vmcluster(vmcluster)
-        html_content +=  '            <tr>\n'
-        html_content += f'                <td>&nbsp;{vmcluster.region}&nbsp;</td>\n'
-        html_content += f'                <td>&nbsp;{cpt_name}&nbsp;</td>\n'
-        html_content += f'                <td>&nbsp;<a href="{url}">{vmcluster.display_name}</a> &nbsp;</td>\n'
-        if (vmcluster.lifecycle_state != "AVAILABLE"):
-            html_content +=f'                <td>&nbsp;<span style="color: #ff0000">{vmcluster.lifecycle_state}&nbsp;</span></td>\n'
-        else:
-            html_content +=f'                <td>&nbsp;{vmcluster.lifecycle_state}&nbsp;</td>\n'
-        html_content += f'                <td>&nbsp;{len(vmcluster.db_servers)}&nbsp;</td>\n'
-        html_content += f'                <td>&nbsp;{vmcluster.cpus_enabled}&nbsp;</td>\n'
-        html_content += f'                <td>&nbsp;{vmcluster.memory_size_in_gbs}&nbsp;</td>\n'
-        html_content += f'                <td>&nbsp;{vmcluster.gi_version}&nbsp;/<br>&nbsp;{vmcluster.gi_update_available}&nbsp;</td>\n'
-        html_content += f'                <td>&nbsp;{vmcluster.system_version}&nbsp;/<br>&nbsp;{vmcluster.system_update_available}&nbsp;</td>\n'
-
-        exadatainfrastructure = get_exadata_infrastructure_from_id(vmcluster.exadata_infrastructure_id)
-        url  = get_url_link_for_exadatainfrastructure(exadatainfrastructure)      
-        html_content += f'                <td>&nbsp;<a href="{url}">{exadatainfrastructure.display_name}</a>&nbsp;</td>\n'
         html_content +=  '            </tr>\n'
 
     html_content += "        </tbody>\n"
     html_content += "    </table>\n"
+    html_content += "    <br><br>\n"
+
+    return html_content
+
+def generate_html_table_vmclusters():
+    html_content  =   '    <table id="table_vmclusters">\n'
+    # html_content +=  f"        <caption>ExaCC VM clusters in tenant <b>{tenant_name.upper()}</b> on <b>{now_str}</b></caption>\n"
+    html_content += """        <tbody>
+            <tr>
+                <th>Region</th>
+                <th>Exadata<br>infrastructure</th>
+                <th>VM CLUSTER</th>
+                <th>Compartment</th>
+                <th>Status</th>
+                <th>DB<br>nodes</th>
+                <th>OCPUs</th>
+                <th>Memory<br>(GB)</th>
+                <th>GI Version<br>Current / Latest</th>
+                <th>OS Version<br>Current / Latest</th>\n"""
+    if display_dbs:
+        html_content += "                <th>DB Home(s) : <i>Databases...</i></th>\n"
+    html_content += "            </tr>\n"
+
+    for exadatainfrastructure in exadatainfrastructures:
+        for vmcluster in vmclusters:
+            if vmcluster.exadata_infrastructure_id == exadatainfrastructure.id:
+                url                   = get_url_link_for_exadatainfrastructure(exadatainfrastructure)      
+                cpt_name              = get_cpt_name_from_id(vmcluster.compartment_id)
+                url                   = get_url_link_for_vmcluster(vmcluster)
+                html_content +=  '            <tr>\n'
+                html_content += f'                <td>&nbsp;{vmcluster.region}&nbsp;</td>\n'
+                html_content += f'                <td>&nbsp;<a href="{url}">{exadatainfrastructure.display_name}</a>&nbsp;</td>\n'
+                html_content += f'                <td>&nbsp;<b><a href="{url}">{vmcluster.display_name}</a></b> &nbsp;</td>\n'
+                html_content += f'                <td>&nbsp;{cpt_name}&nbsp;</td>\n'
+                if (vmcluster.lifecycle_state != "AVAILABLE"):
+                    html_content +=f'                <td>&nbsp;<span style="color: {color_not_available}">{vmcluster.lifecycle_state}&nbsp;</span></td>\n'
+                else:
+                    html_content +=f'                <td>&nbsp;{vmcluster.lifecycle_state}&nbsp;</td>\n'
+                html_content += f'                <td>&nbsp;{len(vmcluster.db_servers)}&nbsp;</td>\n'
+                html_content += f'                <td>&nbsp;{vmcluster.cpus_enabled}&nbsp;</td>\n'
+                html_content += f'                <td>&nbsp;{vmcluster.memory_size_in_gbs}&nbsp;</td>\n'
+                html_content += f'                <td>&nbsp;{vmcluster.gi_version}&nbsp;/<br>&nbsp;{vmcluster.gi_update_available}&nbsp;</td>\n'
+                html_content += f'                <td>&nbsp;{vmcluster.system_version}&nbsp;/<br>&nbsp;{vmcluster.system_update_available}&nbsp;</td>\n'
+
+                if display_dbs:
+                    html_content += '                <td style="text-align: left">'
+                    for db_home in db_homes:
+                        if db_home.vm_cluster_id == vmcluster.id:
+                            url = get_url_link_for_db_home(db_home)
+                            html_content += f'                    &nbsp;<a href="{url}">{db_home.display_name}</a> : \n'
+                            for database in db_home.databases:
+                                html_content += f'                        &nbsp;<i>{database.db_name}</i>\n'
+                            html_content += f'                        <br>\n'
+                    html_content += "                </td>\n"
+
+                html_content +=  '            </tr>\n'
+
+    html_content += "        </tbody>\n"
+    html_content += "    </table>\n"
+    html_content += "    <br><br>\n"
+
+    return html_content
+
+def generate_html_table_db_homes():
+    format   = "%b %d %Y %H:%M %Z"
+    html_content  =   '    <table id="table_dbhomes">\n'
+    # html_content +=  f"        <caption>ExaCC Database Homes in tenant <b>{tenant_name.upper()}</b> on <b>{now_str}</b></caption>\n"
+    html_content += """        <tbody>
+            <tr>
+                <th>Region</th>
+                <th>Exadata<br>Infrastructure</th>
+                <th>VM cluster</th>
+                <th>DB HOME</th>
+                <th>Status</th>
+                <th>DB version<br>Current / Latest</th>
+                <th>Databases : <i>PDBs</i></th>
+            </tr>\n"""
+
+    for exadatainfrastructure in exadatainfrastructures:
+        for vmcluster in vmclusters:
+            if vmcluster.exadata_infrastructure_id == exadatainfrastructure.id:
+                for db_home in db_homes:
+                    if db_home.vm_cluster_id == vmcluster.id:
+                        url1            = get_url_link_for_exadatainfrastructure(exadatainfrastructure)
+                        url2            = get_url_link_for_vmcluster(vmcluster)
+                        url3            = get_url_link_for_db_home(db_home)
+                        html_content +=  '            <tr>\n'
+                        html_content += f'                <td>&nbsp;{db_home.region}&nbsp;</td>\n'
+                        html_content += f'                <td>&nbsp;<a href="{url1}">{exadatainfrastructure.display_name}</a> &nbsp;</td>\n'
+                        html_content += f'                <td>&nbsp;<a href="{url2}">{vmcluster.display_name}</a> &nbsp;</td>\n'
+                        html_content += f'                <td>&nbsp;<b><a href="{url3}">{db_home.display_name}</a></b> &nbsp;</td>\n'
+                        if (db_home.lifecycle_state != "AVAILABLE"):
+                            html_content +=f'                <td>&nbsp;<span style="color: {color_not_available}">{db_home.lifecycle_state}&nbsp;</span></td>\n'
+                        else:
+                            html_content +=f'                <td>&nbsp;{db_home.lifecycle_state}&nbsp;</td>\n'
+                        html_content += f'                <td>&nbsp;{db_home.db_version}&nbsp;/&nbsp;{db_home.db_update_latest}&nbsp;</td>\n'
+
+                        html_content += f'                <td style="text-align: left">\n'
+                        for database in db_home.databases:
+                            url4          = get_url_link_for_database(database, db_home.region)
+                            html_content += f'                    &nbsp;<a href="{url4}">{database.db_name}</a> : \n'
+                            # OCI pluggable database management is supported only for Oracle Database 19.0 or higher
+                            try:
+                                if database.is_cdb:
+                                    for pdb in database.pdbs:
+                                        html_content += f'<i>{pdb.pdb_name}</i> '
+                                    html_content += '\n'
+                            except:
+                                pass
+                            html_content += f'                    <br>\n'
+                        html_content += f'                </td>\n'
+
+                        html_content +=  '            </tr>\n'
+
+    html_content += "        </tbody>\n"
+    html_content += "    </table>\n"
+    html_content += "    <br><br>\n"
 
     return html_content
 
 def generate_html_table_autonomousvmclusters():
     format   = "%b %d %Y %H:%M %Z"
-    html_content  =   "    <table>\n"
-    html_content +=  f"        <caption>ExaCC autonomous VM clusters in tenant <b>{tenant_name.upper()}</b> on <b>{now_str}</b></caption>\n"
+    html_content  =   '    <table id="table_autovmclusters">\n'
+    # html_content +=  f"        <caption>ExaCC autonomous VM clusters in tenant <b>{tenant_name.upper()}</b> on <b>{now_str}</b></caption>\n"
     html_content += """        <tbody>
             <tr>
                 <th>Region</th>
+                <th>Exadata<br>infrastructure</th>
+                <th>AUTONOMOUS<br>VM CLUSTER</th>
                 <th>Compartment</th>
-                <th>Name</th>
                 <th>Maintenance runs</th>
                 <th>Status</th>
-                <th>OCPUs</th>
-                <th>Exadata infrastructure</th>
-            </tr>\n"""
+                <th>OCPUs</th>\n"""
+    if display_dbs:
+        html_content += "                <th>Autonomous<br>Container<br>Database(s)</th>\n"
+    html_content += "            </tr>\n"
 
-    for autonomousvmcluster in autonomousvmclusters:
-        cpt_name = get_cpt_name_from_id(autonomousvmcluster.compartment_id)
-        url      = get_url_link_for_autonomousvmcluster(autonomousvmcluster)
-        html_content += '            <tr>\n'
-        html_content += f'                <td>&nbsp;{autonomousvmcluster.region}&nbsp;</td>\n'
-        html_content += f'                <td>&nbsp;{cpt_name}&nbsp;</td>\n'
-        html_content += f'                <td>&nbsp;<a href="{url}">{autonomousvmcluster.display_name}</a> &nbsp;</td>\n'
+    for exadatainfrastructure in exadatainfrastructures:
+        for autonomousvmcluster in autonomousvmclusters:
+            if autonomousvmcluster.exadata_infrastructure_id == exadatainfrastructure.id:
+                cpt_name = get_cpt_name_from_id(autonomousvmcluster.compartment_id)
+                url1     = get_url_link_for_exadatainfrastructure(exadatainfrastructure)      
+                url2     = get_url_link_for_autonomousvmcluster(autonomousvmcluster)
+                html_content +=  '            <tr>\n'
+                html_content += f'                <td>&nbsp;{autonomousvmcluster.region}&nbsp;</td>\n'
+                html_content += f'                <td>&nbsp;<a href="{url1}">{exadatainfrastructure.display_name}</a>&nbsp;</td>\n'
+                html_content += f'                <td>&nbsp;<b><a href="{url2}">{autonomousvmcluster.display_name}</a></b> &nbsp;</td>\n'
+                html_content += f'                <td>&nbsp;{cpt_name}&nbsp;</td>\n'
 
-        html_content += f'                <td style="text-align: left">&nbsp;Last maintenance: <br>\n'
-        try:
-            html_content += f'                    &nbsp; - {autonomousvmcluster.last_maintenance_start.strftime(format)} (start)&nbsp;<br>\n'
-        except:
-            html_content += f'                    &nbsp; - no date/time (start)&nbsp;<br>\n'
-        try:
-            html_content += f'                    &nbsp; - {autonomousvmcluster.last_maintenance_end.strftime(format)} (end)&nbsp;<br><br>\n'
-        except:
-            html_content += f'                    &nbsp; - no date/time (end)&nbsp;<br><br>\n'
-        
-        html_content += f'                    &nbsp;Next maintenance: <br>\n'
-        if autonomousvmcluster.next_maintenance == "":
-            html_content += f'                    &nbsp; - Not yet scheduled &nbsp;</td>\n'
-        else:
-            # if the next maintenance date is soon, display it in red
-            if (autonomousvmcluster.next_maintenance - now < timedelta(days=15)):
-                html_content += f'                    &nbsp; - <span style="color: #ff0000">{autonomousvmcluster.next_maintenance.strftime(format)}</span>&nbsp;</td>\n'
-            else:
-                html_content += f'                    &nbsp; - {autonomousvmcluster.next_maintenance.strftime(format)}&nbsp;</td>\n'
+                html_content += f'                <td style="text-align: left">&nbsp;Last maintenance: <br>\n'
+                try:
+                    html_content += f'                    &nbsp; - {autonomousvmcluster.last_maintenance_start.strftime(format)} (start)&nbsp;<br>\n'
+                except:
+                    html_content += f'                    &nbsp; - no date/time (start)&nbsp;<br>\n'
+                try:
+                    html_content += f'                    &nbsp; - {autonomousvmcluster.last_maintenance_end.strftime(format)} (end)&nbsp;<br><br>\n'
+                except:
+                    html_content += f'                    &nbsp; - no date/time (end)&nbsp;<br><br>\n'
+                
+                html_content += f'                    &nbsp;Next maintenance: <br>\n'
+                if autonomousvmcluster.next_maintenance == "":
+                    html_content += f'                    &nbsp; - Not yet scheduled &nbsp;</td>\n'
+                else:
+                    # if the next maintenance date is soon, highlight it using a different color
+                    if (autonomousvmcluster.next_maintenance - now < timedelta(days=days_notification)):
+                        html_content += f'                    &nbsp; - <span style="color: {color_date_soon}">{autonomousvmcluster.next_maintenance.strftime(format)}</span>&nbsp;</td>\n'
+                    else:
+                        html_content += f'                    &nbsp; - {autonomousvmcluster.next_maintenance.strftime(format)}&nbsp;</td>\n'
 
+                if (autonomousvmcluster.lifecycle_state != "AVAILABLE"):
+                    html_content += f'                <td>&nbsp;<span style="color: {color_not_available}">{autonomousvmcluster.lifecycle_state}&nbsp;</span></td>\n'
+                else:
+                    html_content += f'                <td>&nbsp;{autonomousvmcluster.lifecycle_state}&nbsp;</td>\n'
+                html_content += f'                <td>&nbsp;{autonomousvmcluster.cpus_enabled}&nbsp;</td>\n'
 
-        if (autonomousvmcluster.lifecycle_state != "AVAILABLE"):
-            html_content += f'                <td>&nbsp;<span style="color: #ff0000">{autonomousvmcluster.lifecycle_state}&nbsp;</span></td>\n'
-        else:
-            html_content += f'                <td>&nbsp;{autonomousvmcluster.lifecycle_state}&nbsp;</td>\n'
-        html_content += f'                <td>&nbsp;{autonomousvmcluster.cpus_enabled}&nbsp;</td>\n'
+                # if display_dbs:
+                #     html_content +=  '                <td style="text-align: left">'
+                #     for auto_cdb in auto_cdbs:
+                #         if auto_cdb.autonomous_vm_cluster_id == autonomousvmcluster.id:
+                #             url = get_url_link_for_auto_cdb(auto_cdb)
+                #             html_content += f'                    &nbsp;<a href="{url}">{auto_cdb.display_name}</a>\n'
+                #             html_content += f'                        <br>\n'
+                #     html_content += "                </td>\n"
 
-        exadatainfrastructure = get_exadata_infrastructure_from_id(autonomousvmcluster.exadata_infrastructure_id)
-        url  = get_url_link_for_exadatainfrastructure(exadatainfrastructure)      
-        html_content += f'                <td>&nbsp;<a href="{url}">{exadatainfrastructure.display_name}</a>&nbsp;</td>\n'
-        html_content +=  '            </tr>\n'
+                if display_dbs:
+                    acdbs = []
+                    for auto_cdb in auto_cdbs:
+                        if auto_cdb.autonomous_vm_cluster_id == autonomousvmcluster.id:
+                            url = get_url_link_for_auto_cdb(auto_cdb)
+                            acdbs.append(f'<a href="{url}">{auto_cdb.display_name}</a>')
+                    separator = '&nbsp;<br>&nbsp;'
+                    html_content += f'                <td>&nbsp;{separator.join(acdbs)}&nbsp;</td>\n'
+
+                html_content +=  '            </tr>\n'
 
     html_content += "        </tbody>\n"
     html_content += "    </table>\n"
+    html_content += "    <br>\n"
+
+    return html_content
+
+def generate_html_table_autonomous_cdbs():
+    format   = "%b %d %Y %H:%M %Z"
+    html_content  =   '    <table id="table_autocdbs">\n'
+    html_content += """        <tbody>
+            <tr>
+                <th>Region</th>
+                <th>Exadata<br>infrastructure</th>
+                <th>Autonomous<br>VM Cluster</th>
+                <th>AUTONOMOUS<br>CONTAINER<br>DATABASE</th>
+                <th>Version</th>
+                <th>Status</th>
+                <th>Available<br>OCPUs</th>
+                <th>Total<br>OCPUs</th>
+                <th>Autonomous<br>Data Guard</th>
+                <th>Autonomous<br>Database(s)</th>
+            </tr>\n"""
+
+    for exadatainfrastructure in exadatainfrastructures:
+        for autonomousvmcluster in autonomousvmclusters:
+            if autonomousvmcluster.exadata_infrastructure_id == exadatainfrastructure.id:
+                for auto_cdb in auto_cdbs:
+                    if auto_cdb.autonomous_vm_cluster_id == autonomousvmcluster.id:
+                        url1     = get_url_link_for_exadatainfrastructure(exadatainfrastructure)      
+                        url2     = get_url_link_for_autonomousvmcluster(autonomousvmcluster)
+                        url3     = get_url_link_for_auto_cdb(auto_cdb)
+                        html_content +=  '            <tr>\n'
+                        html_content += f'                <td>&nbsp;{auto_cdb.region}&nbsp;</td>\n'
+                        html_content += f'                <td>&nbsp;<a href="{url1}">{exadatainfrastructure.display_name}</a>&nbsp;</td>\n'
+                        html_content += f'                <td>&nbsp;<a href="{url2}">{autonomousvmcluster.display_name}</a> &nbsp;</td>\n'
+                        html_content += f'                <td>&nbsp;<b><a href="{url3}">{auto_cdb.display_name}</a></b> &nbsp;</td>\n'
+                        html_content += f'                <td>&nbsp;{auto_cdb.db_version}&nbsp;</td>\n'
+                        html_content += f'                <td>&nbsp;{auto_cdb.lifecycle_state}&nbsp;</td>\n'
+                        html_content += f'                <td>&nbsp;{auto_cdb.available_cpus}&nbsp;</td>\n'
+                        html_content += f'                <td>&nbsp;{auto_cdb.total_cpus}&nbsp;</td>\n'
+                        if auto_cdb.role == None:
+                            html_content +=  '                <td>&nbsp;Not enabled &nbsp;</td>\n'
+                        else:
+                            html_content += f'                <td>&nbsp;{auto_cdb.role}&nbsp;</td>\n'
+
+                        adbs = []
+                        for auto_db in auto_dbs:
+                            if auto_db.autonomous_container_database_id == auto_cdb.id:
+                                url4 = get_url_link_for_auto_db(auto_db)
+                                adbs.append(f'<a href="{url4}">{auto_db.display_name}</a>')
+                        separator = '&nbsp;<br>&nbsp;'
+                        html_content += f'                <td>&nbsp;{separator.join(adbs)}&nbsp;</td>\n'
+                
+                        html_content +=  '            </tr>\n'
+
+    html_content += "        </tbody>\n"
+    html_content += "    </table>\n"
+    html_content += "    <br>\n"
+
+    return html_content
+
+def generate_html_table_autonomous_dbs():
+    format   = "%b %d %Y %H:%M %Z"
+    html_content  =   '    <table id="table_autodbs">\n'
+    html_content += """        <tbody>
+            <tr>
+                <th>Region</th>
+                <th>Exadata<br>infrastructure</th>
+                <th>Autonomous<br>VM Cluster</th>
+                <th>Autonomous<br>Container<br>Database</th>
+                <th>AUTONOMOUS<br>DATABASE</th>
+                <th>Status</th>
+                <th>DB Name</th>
+                <th>OCPUs</th>
+                <th>Storage</th>
+                <th>Workload<br>type</th>
+            </tr>\n"""
+
+    for exadatainfrastructure in exadatainfrastructures:
+        for autonomousvmcluster in autonomousvmclusters:
+            if autonomousvmcluster.exadata_infrastructure_id == exadatainfrastructure.id:
+                for auto_cdb in auto_cdbs:
+                    if auto_cdb.autonomous_vm_cluster_id == autonomousvmcluster.id:
+                        for auto_db in auto_dbs:
+                            if auto_db.autonomous_container_database_id == auto_cdb.id:
+                                url1     = get_url_link_for_exadatainfrastructure(exadatainfrastructure)      
+                                url2     = get_url_link_for_autonomousvmcluster(autonomousvmcluster)
+                                url3     = get_url_link_for_auto_cdb(auto_cdb)
+                                url4     = get_url_link_for_auto_db(auto_db)
+                                html_content +=  '            <tr>\n'
+                                html_content += f'                <td>&nbsp;{auto_db.region}&nbsp;</td>\n'
+                                html_content += f'                <td>&nbsp;<a href="{url1}">{exadatainfrastructure.display_name}</a>&nbsp;</td>\n'
+                                html_content += f'                <td>&nbsp;<a href="{url2}">{autonomousvmcluster.display_name}</a> &nbsp;</td>\n'
+                                html_content += f'                <td>&nbsp;<a href="{url3}">{auto_cdb.display_name}</a> &nbsp;</td>\n'
+                                html_content += f'                <td>&nbsp;<b><a href="{url4}">{auto_db.display_name}</a></b> &nbsp;</td>\n'
+                                if auto_db.lifecycle_state != "AVAILABLE":
+                                    html_content += f'                <td>&nbsp;<span style="color: {color_not_available}">{auto_db.lifecycle_state}&nbsp;</span></td>\n'
+                                else:
+                                    html_content += f'                <td>&nbsp;{auto_db.lifecycle_state}&nbsp;</td>\n'
+                                html_content += f'                <td>&nbsp;{auto_db.db_name}&nbsp;</td>\n'
+                                html_content += f'                <td>&nbsp;{auto_db.ocpu_count}&nbsp;</td>\n'
+                                html_content += f'                <td>&nbsp;{auto_db.data_storage_size_in_gbs} GB &nbsp;</td>\n'
+                                html_content += f'                <td>&nbsp;{auto_db.db_workload}&nbsp;</td>\n'
+                                html_content +=  '            </tr>\n'
+
+    html_content += "        </tbody>\n"
+    html_content += "    </table>\n"
+    html_content += "    <br>\n"
 
     return html_content
 
@@ -463,6 +883,11 @@ def generate_html_report():
 
     # body start
     html_report += "<body>\n"
+
+    # Title
+    html_report += f'        <h1>ExaCC status report for OCI tenant <span style="color: #0000FF">{tenant_name.upper()}<span></h1>\n'
+    html_report += f'        <h3><i>Date: {now_str}</i></h3>\n'
+    html_report += f'        <br>\n'
 
     # ExaCC Exadata infrastructures
     html_report += "    <h2>ExaCC Exadata infrastructures</h2>\n"
@@ -478,6 +903,14 @@ def generate_html_report():
     else:
         html_report += "    None\n"
 
+    # ExaCC DB homes
+    if display_dbs:
+        html_report += "    <h2>ExaCC Database Homes</h2>\n"
+        if len(db_homes) > 0:
+            html_report += generate_html_table_db_homes()
+        else:
+            html_report += "    None\n"
+    
     # ExaCC Autonomous VM Clusters
     html_report += "    <h2>ExaCC Autonomous VM Clusters</h2>\n"
     if len(autonomousvmclusters) > 0:
@@ -485,8 +918,24 @@ def generate_html_report():
     else:
         html_report += "    None\n"
 
+    # ExaCC Autonomous Container Databases
+    if display_dbs:
+        html_report += "    <h2>ExaCC Autonomous Container Databases</h2>\n"
+        if len(auto_cdbs) > 0:
+            html_report += generate_html_table_autonomous_cdbs()
+        else:
+            html_report += "    None\n"
+
+    # ExaCC Autonomous Databases
+    if display_dbs:
+        html_report += "    <h2>ExaCC Autonomous Databases</h2>\n"
+        if len(auto_dbs) > 0:
+            html_report += generate_html_table_autonomous_dbs()
+        else:
+            html_report += "    None\n"
+
     # end of body and html page
-    html_report += "    <p>\n"
+    html_report += "    <br>\n"
     html_report += "</body>\n"
     html_report += "</html>\n"
 
@@ -522,15 +971,18 @@ def send_email(email_recipients, html_report):
     msg.attach(part2)
 
     # send the EMAIL
-    email_recipients_list = email_recipients.split(",")
-    server = smtplib.SMTP(email_smtp_host, email_smtp_port)
-    server.ehlo()
-    server.starttls()
-    #smtplib docs recommend calling ehlo() before & after starttls()
-    server.ehlo()
-    server.login(email_smtp_user, email_smtp_password)
-    server.sendmail(email_sender_address, email_recipients_list, msg.as_string())
-    server.close()
+    try:
+        email_recipients_list = email_recipients.split(",")
+        server = smtplib.SMTP(email_smtp_host, email_smtp_port)
+        server.ehlo()
+        server.starttls()
+        #smtplib docs recommend calling ehlo() before & after starttls()
+        server.ehlo()
+        server.login(email_smtp_user, email_smtp_password)
+        server.sendmail(email_sender_address, email_recipients_list, msg.as_string())
+        server.close()
+    except Exception as err:
+        print (f"ERROR in send_email(): {err}", file=sys.stderr)
 
 # ---- get the email configuration from environment variables:
 #      EMAIL_SMTP_USER, EMAIL_SMTP_PASSWORD, EMAIL_SMTP_HOST, EMAIL_SMTP_PORT, EMAIL_SENDER_NAME, EMAIL_SENDER_ADDRESS 
@@ -572,10 +1024,14 @@ def store_report_in_bucket(bucket_name, html_report):
     # Save report to bucket
     now_str = now.strftime("%Y-%m-%d_%H:%M")
     namespace = ObjectStorageClient.get_namespace().data
+    if args.bucket_suffix:
+        object_name = f"ExaCC_report_{now_str}_{args.bucket_suffix}.html"
+    else:
+        object_name = f"ExaCC_report_{now_str}.html"
     response  = ObjectStorageClient.put_object(
         namespace_name  = namespace,
         bucket_name     = bucket_name,
-        object_name     = f"ExaCC_report_{now_str}.html",
+        object_name     = object_name,
         put_object_body = html_report,
         content_type    = "text/html",
         retry_strategy  = oci.retry.DEFAULT_RETRY_STRATEGY) 
@@ -587,14 +1043,19 @@ parser = argparse.ArgumentParser(description = "List ExaCC VM clusters in HTML f
 parser.add_argument("-a", "--all_regions", help="Do this for all regions", action="store_true")
 parser.add_argument("-e", "--email", help="email the HTML report to a list of comma separated email addresses")
 parser.add_argument("-bn", "--bucket-name", help="Store the HTML report in an OCI bucket")
+parser.add_argument("-bs", "--bucket-suffix", help="Suffix for object name in the OCI bucket (-bn required)")
+parser.add_argument("-db", "--databases", help="Display DB Homes, CDBs, PDBs, Autonomous Container Databases and Autonomous Databases", action="store_true")
 group = parser.add_mutually_exclusive_group(required=True)
 group.add_argument("-p", "--profile", help="OCI profile for user authentication")
 group.add_argument("-ip", "--inst-principal", help="Use instance principal authentication", action="store_true")
+
+# TODO: -bn required for -bs
 
 args = parser.parse_args()
 
 profile     = args.profile
 all_regions = args.all_regions
+display_dbs = args.databases
 
 if args.inst_principal:
     authentication_mode = "instance_principal"
@@ -666,6 +1127,15 @@ else:
         set_region(region.region_name)
         search_vmclusters()
 
+# -- If --database option specificed, run the search query/queries for ExaCC DB homes and save results in db_homes list
+if display_dbs:
+    if not(all_regions):
+        search_db_homes()
+    else:
+        for region in regions:
+            set_region(region.region_name)
+            search_db_homes()
+
 # -- Run the search query/queries for ExaCC autonomous VM clusters and save results in autonomousvmclusters list
 if not(all_regions):
     search_autonomousvmclusters()
@@ -673,6 +1143,19 @@ else:
     for region in regions:
         set_region(region.region_name)
         search_autonomousvmclusters()
+
+# -- If --database option specificed:
+# - run the search query/queries for ExaCC autonomous container databases and save results in auto_cdbs list
+# - run the search query/queries for ExaCC autonomous databases and save results in auto_dbs list
+if display_dbs:
+    if not(all_regions):
+        search_auto_cdbs()
+        search_auto_dbs()
+    else:
+        for region in regions:
+            set_region(region.region_name)
+            search_auto_cdbs()
+            search_auto_dbs()
 
 # -- Generate HTML page with results
 html_report = generate_html_report()
