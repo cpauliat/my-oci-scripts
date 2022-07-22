@@ -38,6 +38,7 @@
 #    2022-07-19: Add the --bucket-suffix option to add a suffix to object name in OCI object storage bucket
 #    2022-07-19: Replace tables captions by title at the beginning of the page
 #    2022-07-19: Use automatic font sizes (font sizes automatically changed depending on Web/Email window size)
+#    2022-07-22: Add colors for PDBs open modes in DB Homes table (--databases option)
 # --------------------------------------------------------------------------------------------------------------
 
 # -------- import
@@ -57,6 +58,9 @@ from pkg_resources import parse_version
 days_notification      = 15                 # Number of days before scheduled maintenance
 color_date_soon        = "#FF0000"          # Color for maintenance scheduled soon (less than days_notification days)
 color_not_available    = "#FF0000"          # Color for lifecycles different than AVAILABLE and ACTIVE
+color_pdb_read_write   = "#009900"
+color_pdb_read_only    = "#FF9900"
+color_pdb_others       = "#FF0000"
 configfile             = "~/.oci/config"    # Define config file to be used.
 exadatainfrastructures = []
 vmclusters             = []
@@ -121,6 +125,10 @@ def get_url_link_for_db_home(db_home):
 # ---- Get url link to a specific database in OCI Console
 def get_url_link_for_database(database, region):
     return f"https://cloud.oracle.com/exacc/databases/{database.id}?tenant={tenant_name}&region={region}"
+
+# ---- Get url link to a specific pdb in OCI Console
+def get_url_link_for_pdb(pdb, region):
+    return f"https://cloud.oracle.com/exacc/pluggableDatabases/{pdb.id}?tenant={tenant_name}&region={region}"
 
 # ---- Get url link to a specific autonomous container database in OCI Console
 def get_url_link_for_auto_cdb(auto_cdb):
@@ -268,7 +276,6 @@ def db_home_get_details (db_home_id):
     response = DatabaseClient.list_databases (compartment_id = db_home.compartment_id, db_home_id = db_home_id, retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
     db_home.databases = response.data
     for database in db_home.databases:
-        # print (f"DEBUG: database id = {database.id}",file=sys.stderr)
         # OCI pluggable database management is supported only for Oracle Database 19.0 or higher
         try:
             if database.is_cdb:
@@ -458,7 +465,7 @@ def generate_html_headers():
         tr:hover          { background-color: #ffdddd; }
         table {
             border-collapse: collapse;
-            font-family:Arial;
+            font-family: Arial;
         }
         th {
             background-color: #4CAF50;
@@ -478,6 +485,28 @@ def generate_html_headers():
             align: right;
             font-style: italic;
         }"""
+    html_content += f"""
+        a.pdb:link {{
+            font-size: 0.75vw;
+        }}
+        a.pdb_link_read_write:link {{
+            color: {color_pdb_read_write};
+        }}
+        a.pdb_link_read_write:visited {{
+            color: {color_pdb_read_write};
+        }}
+        a.pdb_link_read_only:link {{
+            color: {color_pdb_read_only};
+        }}
+        a.pdb_link_read_write:visited {{
+            color: {color_pdb_read_only};
+        }}
+        a.pdb_link_others:link {{
+            color: {color_pdb_others};
+        }}
+        a.pdb_link_others:visited {{
+            color: {color_pdb_others};
+        }}"""
     if automatic_fonts_sizes:
         html_content += """
         th, td {
@@ -636,9 +665,15 @@ def generate_html_table_vmclusters():
 
 def generate_html_table_db_homes():
     format   = "%b %d %Y %H:%M %Z"
-    html_content  =   '    <table id="table_dbhomes">\n'
-    # html_content +=  f"        <caption>ExaCC Database Homes in tenant <b>{tenant_name.upper()}</b> on <b>{now_str}</b></caption>\n"
-    html_content += """        <tbody>
+    html_content  =   '    <table id="table_dbhomes">'
+    html_content +=  f'''
+            <caption>Note: Color coding for pluggable databases (PDBs) open mode in last column: 
+                <span style="color: {color_pdb_read_write}">READ_WRITE</span>
+                <span style="color: {color_pdb_read_only}">READ_ONLY</span>
+                <span style="color: {color_pdb_others}">MOUNTED and others</span>
+            </caption>'''
+    html_content += """
+        <tbody>
             <tr>
                 <th>Region</th>
                 <th>Exadata<br>Infrastructure</th>
@@ -646,7 +681,7 @@ def generate_html_table_db_homes():
                 <th>DB HOME</th>
                 <th>Status</th>
                 <th>DB version<br>Current / Latest</th>
-                <th>Databases : <i>PDBs</i></th>
+                <th>Databases : PDBs</th>
             </tr>\n"""
 
     for exadatainfrastructure in exadatainfrastructures:
@@ -676,7 +711,13 @@ def generate_html_table_db_homes():
                             try:
                                 if database.is_cdb:
                                     for pdb in database.pdbs:
-                                        html_content += f'<i>{pdb.pdb_name}</i> '
+                                        url5 = get_url_link_for_pdb(pdb, db_home.region) #TUTU
+                                        pdb_link_class = "pdb_link_others"
+                                        if pdb.open_mode == "READ_WRITE":
+                                            pdb_link_class = "pdb_link_read_write"
+                                        elif pdb.open_mode == "READ_ONLY":
+                                            pdb_link_class = "pdb_link_read_only"
+                                        html_content += f'<a href="{url5}" class="pdb {pdb_link_class}">{pdb.pdb_name}</a> &nbsp; '
                                     html_content += '\n'
                             except:
                                 pass
