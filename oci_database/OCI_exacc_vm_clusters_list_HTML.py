@@ -39,6 +39,7 @@
 #    2022-07-19: Replace tables captions by title at the beginning of the page
 #    2022-07-19: Use automatic font sizes (font sizes automatically changed depending on Web/Email window size)
 #    2022-07-22: Add colors for PDBs open modes in DB Homes table (--databases option)
+#    2022-07-27: Add the --report-options to dynamically modify a report viewed in Web browser using Javascript
 # --------------------------------------------------------------------------------------------------------------
 
 # -------- import
@@ -68,7 +69,6 @@ autonomousvmclusters   = []
 db_homes               = []
 auto_cdbs              = []
 auto_dbs               = []
-automatic_fonts_sizes  = True               # automatic size for character fonts: True or False
 
 # -------- functions
 
@@ -455,40 +455,55 @@ def search_auto_dbs():
 
 # ---- Generate HTML page 
 def generate_html_headers():
-    html_content = """<!DOCTYPE html>
+    html_content = f'''<!DOCTYPE html>
 <html>
 <head>
     <meta http-equiv="content-type" content="text/html; charset=UTF-8">
     <title>ExaCC status report</title>
     <style type="text/css">
-        tr:nth-child(odd) { background-color: #f2f2f2; }
-        tr:hover          { background-color: #ffdddd; }
-        table {
-            border-collapse: collapse;
+        tr:nth-child(odd) {{ background-color: #f2f2f2; }}
+        tr:hover          {{ background-color: #ffdddd; }}
+        body {{
             font-family: Arial;
-        }
-        th {
+        }}
+        table {{
+            border-collapse: collapse;
+        }}
+        th {{
             background-color: #4CAF50;
             color: white;
-        }
-        tr {
+        }}
+        tr {{
             background-color: #FFF5F0;
-        }
-        th, td {
+        }}
+        th, td {{
             border: 1px solid #808080;
             text-align: center;
             padding: 7px;
-        }
-        caption {
+        }}
+        .auto_td_th {{
+            font-size: 0.85vw;
+        }}
+        .auto_h1 {{
+            font-size: 2vw;
+        }}
+        .auto_h2 {{
+            font-size: 1.5vw;
+        }}
+        .auto_h3 {{
+            font-size: 1.1vw;
+        }}
+        .auto_text_outside_tables {{
+            font-size: 0.95vw;
+        }}
+        caption {{
             caption-side: bottom;
             padding: 10px;
-            align: right;
             font-style: italic;
-        }"""
-    html_content += f"""
-        a.pdb:link {{
-            font-size: 0.75vw;
         }}
+        // a.pdb:link {{
+        //     font-size: 0.75vw;
+        // }}
         a.pdb_link_read_write:link {{
             color: {color_pdb_read_write};
         }}
@@ -506,80 +521,89 @@ def generate_html_headers():
         }}
         a.pdb_link_others:visited {{
             color: {color_pdb_others};
-        }}"""
-    if automatic_fonts_sizes:
-        html_content += """
-        th, td {
-            font-size: 0.85vw;
-        }
-        h1 {
-            font-size: 2vw;
-        }
-        h2 {
-            font-size: 1.5vw;
-        }
-        h3 {
-            font-size: 1.1vw;
-        }"""
-    html_content += """
-    </style>
-</head>\n"""
+        }}'''
+
+    html_content += '''
+    </style>'''
 
     return html_content
 
 def generate_html_table_exadatainfrastructures():
-    html_content  =   '    <table id="table_exainfras">\n'
-    # html_content +=  f"        <caption>ExaCC Exadata infrastructures in tenant <b>{tenant_name.upper()}</b> on <b>{now_str}</b></caption>\n"
-    html_content += """        <tbody>
-            <tr>
-                <th>Region</th>
-                <th>EXADATA<br>INFRASTRUCTURE</th>
-                <th>Compartment</th>
-                <th>Quarterly<br>maintenances</th>
-                <th>Shape</th>
-                <th>Compute Nodes<br>/ Storage Nodes</th>
-                <th>OCPUs<br>/ total</th>
-                <th>Status</th>
-                <th>VM cluster(s)</th>
-                <th>Autonomous<br>VM cluster(s)</th>
-            </tr>\n"""
+    html_content  = '''
+    <div id="div_exainfras">
+        <h2>ExaCC Exadata infrastructures</h2>'''
+
+    # if there is no exainfra, just display None
+    if len(exadatainfrastructures) == 0:
+        html_content += '''
+        None
+    </div>'''
+        return html_content
+
+    # there is at least 1 exainfra, so display a table
+    html_content += '''
+        <table id="table_exainfras">
+            <tbody>
+                <tr>
+                    <th>Region</th>
+                    <th>EXADATA<br>INFRASTRUCTURE</th>
+                    <th>Compartment</th>
+                    <th class="exacc_maintenance">Quarterly<br>maintenances</th>
+                    <th>Shape</th>
+                    <th>Compute Nodes<br>/ Storage Nodes</th>
+                    <th>OCPUs<br>/ total</th>
+                    <th>Status</th>
+                    <th>VM cluster(s)</th>
+                    <th>Autonomous<br>VM cluster(s)</th>
+                </tr>'''
 
     for exadatainfrastructure in exadatainfrastructures:
-        format   = "%b %d %Y %H:%M %Z"
-        # format   = "%Y/%m/%d %H:%M %Z"
-        cpt_name = get_cpt_name_from_id(exadatainfrastructure.compartment_id)
-        url      = get_url_link_for_exadatainfrastructure(exadatainfrastructure)
-        html_content +=  '            <tr>\n'
-        html_content += f'                <td>&nbsp;{exadatainfrastructure.region}&nbsp;</td>\n'
-        html_content += f'                <td>&nbsp;<b><a href="{url}">{exadatainfrastructure.display_name}</a></b> &nbsp;</td>\n'
-        html_content += f'                <td>&nbsp;{cpt_name}&nbsp;</td>\n'
-        html_content += f'                <td style="text-align: left">&nbsp;Last maintenance: <br>\n'
+        format     = "%b %d %Y %H:%M %Z"
+        cpt_name   = get_cpt_name_from_id(exadatainfrastructure.compartment_id)
+        url        = get_url_link_for_exadatainfrastructure(exadatainfrastructure)
+        html_style = f' style="color: {color_not_available}"' if (exadatainfrastructure.lifecycle_state != "ACTIVE") else ''
+
+        html_content += f'''
+                <tr>
+                    <td>&nbsp;{exadatainfrastructure.region}&nbsp;</td>
+                    <td>&nbsp;<b><a href="{url}">{exadatainfrastructure.display_name}</a></b> &nbsp;</td>
+                    <td>&nbsp;{cpt_name}&nbsp;</td>
+                    <td class="exacc_maintenance" style="text-align: left">&nbsp;Last maintenance: <br>'''
+
         try:
-            html_content += f'                    &nbsp; - {exadatainfrastructure.last_maintenance_start.strftime(format)} (start)&nbsp;<br>\n'
+            html_content += f'''
+                        &nbsp; - {exadatainfrastructure.last_maintenance_start.strftime(format)} (start)&nbsp;<br>'''
         except:
-            html_content += f'                    &nbsp; - no date/time (start)&nbsp;<br>\n'
+            html_content += f'''
+                        &nbsp; - no date/time (start)&nbsp;<br>'''
+
         try:
-            html_content += f'                    &nbsp; - {exadatainfrastructure.last_maintenance_end.strftime(format)} (end)&nbsp;<br><br>\n'
+            html_content += f'''
+                        &nbsp; - {exadatainfrastructure.last_maintenance_end.strftime(format)} (end)&nbsp;<br><br>'''
         except:
-            html_content += f'                    &nbsp; - no date/time (end)&nbsp;<br><br>\n'
+            html_content += f'''
+                        &nbsp; - no date/time (end)&nbsp;<br><br>'''
         
-        html_content += f'                    &nbsp;Next maintenance: <br>\n'
+        html_content += f'''
+                        &nbsp;Next maintenance: <br>'''
+
         if exadatainfrastructure.next_maintenance == "":
-            html_content += f'                    &nbsp; - Not yet scheduled &nbsp;</td>\n'
+            html_content += f'''
+                        &nbsp; - Not yet scheduled &nbsp;</td>'''
         else:
             # if the next maintenance date is soon, highlight it using a different color
             if (exadatainfrastructure.next_maintenance - now < timedelta(days=days_notification)):
-                html_content += f'                    &nbsp; - <span style="color: {color_date_soon}">{exadatainfrastructure.next_maintenance.strftime(format)}</span>&nbsp;</td>\n'
+                html_content += f'''
+                        &nbsp; - <span style="color: {color_date_soon}">{exadatainfrastructure.next_maintenance.strftime(format)}</span>&nbsp;</td>'''
             else:
-                html_content += f'                    &nbsp; - {exadatainfrastructure.next_maintenance.strftime(format)}&nbsp;</td>\n'
+                html_content += f'''
+                        &nbsp; - {exadatainfrastructure.next_maintenance.strftime(format)}&nbsp;</td>'''
 
-        html_content += f'                <td>&nbsp;{exadatainfrastructure.shape}&nbsp;</td>\n'
-        html_content += f'                <td>&nbsp;{exadatainfrastructure.compute_count} / {exadatainfrastructure.storage_count}&nbsp;</td>\n'
-        html_content += f'                <td>&nbsp;{exadatainfrastructure.cpus_enabled} / {exadatainfrastructure.max_cpu_count}&nbsp;</td>\n'
-        if exadatainfrastructure.lifecycle_state != "ACTIVE":
-            html_content += f'                <td>&nbsp;<span style="color: {color_not_available}">{exadatainfrastructure.lifecycle_state}&nbsp;</span></td>\n'
-        else:
-            html_content += f'                <td>&nbsp;{exadatainfrastructure.lifecycle_state}&nbsp;</td>\n'
+        html_content += f'''
+                    <td>&nbsp;{exadatainfrastructure.shape}&nbsp;</td>
+                    <td>&nbsp;{exadatainfrastructure.compute_count} / {exadatainfrastructure.storage_count}&nbsp;</td>
+                    <td>&nbsp;{exadatainfrastructure.cpus_enabled} / {exadatainfrastructure.max_cpu_count}&nbsp;</td>
+                    <td>&nbsp;<span{html_style}>{exadatainfrastructure.lifecycle_state}&nbsp;</span></td>'''
 
         vmc = []
         for vmcluster in vmclusters:
@@ -587,7 +611,8 @@ def generate_html_table_exadatainfrastructures():
                 url = get_url_link_for_vmcluster(vmcluster)
                 vmc.append(f'<a href="{url}">{vmcluster.display_name}</a>')
         separator = '&nbsp;<br>&nbsp;'
-        html_content += f'                <td>&nbsp;{separator.join(vmc)}&nbsp;</td>\n'
+        html_content += f'''
+                    <td>&nbsp;{separator.join(vmc)}&nbsp;</td>'''
 
         avmc = []
         for autonomousvmcluster in autonomousvmclusters:
@@ -595,118 +620,156 @@ def generate_html_table_exadatainfrastructures():
                 url = get_url_link_for_autonomousvmcluster(autonomousvmcluster)
                 avmc.append(f'<a href="{url}">{autonomousvmcluster.display_name}</a>')
         separator = '&nbsp;<br>&nbsp;'
-        html_content += f'                <td>&nbsp;{separator.join(avmc)}&nbsp;</td>\n'
-        html_content +=  '            </tr>\n'
+        html_content += f'''
+                    <td>&nbsp;{separator.join(avmc)}&nbsp;</td>
+                </tr>'''
 
-    html_content += "        </tbody>\n"
-    html_content += "    </table>\n"
-    html_content += "    <br><br>\n"
+    html_content += '''
+            </tbody>
+        </table>
+    </div>'''
 
     return html_content
 
 def generate_html_table_vmclusters():
-    html_content  =   '    <table id="table_vmclusters">\n'
-    # html_content +=  f"        <caption>ExaCC VM clusters in tenant <b>{tenant_name.upper()}</b> on <b>{now_str}</b></caption>\n"
-    html_content += """        <tbody>
-            <tr>
-                <th>Region</th>
-                <th>Exadata<br>infrastructure</th>
-                <th>VM CLUSTER</th>
-                <th>Compartment</th>
-                <th>Status</th>
-                <th>DB<br>nodes</th>
-                <th>OCPUs</th>
-                <th>Memory<br>(GB)</th>
-                <th>GI Version<br>Current / Latest</th>
-                <th>OS Version<br>Current / Latest</th>\n"""
+    html_content  = '''
+    <div id="div_vmclusters">
+        <br>
+        <h2>ExaCC VM Clusters</h2>'''
+
+    # if there is no vm cluster, just display None
+    if len(vmclusters) == 0:
+        html_content += '''
+        None
+    </div>'''
+        return html_content
+
+    # there is at least 1 vm cluster, so display a table
+    html_content += '''
+        <table id="table_vmclusters">
+            <tbody>
+                <tr>
+                    <th>Region</th>
+                    <th>Exadata<br>infrastructure</th>
+                    <th>VM CLUSTER</th>
+                    <th>Compartment</th>
+                    <th>Status</th>
+                    <th>DB<br>nodes</th>
+                    <th>OCPUs</th>
+                    <th>Memory<br>(GB)</th>
+                    <th>GI Version<br>Current / Latest</th>
+                    <th>OS Version<br>Current / Latest</th>'''
     if display_dbs:
-        html_content += "                <th>DB Home(s) : <i>Databases...</i></th>\n"
-    html_content += "            </tr>\n"
+        html_content += '''
+                    <th class="exacc_databases">DB Home(s) : <i>Databases...</i></th>'''
+
+    html_content += '''
+                </tr>'''
 
     for exadatainfrastructure in exadatainfrastructures:
         for vmcluster in vmclusters:
             if vmcluster.exadata_infrastructure_id == exadatainfrastructure.id:
-                url                   = get_url_link_for_exadatainfrastructure(exadatainfrastructure)      
-                cpt_name              = get_cpt_name_from_id(vmcluster.compartment_id)
-                url                   = get_url_link_for_vmcluster(vmcluster)
-                html_content +=  '            <tr>\n'
-                html_content += f'                <td>&nbsp;{vmcluster.region}&nbsp;</td>\n'
-                html_content += f'                <td>&nbsp;<a href="{url}">{exadatainfrastructure.display_name}</a>&nbsp;</td>\n'
-                html_content += f'                <td>&nbsp;<b><a href="{url}">{vmcluster.display_name}</a></b> &nbsp;</td>\n'
-                html_content += f'                <td>&nbsp;{cpt_name}&nbsp;</td>\n'
-                if (vmcluster.lifecycle_state != "AVAILABLE"):
-                    html_content +=f'                <td>&nbsp;<span style="color: {color_not_available}">{vmcluster.lifecycle_state}&nbsp;</span></td>\n'
-                else:
-                    html_content +=f'                <td>&nbsp;{vmcluster.lifecycle_state}&nbsp;</td>\n'
-                html_content += f'                <td>&nbsp;{len(vmcluster.db_servers)}&nbsp;</td>\n'
-                html_content += f'                <td>&nbsp;{vmcluster.cpus_enabled}&nbsp;</td>\n'
-                html_content += f'                <td>&nbsp;{vmcluster.memory_size_in_gbs}&nbsp;</td>\n'
-                html_content += f'                <td>&nbsp;{vmcluster.gi_version}&nbsp;/<br>&nbsp;{vmcluster.gi_update_available}&nbsp;</td>\n'
-                html_content += f'                <td>&nbsp;{vmcluster.system_version}&nbsp;/<br>&nbsp;{vmcluster.system_update_available}&nbsp;</td>\n'
+                url        = get_url_link_for_exadatainfrastructure(exadatainfrastructure)      
+                cpt_name   = get_cpt_name_from_id(vmcluster.compartment_id)
+                url        = get_url_link_for_vmcluster(vmcluster)
+                html_style = f' style="color: {color_not_available}"' if (vmcluster.lifecycle_state != "AVAILABLE") else ''
+
+                html_content += f'''
+                <tr>
+                    <td>&nbsp;{vmcluster.region}&nbsp;</td>\
+                    <td>&nbsp;<a href="{url}">{exadatainfrastructure.display_name}</a>&nbsp;</td>
+                    <td>&nbsp;<b><a href="{url}">{vmcluster.display_name}</a></b> &nbsp;</td>
+                    <td>&nbsp;{cpt_name}&nbsp;</td>
+                    <td>&nbsp;<span{html_style}>{vmcluster.lifecycle_state}&nbsp;</span></td>
+                    <td>&nbsp;{len(vmcluster.db_servers)}&nbsp;</td>
+                    <td>&nbsp;{vmcluster.cpus_enabled}&nbsp;</td>
+                    <td>&nbsp;{vmcluster.memory_size_in_gbs}&nbsp;</td>
+                    <td>&nbsp;{vmcluster.gi_version}&nbsp;/<br>&nbsp;{vmcluster.gi_update_available}&nbsp;</td>
+                    <td>&nbsp;{vmcluster.system_version}&nbsp;/<br>&nbsp;{vmcluster.system_update_available}&nbsp;</td>'''
 
                 if display_dbs:
-                    html_content += '                <td style="text-align: left">'
+                    html_content += '''
+                    <td class="exacc_databases" style="text-align: left">'''
                     for db_home in db_homes:
                         if db_home.vm_cluster_id == vmcluster.id:
                             url = get_url_link_for_db_home(db_home)
-                            html_content += f'                    &nbsp;<a href="{url}">{db_home.display_name}</a> : \n'
+                            html_content += f'''
+                        &nbsp;<a href="{url}">{db_home.display_name}</a> : '''
                             for database in db_home.databases:
-                                html_content += f'                        &nbsp;<i>{database.db_name}</i>\n'
-                            html_content += f'                        <br>\n'
-                    html_content += "                </td>\n"
+                                html_content += f'''
+                            &nbsp;<i>{database.db_name}</i>'''
+                            html_content += f'''
+                            <br>'''
+                    html_content += '''
+                    </td>'''
 
-                html_content +=  '            </tr>\n'
+                html_content += '''
+                </tr>'''
 
-    html_content += "        </tbody>\n"
-    html_content += "    </table>\n"
-    html_content += "    <br><br>\n"
+    html_content += '''
+            </tbody>
+        </table>
+    </div>'''
 
     return html_content
 
 def generate_html_table_db_homes():
     format   = "%b %d %Y %H:%M %Z"
-    html_content  =   '    <table id="table_dbhomes">'
-    html_content +=  f'''
+    html_content  = '''
+    <div id="div_dbhomes">
+        <br>
+        <h2>ExaCC Database Homes</h2>'''
+
+    # if there is no db home, just display None
+    if len(db_homes) == 0:
+        html_content += '''
+        None
+    </div>'''
+        return html_content
+
+    # there is at least 1 vm cluster, so display a table
+    html_content += f'''
+        <table id="table_dbhomes">
             <caption>Note: Color coding for pluggable databases (PDBs) open mode in last column: 
                 <span style="color: {color_pdb_read_write}">READ_WRITE</span>
                 <span style="color: {color_pdb_read_only}">READ_ONLY</span>
                 <span style="color: {color_pdb_others}">MOUNTED and others</span>
-            </caption>'''
-    html_content += """
-        <tbody>
-            <tr>
-                <th>Region</th>
-                <th>Exadata<br>Infrastructure</th>
-                <th>VM cluster</th>
-                <th>DB HOME</th>
-                <th>Status</th>
-                <th>DB version<br>Current / Latest</th>
-                <th>Databases : PDBs</th>
-            </tr>\n"""
+            </caption>
+            <tbody>
+                <tr>
+                    <th>Region</th>
+                    <th>Exadata<br>Infrastructure</th>
+                    <th>VM cluster</th>
+                    <th>DB HOME</th>
+                    <th>Status</th>
+                    <th>DB version<br>Current / Latest</th>
+                    <th>Databases : PDBs</th>
+                </tr>'''
 
     for exadatainfrastructure in exadatainfrastructures:
         for vmcluster in vmclusters:
             if vmcluster.exadata_infrastructure_id == exadatainfrastructure.id:
                 for db_home in db_homes:
                     if db_home.vm_cluster_id == vmcluster.id:
-                        url1            = get_url_link_for_exadatainfrastructure(exadatainfrastructure)
-                        url2            = get_url_link_for_vmcluster(vmcluster)
-                        url3            = get_url_link_for_db_home(db_home)
-                        html_content +=  '            <tr>\n'
-                        html_content += f'                <td>&nbsp;{db_home.region}&nbsp;</td>\n'
-                        html_content += f'                <td>&nbsp;<a href="{url1}">{exadatainfrastructure.display_name}</a> &nbsp;</td>\n'
-                        html_content += f'                <td>&nbsp;<a href="{url2}">{vmcluster.display_name}</a> &nbsp;</td>\n'
-                        html_content += f'                <td>&nbsp;<b><a href="{url3}">{db_home.display_name}</a></b> &nbsp;</td>\n'
-                        if (db_home.lifecycle_state != "AVAILABLE"):
-                            html_content +=f'                <td>&nbsp;<span style="color: {color_not_available}">{db_home.lifecycle_state}&nbsp;</span></td>\n'
-                        else:
-                            html_content +=f'                <td>&nbsp;{db_home.lifecycle_state}&nbsp;</td>\n'
-                        html_content += f'                <td>&nbsp;{db_home.db_version}&nbsp;/&nbsp;{db_home.db_update_latest}&nbsp;</td>\n'
+                        url1       = get_url_link_for_exadatainfrastructure(exadatainfrastructure)
+                        url2       = get_url_link_for_vmcluster(vmcluster)
+                        url3       = get_url_link_for_db_home(db_home)
+                        html_style = f' style="color: {color_not_available}"' if (db_home.lifecycle_state != "AVAILABLE") else ''
 
-                        html_content += f'                <td style="text-align: left">\n'
+                        html_content += f'''
+                <tr>
+                    <td>&nbsp;{db_home.region}&nbsp;</td>
+                    <td>&nbsp;<a href="{url1}">{exadatainfrastructure.display_name}</a> &nbsp;</td>
+                    <td>&nbsp;<a href="{url2}">{vmcluster.display_name}</a> &nbsp;</td>
+                    <td>&nbsp;<b><a href="{url3}">{db_home.display_name}</a></b> &nbsp;</td>
+                    <td>&nbsp;<span{html_style}>{db_home.lifecycle_state}&nbsp;</span></td>
+                    <td>&nbsp;{db_home.db_version}&nbsp;/&nbsp;{db_home.db_update_latest}&nbsp;</td>
+                    <td style="text-align: left">'''
+
                         for database in db_home.databases:
                             url4          = get_url_link_for_database(database, db_home.region)
-                            html_content += f'                    &nbsp;<a href="{url4}">{database.db_name}</a> : \n'
+                            html_content += f'''
+                        &nbsp;<a href="{url4}">{database.db_name}</a> : '''
                             # OCI pluggable database management is supported only for Oracle Database 19.0 or higher
                             try:
                                 if database.is_cdb:
@@ -717,84 +780,107 @@ def generate_html_table_db_homes():
                                             pdb_link_class = "pdb_link_read_write"
                                         elif pdb.open_mode == "READ_ONLY":
                                             pdb_link_class = "pdb_link_read_only"
-                                        html_content += f'<a href="{url5}" class="pdb {pdb_link_class}">{pdb.pdb_name}</a> &nbsp; '
-                                    html_content += '\n'
+                                        html_content += f'''
+                        <a href="{url5}" class="pdb {pdb_link_class}">{pdb.pdb_name}</a> &nbsp; '''
                             except:
                                 pass
-                            html_content += f'                    <br>\n'
-                        html_content += f'                </td>\n'
 
-                        html_content +=  '            </tr>\n'
+                            html_content += f'''
+                        <br>'''
 
-    html_content += "        </tbody>\n"
-    html_content += "    </table>\n"
-    html_content += "    <br><br>\n"
+                        html_content += f'''
+                    </td>
+                </tr>'''
+
+    html_content += '''
+            </tbody>
+        </table>
+    </div>'''
 
     return html_content
 
 def generate_html_table_autonomousvmclusters():
     format   = "%b %d %Y %H:%M %Z"
-    html_content  =   '    <table id="table_autovmclusters">\n'
-    # html_content +=  f"        <caption>ExaCC autonomous VM clusters in tenant <b>{tenant_name.upper()}</b> on <b>{now_str}</b></caption>\n"
-    html_content += """        <tbody>
-            <tr>
-                <th>Region</th>
-                <th>Exadata<br>infrastructure</th>
-                <th>AUTONOMOUS<br>VM CLUSTER</th>
-                <th>Compartment</th>
-                <th>Maintenance runs</th>
-                <th>Status</th>
-                <th>OCPUs</th>\n"""
+    html_content  = '''
+    <div id="div_autovmclusters">
+        <br>
+        <h2>ExaCC Autonomous VM Clusters</h2>'''
+
+    # if there is no autonomous vm cluster, just display None
+    if len(autonomousvmclusters) == 0:
+        html_content += '''
+        None
+    </div>'''
+        return html_content
+
+    # there is at least 1 autonomous vm cluster, so display a table
+    html_content += '''
+        <table id="table_autovmclusters">
+            <tbody>
+                <tr>
+                    <th>Region</th>
+                    <th>Exadata<br>infrastructure</th>
+                    <th>AUTONOMOUS<br>VM CLUSTER</th>
+                    <th>Compartment</th>
+                    <th class="exacc_maintenance">Maintenance runs</th>
+                    <th>Status</th>
+                    <th>OCPUs</th>'''
+
     if display_dbs:
-        html_content += "                <th>Autonomous<br>Container<br>Database(s)</th>\n"
-    html_content += "            </tr>\n"
+        html_content += '''
+                    <th class="exacc_databases">Autonomous<br>Container<br>Database(s)</th>'''
+
+    html_content += '''
+                </tr>'''
 
     for exadatainfrastructure in exadatainfrastructures:
         for autonomousvmcluster in autonomousvmclusters:
             if autonomousvmcluster.exadata_infrastructure_id == exadatainfrastructure.id:
-                cpt_name = get_cpt_name_from_id(autonomousvmcluster.compartment_id)
-                url1     = get_url_link_for_exadatainfrastructure(exadatainfrastructure)      
-                url2     = get_url_link_for_autonomousvmcluster(autonomousvmcluster)
-                html_content +=  '            <tr>\n'
-                html_content += f'                <td>&nbsp;{autonomousvmcluster.region}&nbsp;</td>\n'
-                html_content += f'                <td>&nbsp;<a href="{url1}">{exadatainfrastructure.display_name}</a>&nbsp;</td>\n'
-                html_content += f'                <td>&nbsp;<b><a href="{url2}">{autonomousvmcluster.display_name}</a></b> &nbsp;</td>\n'
-                html_content += f'                <td>&nbsp;{cpt_name}&nbsp;</td>\n'
+                cpt_name   = get_cpt_name_from_id(autonomousvmcluster.compartment_id)
+                url1       = get_url_link_for_exadatainfrastructure(exadatainfrastructure)      
+                url2       = get_url_link_for_autonomousvmcluster(autonomousvmcluster)
+                html_style = f' style="color: {color_not_available}"' if (autonomousvmcluster.lifecycle_state != "AVAILABLE") else ''
 
-                html_content += f'                <td style="text-align: left">&nbsp;Last maintenance: <br>\n'
+                html_content += f'''
+                <tr>
+                    <td>&nbsp;{autonomousvmcluster.region}&nbsp;</td>
+                    <td>&nbsp;<a href="{url1}">{exadatainfrastructure.display_name}</a>&nbsp;</td>
+                    <td>&nbsp;<b><a href="{url2}">{autonomousvmcluster.display_name}</a></b> &nbsp;</td>
+                    <td>&nbsp;{cpt_name}&nbsp;</td>
+                    <td class="exacc_maintenance" style="text-align: left">&nbsp;Last maintenance: <br>'''
+
                 try:
-                    html_content += f'                    &nbsp; - {autonomousvmcluster.last_maintenance_start.strftime(format)} (start)&nbsp;<br>\n'
+                    html_content += f'''
+                        &nbsp; - {autonomousvmcluster.last_maintenance_start.strftime(format)} (start)&nbsp;<br>'''
                 except:
-                    html_content += f'                    &nbsp; - no date/time (start)&nbsp;<br>\n'
+                    html_content += f'''
+                        &nbsp; - no date/time (start)&nbsp;<br>'''
+
                 try:
-                    html_content += f'                    &nbsp; - {autonomousvmcluster.last_maintenance_end.strftime(format)} (end)&nbsp;<br><br>\n'
+                    html_content += f'''
+                        &nbsp; - {autonomousvmcluster.last_maintenance_end.strftime(format)} (end)&nbsp;<br><br>'''
                 except:
-                    html_content += f'                    &nbsp; - no date/time (end)&nbsp;<br><br>\n'
+                    html_content += f'''
+                        &nbsp; - no date/time (end)&nbsp;<br><br>'''
                 
-                html_content += f'                    &nbsp;Next maintenance: <br>\n'
+                html_content += f'''
+                        &nbsp;Next maintenance: <br>'''
+
                 if autonomousvmcluster.next_maintenance == "":
-                    html_content += f'                    &nbsp; - Not yet scheduled &nbsp;</td>\n'
+                    html_content += f'''
+                        &nbsp; - Not yet scheduled &nbsp;</td>'''
                 else:
                     # if the next maintenance date is soon, highlight it using a different color
                     if (autonomousvmcluster.next_maintenance - now < timedelta(days=days_notification)):
-                        html_content += f'                    &nbsp; - <span style="color: {color_date_soon}">{autonomousvmcluster.next_maintenance.strftime(format)}</span>&nbsp;</td>\n'
+                        html_content += f'''
+                        &nbsp; - <span style="color: {color_date_soon}">{autonomousvmcluster.next_maintenance.strftime(format)}</span>&nbsp;</td>'''
                     else:
-                        html_content += f'                    &nbsp; - {autonomousvmcluster.next_maintenance.strftime(format)}&nbsp;</td>\n'
+                        html_content += f'''
+                        &nbsp; - {autonomousvmcluster.next_maintenance.strftime(format)}&nbsp;</td>'''
 
-                if (autonomousvmcluster.lifecycle_state != "AVAILABLE"):
-                    html_content += f'                <td>&nbsp;<span style="color: {color_not_available}">{autonomousvmcluster.lifecycle_state}&nbsp;</span></td>\n'
-                else:
-                    html_content += f'                <td>&nbsp;{autonomousvmcluster.lifecycle_state}&nbsp;</td>\n'
-                html_content += f'                <td>&nbsp;{autonomousvmcluster.cpus_enabled}&nbsp;</td>\n'
-
-                # if display_dbs:
-                #     html_content +=  '                <td style="text-align: left">'
-                #     for auto_cdb in auto_cdbs:
-                #         if auto_cdb.autonomous_vm_cluster_id == autonomousvmcluster.id:
-                #             url = get_url_link_for_auto_cdb(auto_cdb)
-                #             html_content += f'                    &nbsp;<a href="{url}">{auto_cdb.display_name}</a>\n'
-                #             html_content += f'                        <br>\n'
-                #     html_content += "                </td>\n"
+                html_content += f'''
+                    <td>&nbsp;<span{html_style}>{autonomousvmcluster.lifecycle_state}&nbsp;</span></td>
+                    <td>&nbsp;{autonomousvmcluster.cpus_enabled}&nbsp;</td>'''
 
                 if display_dbs:
                     acdbs = []
@@ -803,54 +889,71 @@ def generate_html_table_autonomousvmclusters():
                             url = get_url_link_for_auto_cdb(auto_cdb)
                             acdbs.append(f'<a href="{url}">{auto_cdb.display_name}</a>')
                     separator = '&nbsp;<br>&nbsp;'
-                    html_content += f'                <td>&nbsp;{separator.join(acdbs)}&nbsp;</td>\n'
+                    html_content += f'''
+                    <td class="exacc_databases">&nbsp;{separator.join(acdbs)}&nbsp;</td>'''
 
-                html_content +=  '            </tr>\n'
+                html_content += '''
+                </tr>'''
 
-    html_content += "        </tbody>\n"
-    html_content += "    </table>\n"
-    html_content += "    <br>\n"
+    html_content += '''
+            </tbody>
+        </table>
+    </div>'''
 
     return html_content
 
 def generate_html_table_autonomous_cdbs():
     format   = "%b %d %Y %H:%M %Z"
-    html_content  =   '    <table id="table_autocdbs">\n'
-    html_content += """        <tbody>
-            <tr>
-                <th>Region</th>
-                <th>Exadata<br>infrastructure</th>
-                <th>Autonomous<br>VM Cluster</th>
-                <th>AUTONOMOUS<br>CONTAINER<br>DATABASE</th>
-                <th>Version</th>
-                <th>Status</th>
-                <th>Available<br>OCPUs</th>
-                <th>Total<br>OCPUs</th>
-                <th>Autonomous<br>Data Guard</th>
-                <th>Autonomous<br>Database(s)</th>
-            </tr>\n"""
+    html_content  = '''
+    <div id="div_autocdbs">
+        <br>
+        <h2>ExaCC Autonomous Container Databases</h2>'''
+
+    # if there is no autonomous container database, just display None
+    if len(auto_cdbs) == 0:
+        html_content += '''
+        None
+    </div>'''
+        return html_content
+
+    # there is at least 1 autonomous container database, so display a table
+    html_content += '''
+        <table id="table_autocdbs">
+            <tbody>
+                <tr>
+                    <th>Region</th>
+                    <th>Exadata<br>infrastructure</th>
+                    <th>Autonomous<br>VM Cluster</th>
+                    <th>AUTONOMOUS<br>CONTAINER<br>DATABASE</th>
+                    <th>Version</th>
+                    <th>Status</th>
+                    <th>Available<br>OCPUs</th>
+                    <th>Total<br>OCPUs</th>
+                    <th>Autonomous<br>Data Guard</th>
+                    <th>Autonomous<br>Database(s)</th>
+                </tr>'''
 
     for exadatainfrastructure in exadatainfrastructures:
         for autonomousvmcluster in autonomousvmclusters:
             if autonomousvmcluster.exadata_infrastructure_id == exadatainfrastructure.id:
                 for auto_cdb in auto_cdbs:
                     if auto_cdb.autonomous_vm_cluster_id == autonomousvmcluster.id:
-                        url1     = get_url_link_for_exadatainfrastructure(exadatainfrastructure)      
-                        url2     = get_url_link_for_autonomousvmcluster(autonomousvmcluster)
-                        url3     = get_url_link_for_auto_cdb(auto_cdb)
-                        html_content +=  '            <tr>\n'
-                        html_content += f'                <td>&nbsp;{auto_cdb.region}&nbsp;</td>\n'
-                        html_content += f'                <td>&nbsp;<a href="{url1}">{exadatainfrastructure.display_name}</a>&nbsp;</td>\n'
-                        html_content += f'                <td>&nbsp;<a href="{url2}">{autonomousvmcluster.display_name}</a> &nbsp;</td>\n'
-                        html_content += f'                <td>&nbsp;<b><a href="{url3}">{auto_cdb.display_name}</a></b> &nbsp;</td>\n'
-                        html_content += f'                <td>&nbsp;{auto_cdb.db_version}&nbsp;</td>\n'
-                        html_content += f'                <td>&nbsp;{auto_cdb.lifecycle_state}&nbsp;</td>\n'
-                        html_content += f'                <td>&nbsp;{auto_cdb.available_cpus}&nbsp;</td>\n'
-                        html_content += f'                <td>&nbsp;{auto_cdb.total_cpus}&nbsp;</td>\n'
-                        if auto_cdb.role == None:
-                            html_content +=  '                <td>&nbsp;Not enabled &nbsp;</td>\n'
-                        else:
-                            html_content += f'                <td>&nbsp;{auto_cdb.role}&nbsp;</td>\n'
+                        url1      = get_url_link_for_exadatainfrastructure(exadatainfrastructure)      
+                        url2      = get_url_link_for_autonomousvmcluster(autonomousvmcluster)
+                        url3      = get_url_link_for_auto_cdb(auto_cdb)
+                        dataguard = "Not enabled" if (auto_cdb.role == None) else auto_cdb.role
+
+                        html_content += f'''
+                <tr>
+                    <td>&nbsp;{auto_cdb.region}&nbsp;</td>
+                    <td>&nbsp;<a href="{url1}">{exadatainfrastructure.display_name}</a>&nbsp;</td>
+                    <td>&nbsp;<a href="{url2}">{autonomousvmcluster.display_name}</a> &nbsp;</td>
+                    <td>&nbsp;<b><a href="{url3}">{auto_cdb.display_name}</a></b> &nbsp;</td>
+                    <td>&nbsp;{auto_cdb.db_version}&nbsp;</td>
+                    <td>&nbsp;{auto_cdb.lifecycle_state}&nbsp;</td>
+                    <td>&nbsp;{auto_cdb.available_cpus}&nbsp;</td>
+                    <td>&nbsp;{auto_cdb.total_cpus}&nbsp;</td>
+                    <td>&nbsp;{dataguard}&nbsp;</td>'''
 
                         adbs = []
                         for auto_db in auto_dbs:
@@ -858,32 +961,49 @@ def generate_html_table_autonomous_cdbs():
                                 url4 = get_url_link_for_auto_db(auto_db)
                                 adbs.append(f'<a href="{url4}">{auto_db.display_name}</a>')
                         separator = '&nbsp;<br>&nbsp;'
-                        html_content += f'                <td>&nbsp;{separator.join(adbs)}&nbsp;</td>\n'
+                        html_content += f'''
+                    <td>&nbsp;{separator.join(adbs)}&nbsp;</td>'''
                 
-                        html_content +=  '            </tr>\n'
+                        html_content += '''
+                </tr>'''
 
-    html_content += "        </tbody>\n"
-    html_content += "    </table>\n"
-    html_content += "    <br>\n"
+    html_content += '''
+            </tbody>
+        </table>
+    </div>'''
 
     return html_content
 
 def generate_html_table_autonomous_dbs():
     format   = "%b %d %Y %H:%M %Z"
-    html_content  =   '    <table id="table_autodbs">\n'
-    html_content += """        <tbody>
-            <tr>
-                <th>Region</th>
-                <th>Exadata<br>infrastructure</th>
-                <th>Autonomous<br>VM Cluster</th>
-                <th>Autonomous<br>Container<br>Database</th>
-                <th>AUTONOMOUS<br>DATABASE</th>
-                <th>Status</th>
-                <th>DB Name</th>
-                <th>OCPUs</th>
-                <th>Storage</th>
-                <th>Workload<br>type</th>
-            </tr>\n"""
+    html_content  = '''
+    <div id="div_autodbs">
+        <br>
+        <h2>ExaCC Autonomous Databases</h2>'''
+
+    # if there is no autonomous database, just display None
+    if len(auto_dbs) == 0:
+        html_content += '''
+        None
+    </div>'''
+        return html_content
+
+    # there is at least 1 autonomous database, so display a table
+    html_content += '''
+        <table id="table_autodbs">
+            <tbody>
+                <tr>
+                    <th>Region</th>
+                    <th>Exadata<br>infrastructure</th>
+                    <th>Autonomous<br>VM Cluster</th>
+                    <th>Autonomous<br>Container<br>Database</th>
+                    <th>AUTONOMOUS<br>DATABASE</th>
+                    <th>Status</th>
+                    <th>DB Name</th>
+                    <th>OCPUs</th>
+                    <th>Storage</th>
+                    <th>Workload<br>type</th>
+                </tr>'''
 
     for exadatainfrastructure in exadatainfrastructures:
         for autonomousvmcluster in autonomousvmclusters:
@@ -892,29 +1012,134 @@ def generate_html_table_autonomous_dbs():
                     if auto_cdb.autonomous_vm_cluster_id == autonomousvmcluster.id:
                         for auto_db in auto_dbs:
                             if auto_db.autonomous_container_database_id == auto_cdb.id:
-                                url1     = get_url_link_for_exadatainfrastructure(exadatainfrastructure)      
-                                url2     = get_url_link_for_autonomousvmcluster(autonomousvmcluster)
-                                url3     = get_url_link_for_auto_cdb(auto_cdb)
-                                url4     = get_url_link_for_auto_db(auto_db)
-                                html_content +=  '            <tr>\n'
-                                html_content += f'                <td>&nbsp;{auto_db.region}&nbsp;</td>\n'
-                                html_content += f'                <td>&nbsp;<a href="{url1}">{exadatainfrastructure.display_name}</a>&nbsp;</td>\n'
-                                html_content += f'                <td>&nbsp;<a href="{url2}">{autonomousvmcluster.display_name}</a> &nbsp;</td>\n'
-                                html_content += f'                <td>&nbsp;<a href="{url3}">{auto_cdb.display_name}</a> &nbsp;</td>\n'
-                                html_content += f'                <td>&nbsp;<b><a href="{url4}">{auto_db.display_name}</a></b> &nbsp;</td>\n'
-                                if auto_db.lifecycle_state != "AVAILABLE":
-                                    html_content += f'                <td>&nbsp;<span style="color: {color_not_available}">{auto_db.lifecycle_state}&nbsp;</span></td>\n'
-                                else:
-                                    html_content += f'                <td>&nbsp;{auto_db.lifecycle_state}&nbsp;</td>\n'
-                                html_content += f'                <td>&nbsp;{auto_db.db_name}&nbsp;</td>\n'
-                                html_content += f'                <td>&nbsp;{auto_db.ocpu_count}&nbsp;</td>\n'
-                                html_content += f'                <td>&nbsp;{auto_db.data_storage_size_in_gbs} GB &nbsp;</td>\n'
-                                html_content += f'                <td>&nbsp;{auto_db.db_workload}&nbsp;</td>\n'
-                                html_content +=  '            </tr>\n'
+                                url1       = get_url_link_for_exadatainfrastructure(exadatainfrastructure)      
+                                url2       = get_url_link_for_autonomousvmcluster(autonomousvmcluster)
+                                url3       = get_url_link_for_auto_cdb(auto_cdb)
+                                url4       = get_url_link_for_auto_db(auto_db)
+                                html_style = f' style="color: {color_not_available}"' if (auto_db.lifecycle_state != "AVAILABLE") else ''
+                                html_content += f'''
+                <tr>
+                    <td>&nbsp;{auto_db.region}&nbsp;</td>
+                    <td>&nbsp;<a href="{url1}">{exadatainfrastructure.display_name}</a>&nbsp;</td>
+                    <td>&nbsp;<a href="{url2}">{autonomousvmcluster.display_name}</a> &nbsp;</td>
+                    <td>&nbsp;<a href="{url3}">{auto_cdb.display_name}</a> &nbsp;</td>
+                    <td>&nbsp;<b><a href="{url4}">{auto_db.display_name}</a></b> &nbsp;</td>
+                    <td>&nbsp;<span{html_style}>{auto_db.lifecycle_state}&nbsp;</span></td>
+                    <td>&nbsp;{auto_db.db_name}&nbsp;</td>
+                    <td>&nbsp;{auto_db.ocpu_count}&nbsp;</td>
+                    <td>&nbsp;{auto_db.data_storage_size_in_gbs} GB &nbsp;</td>
+                    <td>&nbsp;{auto_db.db_workload}&nbsp;</td>
+                </tr>'''
 
-    html_content += "        </tbody>\n"
-    html_content += "    </table>\n"
-    html_content += "    <br>\n"
+    html_content += '''
+            </tbody>
+        </table>
+    </div>'''
+
+    return html_content
+
+def generate_html_script_head():
+    html_content  = '''
+    <script>
+        function removeClassFromTags(tags, className) {
+            for (tag of tags)
+            {
+                tag.classList.remove(className);
+            }            
+        }
+        
+        function addClassToTags(tags, className) {
+            for (tag of tags)
+            {
+                tag.classList.add(className);
+            }            
+        }
+
+        function automatic_font_sizes_on_off(input_id) {
+            var checkbox_val = document.getElementById(input_id).value;
+            var td_th_tags = document.querySelectorAll('td,th');
+            var h1_tags = document.querySelectorAll('h1');
+            var h2_tags = document.querySelectorAll('h2');
+            var h3_tags = document.querySelectorAll('h3');
+            var text_tags = document.getElementsByClassName("text_outside_tables");
+            if (checkbox_val == "on") {
+                // disabling
+                removeClassFromTags(td_th_tags, "auto_td_th");
+                removeClassFromTags(h1_tags, "auto_h1");
+                removeClassFromTags(h2_tags, "auto_h2");
+                removeClassFromTags(h3_tags, "auto_h3");
+                removeClassFromTags(text_tags, "auto_text_outside_tables");
+                document.getElementById(input_id).value = "off";
+            } else {
+                // enabling
+                addClassToTags(td_th_tags, "auto_td_th");
+                addClassToTags(h1_tags, "auto_h1");
+                addClassToTags(h2_tags, "auto_h2");
+                addClassToTags(h3_tags, "auto_h3");
+                addClassToTags(text_tags, "auto_text_outside_tables");
+                document.getElementById(input_id).value = "on";
+            }
+        }
+
+        function hide_show_rows_in_column(myclass, display, hide_show) {
+            var all_col = document.getElementsByClassName(myclass);
+                for(var i=0;i<all_col.length;i++)
+                {
+                    all_col[i].style.display = display;
+                }
+                document.getElementById(myclass).value = hide_show;
+        }
+
+        function hide_show_div(hide_show, div_id) {
+            const mydiv = document.getElementById(div_id);
+            if (hide_show == "show") {
+                mydiv.style.display = 'block';
+            } else {
+                mydiv.style.display = 'none';
+            }
+        }
+
+        function hide_show_column(input_id) {
+            var checkbox_val = document.getElementById(input_id).value;
+            if(checkbox_val == "hide")
+            {
+                hide_show_rows_in_column(input_id, "none", "show");
+            } else {
+                hide_show_rows_in_column(input_id, "table-cell", "hide");
+            }
+            if (input_id == "exacc_databases") {
+                hide_show_div(checkbox_val, "div_dbhomes")
+                hide_show_div(checkbox_val, "div_autocdbs")
+                hide_show_div(checkbox_val, "div_autodbs")
+            }
+        }
+    </script>'''
+
+    return html_content
+
+def generate_html_script_body():
+    html_content  = '''
+    <script>
+        hide_show_column("exacc_maintenance")'''
+
+    if display_dbs:
+        html_content += '''
+        hide_show_column("exacc_databases")'''
+
+    html_content += '''
+    </script>'''
+
+    return html_content
+
+def generate_html_report_options():
+    html_content = '''
+    <b>Report options:</b><br>
+    <input type="checkbox" value="off" id="automatic_font_sizes" onchange="automatic_font_sizes_on_off(this.id);">Automatic font sizes<br>
+    <input type="checkbox" value="show" id="exacc_maintenance" onchange="hide_show_column(this.id);" checked>Display quarterly maintenances information<br>'''
+
+    if display_dbs:
+        html_content += f'''
+    <input type="checkbox" value="show" id="exacc_databases"   onchange="hide_show_column(this.id);" checked>Display databases (DB Homes, databases, PDBs, Autonomous Container databases and Autonomous Databases)'''
 
     return html_content
 
@@ -923,63 +1148,59 @@ def generate_html_report():
     # headers
     html_report = generate_html_headers()
 
-    # body start
-    html_report += "<body>\n"
+    # Javascript code in head
+    if report_options:
+        html_report += generate_html_script_head()
+
+    # head end and body start
+    html_report += '''
+</head>
+<body>'''
 
     # Title
-    html_report += f'        <h1>ExaCC status report for OCI tenant <span style="color: #0000FF">{tenant_name.upper()}<span></h1>\n'
-    html_report += f'        <h3><i>Date: {now_str}</i></h3>\n'
-    html_report += f'        <br>\n'
+    html_report += f'''
+    <h1>ExaCC status report for OCI tenant <span style="color: #0000FF">{tenant_name.upper()}<span></h1>
+    <div class="text_outside_tables">
+    <b>Date:</b> {now_str}<br>
+    <br>'''
+
+    if report_options:
+        html_report += generate_html_report_options()
+
+    html_report += f'''
+    </div>'''
 
     # ExaCC Exadata infrastructures
-    html_report += "    <h2>ExaCC Exadata infrastructures</h2>\n"
-    if len(exadatainfrastructures) > 0:
-        html_report += generate_html_table_exadatainfrastructures()
-    else:
-        html_report += "    None\n"
+    html_report += generate_html_table_exadatainfrastructures()
 
     # ExaCC VM Clusters
-    html_report += "    <h2>ExaCC VM Clusters</h2>\n"
-    if len(vmclusters) > 0:
-        html_report += generate_html_table_vmclusters()
-    else:
-        html_report += "    None\n"
+    html_report += generate_html_table_vmclusters()
 
     # ExaCC DB homes
     if display_dbs:
-        html_report += "    <h2>ExaCC Database Homes</h2>\n"
-        if len(db_homes) > 0:
-            html_report += generate_html_table_db_homes()
-        else:
-            html_report += "    None\n"
+        html_report += generate_html_table_db_homes()
     
     # ExaCC Autonomous VM Clusters
-    html_report += "    <h2>ExaCC Autonomous VM Clusters</h2>\n"
-    if len(autonomousvmclusters) > 0:
-        html_report += generate_html_table_autonomousvmclusters()
-    else:
-        html_report += "    None\n"
+    html_report += generate_html_table_autonomousvmclusters()
 
     # ExaCC Autonomous Container Databases
     if display_dbs:
-        html_report += "    <h2>ExaCC Autonomous Container Databases</h2>\n"
-        if len(auto_cdbs) > 0:
-            html_report += generate_html_table_autonomous_cdbs()
-        else:
-            html_report += "    None\n"
+        html_report += generate_html_table_autonomous_cdbs()
 
     # ExaCC Autonomous Databases
     if display_dbs:
-        html_report += "    <h2>ExaCC Autonomous Databases</h2>\n"
-        if len(auto_dbs) > 0:
-            html_report += generate_html_table_autonomous_dbs()
-        else:
-            html_report += "    None\n"
+        html_report += generate_html_table_autonomous_dbs()
+
+    # Javascript code in body
+    if report_options:
+        html_report += generate_html_script_body()
 
     # end of body and html page
-    html_report += "    <br>\n"
-    html_report += "</body>\n"
-    html_report += "</html>\n"
+    html_report += '''
+    <br>
+</body>
+</html>
+'''
 
     #
     return html_report
@@ -1087,6 +1308,7 @@ parser.add_argument("-e", "--email", help="email the HTML report to a list of co
 parser.add_argument("-bn", "--bucket-name", help="Store the HTML report in an OCI bucket")
 parser.add_argument("-bs", "--bucket-suffix", help="Suffix for object name in the OCI bucket (-bn required)")
 parser.add_argument("-db", "--databases", help="Display DB Homes, CDBs, PDBs, Autonomous Container Databases and Autonomous Databases", action="store_true")
+parser.add_argument("-ro", "--report-options", help="Add report options for dynamic changes in Web browsers", action="store_true")
 group = parser.add_mutually_exclusive_group(required=True)
 group.add_argument("-p", "--profile", help="OCI profile for user authentication")
 group.add_argument("-ip", "--inst-principal", help="Use instance principal authentication", action="store_true")
@@ -1095,9 +1317,10 @@ group.add_argument("-ip", "--inst-principal", help="Use instance principal authe
 
 args = parser.parse_args()
 
-profile     = args.profile
-all_regions = args.all_regions
-display_dbs = args.databases
+profile        = args.profile
+all_regions    = args.all_regions
+display_dbs    = args.databases
+report_options = args.report_options
 
 if args.inst_principal:
     authentication_mode = "instance_principal"
