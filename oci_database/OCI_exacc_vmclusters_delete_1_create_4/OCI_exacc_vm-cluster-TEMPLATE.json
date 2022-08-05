@@ -1,0 +1,27 @@
+{
+  "compartmentId": "ocid1.compartment.oc1..aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "cpuCoreCount": 6,
+  "dataCollectionOptions": {
+    "isDiagnosticsEventsEnabled": true
+  },
+  "dataStorageSizeInTbs": "75",
+  "dbNodeStorageSizeInGbs": 600,
+  "dbServers": [
+    "ocid1.dbserver.oc1.uk-london-1.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "ocid1.dbserver.oc1.uk-london-1.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  ],
+  "displayName": "my-vmc-name",
+  "exadataInfrastructureId": "ocid1.exadatainfrastructure.oc1.uk-london-1.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "giVersion": "19.0.0.0.0",
+  "isLocalBackupEnabled": false,
+  "isSparseDiskgroupEnabled": false,
+  "licenseModel": "LICENSE_INCLUDED|BRING_YOUR_OWN_LICENSE",
+  "memorySizeInGbs": 440,
+  "ocpuCount": 6.0,
+  "sshPublicKeys": [
+    "ssh-rsa AAAAB3NzaC1yc2EAAAADA...aaaaaaaaaa cpauliat@cpauliat-mac",
+    "ssh-rsa AAAAB3NzaC1yc2EAAAADA...bbbbbbbbbb cpauliat@cpauliat-mac"
+  ],
+  "timeZone": "Europe/London",
+  "vmClusterNetworkId": "ocid1.vmclusternetwork.oc1.uk-london-1.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}
