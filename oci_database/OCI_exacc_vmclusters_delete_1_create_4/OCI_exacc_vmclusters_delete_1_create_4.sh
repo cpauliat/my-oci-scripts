@@ -199,7 +199,7 @@ step3_create_vm_clusters()
     VMC_IDS=()
     i=0
     while [ $i -lt $nbm1 ]; do
-        echo "---- `get_date_time`: VM cluster network #`expr $i + 1`"
+        echo "---- `get_date_time`: VM cluster #`expr $i + 1`"
         echo "oci db vm-cluster create --from-json file://${VMC_FILES[$i]}"
         # takes approximately 5h for a 2 node VM cluster
         vmc_id=`oci db vm-cluster create --from-json file://${VMC_FILES[$i]}  | jq -r '.data.id'`
