@@ -34,8 +34,6 @@ usage()
     exit 1
 }
 
-#     VMCNET_ID=`oci db vm-cluster get --vm-cluster-id $vm_cluster_id | jq -r '.data."vm-cluster-network-id"'`
-
 get_date_time()
 {
     date '+%Y-%m-%d_%H:%M:%S'
