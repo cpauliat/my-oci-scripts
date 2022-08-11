@@ -18,4 +18,4 @@ As the number of scripts increases, I store them in different folders:
 
 See README.md files in each folder for more details about the scripts.
 
-IMPORTANT: I am employed by Oracle, however, all code found in this repository is proof-of-concept, used primarily for demonstration purposes, and is not supported by Oracle. The code here should not be used, as is, for Production purposes... otherwise, enjoy !
+**IMPORTANT**: I am employed by Oracle, however, all code found in this repository is proof-of-concept, used primarily for demonstration purposes, and is not supported by Oracle. The code here should not be used, as is, for Production purposes... otherwise, enjoy !
