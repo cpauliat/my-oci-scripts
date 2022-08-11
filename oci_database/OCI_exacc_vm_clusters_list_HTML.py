@@ -1,14 +1,20 @@
 #!/usr/bin/env python3
 
 # --------------------------------------------------------------------------------------------------------------
-# This script lists all ExaCC VM clusters and Exadata Infrastructures in a OCI tenant using OCI Python SDK 
-# It looks in all compartments in the region given by profile or in all subscribed regions
+# Copyright © 2020-2022, Oracle and/or its affiliates. 
+# All rights reserved. The Universal Permissive License (UPL), Version 1.0 as shown at http://oss.oracle.com/licenses/upl
+#
+# This script generates HTML reports for Exadata Cloud at Customer (ExaCC) machines 
+# in an Oracle Cloud Infrastructure (OCI) tenant using OCI Python SDK 
+#
+# It looks in all compartments in the given OCI region or in all subscribed OCI regions
+#
 # Note: OCI tenant given by an OCI CLI PROFILE or by instance principal authentication
 #
 # Authors       : Christophe Pauliat / Matthieu Bordonné
 # Platforms     : MacOS / Linux
 # prerequisites : - Python 3 with OCI Python SDK installed
-#                 - OCI config file configured with profiles (not needed if using instance principal authentication)
+#                 - OCI config file configured with at least 1 profile (not needed if using instance principal authentication)
 # Versions
 #    2020-09-21: Initial Version for VM clusters only
 #    2021-01-18: HTML output showing a table with VM clusters details and status
