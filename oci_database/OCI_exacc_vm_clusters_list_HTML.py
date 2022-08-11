@@ -39,7 +39,13 @@
 #    2022-07-19: Replace tables captions by title at the beginning of the page
 #    2022-07-19: Use automatic font sizes (font sizes automatically changed depending on Web/Email window size)
 #    2022-07-22: Add colors for PDBs open modes in DB Homes table (--databases option)
-#    2022-07-27: Add the --report-options to dynamically modify a report viewed in Web browser using Javascript
+#    2022-07-27: Add the --report-options option to dynamically modify a report viewed in Web browser using Javascript
+#    2022-08-10: Add the --license option to get license model for VM clusters and Autonomous VM clusters
+#    2022-08-10: Block the header at the top of HTML page
+#    2022-08-10: Add local storage and Exadata storage for VM clusters and Autonomous VM clusters
+#    2022-08-10: Add memory and available OCPUs for Autonomous VM clusters
+#    2022-08-10: For Exadata Infrastructures, display available OCPUs instead of used OCPUs
+#    2022-08-11: Display the db servers used by each VM cluster
 # --------------------------------------------------------------------------------------------------------------
 
 # -------- import
@@ -56,19 +62,23 @@ from datetime import datetime, timedelta, timezone
 from pkg_resources import parse_version
 
 # -------- variables
-days_notification      = 15                 # Number of days before scheduled maintenance
-color_date_soon        = "#FF0000"          # Color for maintenance scheduled soon (less than days_notification days)
-color_not_available    = "#FF0000"          # Color for lifecycles different than AVAILABLE and ACTIVE
-color_pdb_read_write   = "#009900"
-color_pdb_read_only    = "#FF9900"
-color_pdb_others       = "#FF0000"
-configfile             = "~/.oci/config"    # Define config file to be used.
-exadatainfrastructures = []
-vmclusters             = []
-autonomousvmclusters   = []
-db_homes               = []
-auto_cdbs              = []
-auto_dbs               = []
+days_notification       = 15                 # Number of days before scheduled maintenance
+color_date_soon         = "#FF0000"          # Color for maintenance scheduled soon (less than days_notification days)
+color_not_available     = "#FF0000"          # Color for lifecycles different than AVAILABLE and ACTIVE
+color_resources_warning = "#FF0000"          # Color to highlight low availability of resources
+color_pdb_read_write    = "#009900"
+color_pdb_read_only     = "#FF9900"
+color_pdb_others        = "#FF0000"
+configfile              = "~/.oci/config"    # Define config file to be used.
+exadatainfrastructures  = []
+vmclusters              = []
+autonomousvmclusters    = []
+db_homes                = []
+auto_cdbs               = []
+auto_dbs                = []
+threshold_ocpus         = 0.60               # if more than 80% of OCPUs are used, used a specific/warning color for available OCPUs
+threshold_memory        = 0.80               # if more than 80% of Memory is used, used a specific/warning color for available Memory
+threshold_storage       = 0.60               # if more than 80% of storage is used, used a specific/warning color for available storage
 
 # -------- functions
 
@@ -90,21 +100,6 @@ def get_cpt_name_from_id(cpt_id):
             else:
                 name = get_cpt_name_from_id(c.compartment_id)+":"+name
                 return name
-
-# # ---- Get details of an Exadata infrastructure from its id (TO REMOVE)
-# def get_exadata_infrastructure_from_id (exadatainfrastructure_id):
-#     exainfra = {}
-#     for exadatainfrastructure in exadatainfrastructures:
-#         if exadatainfrastructure.id == exadatainfrastructure_id:
-#             exainfra = exadatainfrastructure
-#     return exainfra
-
-# # ---- Get a VM cluster from its id (TO REMOVE)
-# def get_vmcluster_from_id(vmcluster_id):
-#     for vmcluster in vmclusters:
-#         if vmcluster.id == vmcluster_id:
-#             break
-#     return vmcluster
 
 # ---- Get url link to a specific Exadata infrastructure in OCI Console
 def get_url_link_for_exadatainfrastructure(exadatainfrastructure):
@@ -160,7 +155,7 @@ def get_last_maintenance_dates(DatabaseClient, maintenance_run_id):
 def exadatainfrastructure_get_details (exadatainfrastructure_id):
     global exadatainfrastructures
 
-    # get details about exadatainfrastructure from regular API 
+    # get details about exadatainfrastructure
     if authentication_mode == "user_profile":
         DatabaseClient = oci.database.DatabaseClient(config)
     else:
@@ -173,6 +168,16 @@ def exadatainfrastructure_get_details (exadatainfrastructure_id):
         exainfra.region = signer.region
     exainfra.last_maintenance_start, exainfra.last_maintenance_end = get_last_maintenance_dates(DatabaseClient, exainfra.last_maintenance_run_id)
     exainfra.next_maintenance = get_next_maintenance_date(DatabaseClient, exainfra.next_maintenance_run_id)
+
+    # get the list of DB servers for this Exadata Infrastructure
+    response = DatabaseClient.list_db_servers (
+        compartment_id = exainfra.compartment_id,
+        exadata_infrastructure_id = exadatainfrastructure_id, 
+        retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
+    dbservers = sorted(response.data, key=operator.attrgetter('display_name'))
+    exainfra.db_servers = []
+    for dbserver in dbservers:
+        exainfra.db_servers.append({ "id": dbserver.id, "display_name": dbserver.display_name})
 
     # save details to list
     exadatainfrastructures.append (exainfra)
@@ -315,7 +320,6 @@ def auto_cdb_get_details (auto_cdb_id):
     # response = DatabaseClient.list_databases (compartment_id = db_home.compartment_id, db_home_id = db_home_id, retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
     # db_home.databases = response.data
     # for database in db_home.databases:
-    #     # print (f"DEBUG: database id = {database.id}",file=sys.stderr)
     #     # OCI pluggable database management is supported only for Oracle Database 19.0 or higher
     #     try:
     #         if database.is_cdb:
@@ -465,9 +469,15 @@ def generate_html_headers():
         tr:hover          {{ background-color: #ffdddd; }}
         body {{
             font-family: Arial;
+            z-index: 0;
+            background-color: white;
         }}
         table {{
             border-collapse: collapse;
+        }}
+        .tiny_tables {{
+            border-collapse: separate;  
+            margin: auto; 
         }}
         th {{
             background-color: #4CAF50;
@@ -480,6 +490,23 @@ def generate_html_headers():
             border: 1px solid #808080;
             text-align: center;
             padding: 7px;
+        }}
+        .td_dbserver {{
+            font-family: Courier;
+            border: 0px;
+            background-color: #4467be;
+            text-align: center;
+            padding: 6px;
+            padding-left: 9px;
+            padding-right: 9px;
+            border-radius: 50%;
+        }}
+        .td_dbserver_unused {{
+            opacity: 0.3;
+        }}
+        .td_dbserver_used {{
+            color: white;
+            opacity: 1;
         }}
         .auto_td_th {{
             font-size: 0.85vw;
@@ -501,9 +528,13 @@ def generate_html_headers():
             padding: 10px;
             font-style: italic;
         }}
-        // a.pdb:link {{
-        //     font-size: 0.75vw;
-        // }}
+        #my_header {{
+            position: sticky;
+            top: 0;
+            width: 100%;
+            z-index: 1;
+            background-color: white;
+        }}
         a.pdb_link_read_write:link {{
             color: {color_pdb_read_write};
         }}
@@ -551,7 +582,7 @@ def generate_html_table_exadatainfrastructures():
                     <th class="exacc_maintenance">Quarterly<br>maintenances</th>
                     <th>Shape</th>
                     <th>Compute Nodes<br>/ Storage Nodes</th>
-                    <th>OCPUs<br>/ total</th>
+                    <th>OCPUs<br>Available<br>/ Total</th>
                     <th>Status</th>
                     <th>VM cluster(s)</th>
                     <th>Autonomous<br>VM cluster(s)</th>
@@ -561,7 +592,8 @@ def generate_html_table_exadatainfrastructures():
         format     = "%b %d %Y %H:%M %Z"
         cpt_name   = get_cpt_name_from_id(exadatainfrastructure.compartment_id)
         url        = get_url_link_for_exadatainfrastructure(exadatainfrastructure)
-        html_style = f' style="color: {color_not_available}"' if (exadatainfrastructure.lifecycle_state != "ACTIVE") else ''
+        html_style1 = f' style="color: {color_not_available}"' if (exadatainfrastructure.lifecycle_state != "ACTIVE") else ''
+        html_style2 = f' style="color: {color_resources_warning}"' if exainfra_ocpus_threshold_reached(exadatainfrastructure) else ''
 
         html_content += f'''
                 <tr>
@@ -598,12 +630,12 @@ def generate_html_table_exadatainfrastructures():
             else:
                 html_content += f'''
                         &nbsp; - {exadatainfrastructure.next_maintenance.strftime(format)}&nbsp;</td>'''
-
+        ocpus_available = exadatainfrastructure.max_cpu_count - exadatainfrastructure.cpus_enabled
         html_content += f'''
                     <td>&nbsp;{exadatainfrastructure.shape}&nbsp;</td>
                     <td>&nbsp;{exadatainfrastructure.compute_count} / {exadatainfrastructure.storage_count}&nbsp;</td>
-                    <td>&nbsp;{exadatainfrastructure.cpus_enabled} / {exadatainfrastructure.max_cpu_count}&nbsp;</td>
-                    <td>&nbsp;<span{html_style}>{exadatainfrastructure.lifecycle_state}&nbsp;</span></td>'''
+                    <td>&nbsp;<span{html_style2}>{ocpus_available}</span> / {exadatainfrastructure.max_cpu_count}&nbsp;</td>
+                    <td>&nbsp;<span{html_style1}>{exadatainfrastructure.lifecycle_state}&nbsp;</span></td>'''
 
         vmc = []
         for vmcluster in vmclusters:
@@ -631,6 +663,20 @@ def generate_html_table_exadatainfrastructures():
 
     return html_content
 
+def display_db_servers(vmcluster,exadatainfrastructure):
+    str = '<table class="tiny_tables"><tr>'
+    for db_server in exadatainfrastructure.db_servers:
+        # print (f"DEBUG: display_db_servers() db_server = {db_server}",file=sys.stderr)
+        num = db_server['display_name'][-1]    # number = last character 
+        if db_server['id'] in vmcluster.db_servers:
+            str += f'<td class="td_dbserver td_dbserver_used">{num}</td>'
+        else:
+            str += f'<td class="td_dbserver td_dbserver_unused">{num}</td>'
+
+    str += '</tr></table>'
+
+    return str
+
 def generate_html_table_vmclusters():
     html_content  = '''
     <div id="div_vmclusters">
@@ -654,11 +700,16 @@ def generate_html_table_vmclusters():
                     <th>VM CLUSTER</th>
                     <th>Compartment</th>
                     <th>Status</th>
-                    <th>DB<br>nodes</th>
+                    <th>DB<br>servers</th>
                     <th>OCPUs</th>
                     <th>Memory<br>(GB)</th>
+                    <th>Local<br>Storage<br>(GB)</th>
+                    <th>Exadata<br>Storage<br>(TB)</th>
                     <th>GI Version<br>Current / Latest</th>
                     <th>OS Version<br>Current / Latest</th>'''
+    if display_license:
+        html_content += '''
+                    <th class="license">License model</th>'''        
     if display_dbs:
         html_content += '''
                     <th class="exacc_databases">DB Home(s) : <i>Databases...</i></th>'''
@@ -669,23 +720,29 @@ def generate_html_table_vmclusters():
     for exadatainfrastructure in exadatainfrastructures:
         for vmcluster in vmclusters:
             if vmcluster.exadata_infrastructure_id == exadatainfrastructure.id:
-                url        = get_url_link_for_exadatainfrastructure(exadatainfrastructure)      
+                url1       = get_url_link_for_exadatainfrastructure(exadatainfrastructure)      
+                url2       = get_url_link_for_vmcluster(vmcluster)
                 cpt_name   = get_cpt_name_from_id(vmcluster.compartment_id)
-                url        = get_url_link_for_vmcluster(vmcluster)
                 html_style = f' style="color: {color_not_available}"' if (vmcluster.lifecycle_state != "AVAILABLE") else ''
 
                 html_content += f'''
                 <tr>
-                    <td>&nbsp;{vmcluster.region}&nbsp;</td>\
-                    <td>&nbsp;<a href="{url}">{exadatainfrastructure.display_name}</a>&nbsp;</td>
-                    <td>&nbsp;<b><a href="{url}">{vmcluster.display_name}</a></b> &nbsp;</td>
+                    <td>&nbsp;{vmcluster.region}&nbsp;</td>
+                    <td>&nbsp;<a href="{url1}">{exadatainfrastructure.display_name}</a>&nbsp;</td>
+                    <td>&nbsp;<b><a href="{url2}">{vmcluster.display_name}</a></b> &nbsp;</td>
                     <td>&nbsp;{cpt_name}&nbsp;</td>
                     <td>&nbsp;<span{html_style}>{vmcluster.lifecycle_state}&nbsp;</span></td>
-                    <td>&nbsp;{len(vmcluster.db_servers)}&nbsp;</td>
+                    <td>{display_db_servers(vmcluster,exadatainfrastructure)}</td>
                     <td>&nbsp;{vmcluster.cpus_enabled}&nbsp;</td>
                     <td>&nbsp;{vmcluster.memory_size_in_gbs}&nbsp;</td>
+                    <td>&nbsp;{vmcluster.db_node_storage_size_in_gbs}&nbsp;</td>
+                    <td>&nbsp;{vmcluster.data_storage_size_in_tbs}&nbsp;</td>
                     <td>&nbsp;{vmcluster.gi_version}&nbsp;/<br>&nbsp;{vmcluster.gi_update_available}&nbsp;</td>
                     <td>&nbsp;{vmcluster.system_version}&nbsp;/<br>&nbsp;{vmcluster.system_update_available}&nbsp;</td>'''
+
+                if display_license:
+                    html_content += f'''
+                    <td class="license">&nbsp;{vmcluster.license_model}&nbsp;</td>'''  
 
                 if display_dbs:
                     html_content += '''
@@ -824,7 +881,16 @@ def generate_html_table_autonomousvmclusters():
                     <th>Compartment</th>
                     <th class="exacc_maintenance">Maintenance runs</th>
                     <th>Status</th>
-                    <th>OCPUs</th>'''
+                    <th>OCPUs<br>Total</th>
+                    <th>OCPUs<br>Available</th>
+                    <th>Memory<br>(GB)</th>
+                    <th>Local<br>Storage<br>(GB)</th>
+                    <th>Exadata<br>Storage<br>(TB)</th>
+                    <th>Autonomous<br>DB Storage<br>Available (TB)</th>'''
+
+    if display_license:
+        html_content += '''
+                    <th class="license">License model</th>'''        
 
     if display_dbs:
         html_content += '''
@@ -839,7 +905,6 @@ def generate_html_table_autonomousvmclusters():
                 cpt_name   = get_cpt_name_from_id(autonomousvmcluster.compartment_id)
                 url1       = get_url_link_for_exadatainfrastructure(exadatainfrastructure)      
                 url2       = get_url_link_for_autonomousvmcluster(autonomousvmcluster)
-                html_style = f' style="color: {color_not_available}"' if (autonomousvmcluster.lifecycle_state != "AVAILABLE") else ''
 
                 html_content += f'''
                 <tr>
@@ -878,9 +943,20 @@ def generate_html_table_autonomousvmclusters():
                         html_content += f'''
                         &nbsp; - {autonomousvmcluster.next_maintenance.strftime(format)}&nbsp;</td>'''
 
+                html_style1 = f' style="color: {color_not_available}"' if (autonomousvmcluster.lifecycle_state != "AVAILABLE") else ''
+                html_style2 = f' style="color: {color_resources_warning}"' if autovmcl_storage_threshold_reached(autonomousvmcluster) else ''
                 html_content += f'''
-                    <td>&nbsp;<span{html_style}>{autonomousvmcluster.lifecycle_state}&nbsp;</span></td>
-                    <td>&nbsp;{autonomousvmcluster.cpus_enabled}&nbsp;</td>'''
+                    <td>&nbsp;<span{html_style1}>{autonomousvmcluster.lifecycle_state}&nbsp;</span></td>
+                    <td>&nbsp;{autonomousvmcluster.cpus_enabled}&nbsp;</td>
+                    <td>&nbsp;{autonomousvmcluster.available_cpus}&nbsp;</td>
+                    <td>&nbsp;{autonomousvmcluster.memory_size_in_gbs}&nbsp;</td>
+                    <td>&nbsp;{autonomousvmcluster.db_node_storage_size_in_gbs}&nbsp;</td>
+                    <td>&nbsp;{autonomousvmcluster.data_storage_size_in_tbs}&nbsp;</td>
+                    <td>&nbsp;<span{html_style2}>{autonomousvmcluster.available_autonomous_data_storage_size_in_tbs}&nbsp;</span></td>'''
+
+                if display_license:
+                    html_content += f'''
+                    <td class="license">&nbsp;{autonomousvmcluster.license_model}&nbsp;</td>'''   
 
                 if display_dbs:
                     acdbs = []
@@ -901,6 +977,19 @@ def generate_html_table_autonomousvmclusters():
     </div>'''
 
     return html_content
+
+def autovmcl_storage_threshold_reached(autonomousvmcluster):
+    avail    = autonomousvmcluster.available_autonomous_data_storage_size_in_tbs
+    total    = autonomousvmcluster.data_storage_size_in_tbs
+    used     = total - avail
+    pct_used = used / total
+    return pct_used > threshold_storage
+
+def exainfra_ocpus_threshold_reached(exadatainfrastructure):
+    used     = exadatainfrastructure.cpus_enabled
+    total    = exadatainfrastructure.max_cpu_count
+    pct_used = used / total
+    return pct_used > threshold_ocpus
 
 def generate_html_table_autonomous_cdbs():
     format   = "%b %d %Y %H:%M %Z"
@@ -1122,6 +1211,10 @@ def generate_html_script_body():
     <script>
         hide_show_column("exacc_maintenance")'''
 
+    if display_license:
+        html_content += '''
+        hide_show_column("license")'''
+
     if display_dbs:
         html_content += '''
         hide_show_column("exacc_databases")'''
@@ -1133,13 +1226,20 @@ def generate_html_script_body():
 
 def generate_html_report_options():
     html_content = '''
-    <b>Report options:</b><br>
-    <input type="checkbox" value="off" id="automatic_font_sizes" onchange="automatic_font_sizes_on_off(this.id);">Automatic font sizes<br>
-    <input type="checkbox" value="show" id="exacc_maintenance" onchange="hide_show_column(this.id);" checked>Display quarterly maintenances information<br>'''
+            <b>Report options:</b><br>
+            <input type="checkbox" value="off" id="automatic_font_sizes" onchange="automatic_font_sizes_on_off(this.id);">Automatic font sizes<br>
+            <input type="checkbox" value="show" id="exacc_maintenance" onchange="hide_show_column(this.id);" checked>Display quarterly maintenances information<br>'''
+
+    if display_license:
+        html_content += '''
+            <input type="checkbox" value="show" id="license" onchange="hide_show_column(this.id);" checked>Display license models for VM clusters and Autonomous VM clusters<br>'''
 
     if display_dbs:
-        html_content += f'''
-    <input type="checkbox" value="show" id="exacc_databases"   onchange="hide_show_column(this.id);" checked>Display databases (DB Homes, databases, PDBs, Autonomous Container databases and Autonomous Databases)'''
+        html_content += '''
+            <input type="checkbox" value="show" id="exacc_databases" onchange="hide_show_column(this.id);" checked>Display databases (DB Homes, databases, PDBs, Autonomous Container databases and Autonomous Databases)<br>'''
+
+    html_content += '''
+            <br>'''
 
     return html_content
 
@@ -1159,15 +1259,19 @@ def generate_html_report():
 
     # Title
     html_report += f'''
-    <h1>ExaCC status report for OCI tenant <span style="color: #0000FF">{tenant_name.upper()}<span></h1>
-    <div class="text_outside_tables">
-    <b>Date:</b> {now_str}<br>
-    <br>'''
+    <div id="my_header">
+        <h1>ExaCC status report for OCI tenant <span style="color: #0000FF">{tenant_name.upper()}<span></h1>
+        <div class="text_outside_tables">
+            <b>Date:</b> {now_str}<br>
+            <br>'''
 
     if report_options:
         html_report += generate_html_report_options()
 
     html_report += f'''
+        </div>
+        <hr>
+        <br>
     </div>'''
 
     # ExaCC Exadata infrastructures
@@ -1309,6 +1413,7 @@ parser.add_argument("-bn", "--bucket-name", help="Store the HTML report in an OC
 parser.add_argument("-bs", "--bucket-suffix", help="Suffix for object name in the OCI bucket (-bn required)")
 parser.add_argument("-db", "--databases", help="Display DB Homes, CDBs, PDBs, Autonomous Container Databases and Autonomous Databases", action="store_true")
 parser.add_argument("-ro", "--report-options", help="Add report options for dynamic changes in Web browsers", action="store_true")
+parser.add_argument("-l", "--license", help="Display license model for VM clusters and Autonomous VM clusters", action="store_true")
 group = parser.add_mutually_exclusive_group(required=True)
 group.add_argument("-p", "--profile", help="OCI profile for user authentication")
 group.add_argument("-ip", "--inst-principal", help="Use instance principal authentication", action="store_true")
@@ -1317,10 +1422,11 @@ group.add_argument("-ip", "--inst-principal", help="Use instance principal authe
 
 args = parser.parse_args()
 
-profile        = args.profile
-all_regions    = args.all_regions
-display_dbs    = args.databases
-report_options = args.report_options
+profile         = args.profile
+all_regions     = args.all_regions
+display_dbs     = args.databases
+report_options  = args.report_options
+display_license = args.license
 
 if args.inst_principal:
     authentication_mode = "instance_principal"
