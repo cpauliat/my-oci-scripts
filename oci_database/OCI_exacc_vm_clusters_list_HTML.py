@@ -52,6 +52,9 @@
 #    2022-08-10: Add memory and available OCPUs for Autonomous VM clusters
 #    2022-08-10: For Exadata Infrastructures, display available OCPUs instead of used OCPUs
 #    2022-08-11: Display the db servers used by each VM cluster
+#    2022-08-11: Display version (DB Server and Storage Server) for each Exadata Infrastructure
+#    2022-08-12: Add installed and available resources (memory, local storage and Exadata storage) for Exadata Infrastructures
+#    2022-08-12: Add Autonomous DB storage (available and Total) for Autonomous VM clusters
 # --------------------------------------------------------------------------------------------------------------
 
 # -------- import
@@ -139,6 +142,13 @@ def get_url_link_for_auto_cdb(auto_cdb):
 def get_url_link_for_auto_db(auto_db):
     return f"https://cloud.oracle.com/exacc/autonomousDatabases/{auto_db.id}?tenant={tenant_name}&region={auto_db.region}"
 
+# ---- Get an Exadata Infrastructure from its OCID
+def get_exadatainfrastructure_from_id(exainfra_id):
+    for exainfra in exadatainfrastructures:
+        if exainfra.id == exainfra_id:
+            return exainfra
+    return None
+
 # ---- Get the details for a next maintenance run
 def get_next_maintenance_date(DatabaseClient, maintenance_run_id):
     if maintenance_run_id:
@@ -168,12 +178,16 @@ def exadatainfrastructure_get_details (exadatainfrastructure_id):
         DatabaseClient = oci.database.DatabaseClient(config={}, signer=signer)
     response = DatabaseClient.get_exadata_infrastructure (exadata_infrastructure_id = exadatainfrastructure_id, retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
     exainfra = response.data
+
+    # add more details
     if authentication_mode == "user_profile":
         exainfra.region = config["region"]
     else:
         exainfra.region = signer.region
     exainfra.last_maintenance_start, exainfra.last_maintenance_end = get_last_maintenance_dates(DatabaseClient, exainfra.last_maintenance_run_id)
     exainfra.next_maintenance = get_next_maintenance_date(DatabaseClient, exainfra.next_maintenance_run_id)
+    exainfra.used_local_storage_in_gbs   = 0        # data added later in vmcluster_get_details() and autonomousvmcluster_get_details()
+    exainfra.used_exadata_storage_in_tbs = 0        # data added later in vmcluster_get_details() and autonomousvmcluster_get_details()
 
     # get the list of DB servers for this Exadata Infrastructure
     response = DatabaseClient.list_db_servers (
@@ -220,6 +234,11 @@ def vmcluster_get_details (vmcluster_id):
         if parse_version(sys_updates.version) > parse_version(vmclust.system_update_available):
             vmclust.system_update_available = sys_updates.version
 
+    # Add the storage resources used by the VM cluster to its parent Exadata Infrastructure
+    exainfra = get_exadatainfrastructure_from_id(vmclust.exadata_infrastructure_id)
+    exainfra.used_local_storage_in_gbs   += vmclust.db_node_storage_size_in_gbs
+    exainfra.used_exadata_storage_in_tbs += vmclust.data_storage_size_in_tbs
+
     # save details to list
     vmclusters.append (vmclust)
 
@@ -255,6 +274,11 @@ def autonomousvmcluster_get_details (autonomousvmcluster_id):
     # End of workaround. Once fixed, replace by this call:
     # autovmclust.last_maintenance_start, autovmclust.last_maintenance_end = get_last_maintenance_dates(DatabaseClient, autovmclust.last_maintenance_run_id)
     autovmclust.next_maintenance = get_next_maintenance_date(DatabaseClient, autovmclust.next_maintenance_run_id)
+
+    # Add the storage resources used by the autonomous VM cluster to its parent Exadata Infrastructure
+    exainfra = get_exadatainfrastructure_from_id(autovmclust.exadata_infrastructure_id)
+    exainfra.used_local_storage_in_gbs   += autovmclust.db_node_storage_size_in_gbs
+    exainfra.used_exadata_storage_in_tbs += autovmclust.data_storage_size_in_tbs
 
     # save details to list
     autonomousvmclusters.append (autovmclust)
@@ -565,6 +589,30 @@ def generate_html_headers():
 
     return html_content
 
+def exainfra_ocpus_threshold_reached(exadatainfrastructure):
+    used     = exadatainfrastructure.cpus_enabled
+    total    = exadatainfrastructure.max_cpu_count
+    pct_used = used / total
+    return pct_used > threshold_ocpus
+
+def exainfra_memory_threshold_reached(exadatainfrastructure):
+    used     = exadatainfrastructure.memory_size_in_gbs
+    total    = exadatainfrastructure.max_memory_in_gbs
+    pct_used = used / total
+    return pct_used > threshold_memory
+
+def exainfra_local_storage_threshold_reached(exadatainfrastructure):
+    used     = exadatainfrastructure.used_local_storage_in_gbs 
+    total    = exadatainfrastructure.max_db_node_storage_in_g_bs
+    pct_used = used / total
+    return pct_used > threshold_storage
+
+def exainfra_exadata_storage_threshold_reached(exadatainfrastructure):
+    used     = exadatainfrastructure.used_exadata_storage_in_tbs
+    total    = exadatainfrastructure.max_data_storage_in_t_bs
+    pct_used = used / total
+    return pct_used > threshold_storage
+
 def generate_html_table_exadatainfrastructures():
     html_content  = '''
     <div id="div_exainfras">
@@ -587,11 +635,15 @@ def generate_html_table_exadatainfrastructures():
                     <th>Compartment</th>
                     <th class="exacc_maintenance">Quarterly<br>maintenances</th>
                     <th>Shape</th>
-                    <th>Compute Nodes<br>/ Storage Nodes</th>
-                    <th>OCPUs<br>Available<br>/ Total</th>
+                    <th>Servers<br><br>Compute<hr>Storage</th>
                     <th>Status</th>
+                    <th>OCPUs<br><br>Available<hr>Total</th>
+                    <th>Memory<br><br>Available<hr>Total</th>
+                    <th>Local storage<br><br>Available<hr>Total</th>
+                    <th>Exadata storage<br><br>Available<hr>Total</th>
                     <th>VM cluster(s)</th>
                     <th>Autonomous<br>VM cluster(s)</th>
+                    <th>Version<br><br>DB Server<hr>Storage Server</th>
                 </tr>'''
 
     for exadatainfrastructure in exadatainfrastructures:
@@ -600,66 +652,79 @@ def generate_html_table_exadatainfrastructures():
         url        = get_url_link_for_exadatainfrastructure(exadatainfrastructure)
         html_style1 = f' style="color: {color_not_available}"' if (exadatainfrastructure.lifecycle_state != "ACTIVE") else ''
         html_style2 = f' style="color: {color_resources_warning}"' if exainfra_ocpus_threshold_reached(exadatainfrastructure) else ''
+        html_style3 = f' style="color: {color_resources_warning}"' if exainfra_memory_threshold_reached(exadatainfrastructure) else ''
+        html_style4 = f' style="color: {color_resources_warning}"' if exainfra_local_storage_threshold_reached(exadatainfrastructure) else ''
+        html_style5 = f' style="color: {color_resources_warning}"' if exainfra_exadata_storage_threshold_reached(exadatainfrastructure) else ''
 
         html_content += f'''
                 <tr>
-                    <td>&nbsp;{exadatainfrastructure.region}&nbsp;</td>
-                    <td>&nbsp;<b><a href="{url}">{exadatainfrastructure.display_name}</a></b> &nbsp;</td>
-                    <td>&nbsp;{cpt_name}&nbsp;</td>
-                    <td class="exacc_maintenance" style="text-align: left">&nbsp;Last maintenance: <br>'''
+                    <td>{exadatainfrastructure.region}</td>
+                    <td><b><a href="{url}">{exadatainfrastructure.display_name}</a></b> </td>
+                    <td>{cpt_name}</td>
+                    <td class="exacc_maintenance" style="text-align: left">Last maintenance: <br>'''
 
         try:
             html_content += f'''
-                        &nbsp; - {exadatainfrastructure.last_maintenance_start.strftime(format)} (start)&nbsp;<br>'''
+                         - {exadatainfrastructure.last_maintenance_start.strftime(format)} (start)<br>'''
         except:
             html_content += f'''
-                        &nbsp; - no date/time (start)&nbsp;<br>'''
+                         - no date/time (start)<br>'''
 
         try:
             html_content += f'''
-                        &nbsp; - {exadatainfrastructure.last_maintenance_end.strftime(format)} (end)&nbsp;<br><br>'''
+                         - {exadatainfrastructure.last_maintenance_end.strftime(format)} (end)<br><br>'''
         except:
             html_content += f'''
-                        &nbsp; - no date/time (end)&nbsp;<br><br>'''
+                         - no date/time (end)<br><br>'''
         
         html_content += f'''
-                        &nbsp;Next maintenance: <br>'''
+                        Next maintenance: <br>'''
 
         if exadatainfrastructure.next_maintenance == "":
             html_content += f'''
-                        &nbsp; - Not yet scheduled &nbsp;</td>'''
+                         - Not yet scheduled </td>'''
         else:
             # if the next maintenance date is soon, highlight it using a different color
             if (exadatainfrastructure.next_maintenance - now < timedelta(days=days_notification)):
                 html_content += f'''
-                        &nbsp; - <span style="color: {color_date_soon}">{exadatainfrastructure.next_maintenance.strftime(format)}</span>&nbsp;</td>'''
+                         - <span style="color: {color_date_soon}">{exadatainfrastructure.next_maintenance.strftime(format)}</span></td>'''
             else:
                 html_content += f'''
-                        &nbsp; - {exadatainfrastructure.next_maintenance.strftime(format)}&nbsp;</td>'''
-        ocpus_available = exadatainfrastructure.max_cpu_count - exadatainfrastructure.cpus_enabled
+                         - {exadatainfrastructure.next_maintenance.strftime(format)}</td>'''
+
+        ocpus_available           = exadatainfrastructure.max_cpu_count               - exadatainfrastructure.cpus_enabled
+        memory_available          = exadatainfrastructure.max_memory_in_gbs           - exadatainfrastructure.memory_size_in_gbs
+        local_storage_available   = exadatainfrastructure.max_db_node_storage_in_g_bs - exadatainfrastructure.used_local_storage_in_gbs
+        exadata_storage_available = exadatainfrastructure.max_data_storage_in_t_bs    - exadatainfrastructure.used_exadata_storage_in_tbs
+        # print (f"DEBUG: exadatainfrastructure = {exadatainfrastructure}",file=sys.stderr)
+
         html_content += f'''
-                    <td>&nbsp;{exadatainfrastructure.shape}&nbsp;</td>
-                    <td>&nbsp;{exadatainfrastructure.compute_count} / {exadatainfrastructure.storage_count}&nbsp;</td>
-                    <td>&nbsp;<span{html_style2}>{ocpus_available}</span> / {exadatainfrastructure.max_cpu_count}&nbsp;</td>
-                    <td>&nbsp;<span{html_style1}>{exadatainfrastructure.lifecycle_state}&nbsp;</span></td>'''
+                    <td>{exadatainfrastructure.shape.replace("ExadataCC.","")}</td>
+                    <td>{exadatainfrastructure.compute_count}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <hr> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{exadatainfrastructure.storage_count}</td>
+                    <td><span{html_style1}>{exadatainfrastructure.lifecycle_state}</span></td>
+                    <td><span{html_style2}>{ocpus_available}</span> <hr> {exadatainfrastructure.max_cpu_count}</td>
+                    <td><span{html_style3}>{memory_available} GB</span> <hr> {exadatainfrastructure.max_memory_in_gbs} GB</td>
+                    <td><span{html_style4}>{local_storage_available} GB</span> <hr> {exadatainfrastructure.max_db_node_storage_in_g_bs} GB</td>
+                    <td><span{html_style5}>{exadata_storage_available:0.1f} TB</span> <hr> {exadatainfrastructure.max_data_storage_in_t_bs:0.1f} TB</td>'''
 
         vmc = []
         for vmcluster in vmclusters:
             if vmcluster.exadata_infrastructure_id == exadatainfrastructure.id:
                 url = get_url_link_for_vmcluster(vmcluster)
                 vmc.append(f'<a href="{url}">{vmcluster.display_name}</a>')
-        separator = '&nbsp;<br>&nbsp;'
+        separator = '<br>'
         html_content += f'''
-                    <td>&nbsp;{separator.join(vmc)}&nbsp;</td>'''
+                    <td>{separator.join(vmc)}</td>'''
 
         avmc = []
         for autonomousvmcluster in autonomousvmclusters:
             if autonomousvmcluster.exadata_infrastructure_id == exadatainfrastructure.id:
                 url = get_url_link_for_autonomousvmcluster(autonomousvmcluster)
                 avmc.append(f'<a href="{url}">{autonomousvmcluster.display_name}</a>')
-        separator = '&nbsp;<br>&nbsp;'
+        separator = '<br>'
         html_content += f'''
-                    <td>&nbsp;{separator.join(avmc)}&nbsp;</td>
+                    <td>{separator.join(avmc)}</td>
+                    <td>{exadatainfrastructure.db_server_version}<hr>{exadatainfrastructure.storage_server_version}</td>
                 </tr>'''
 
     html_content += '''
@@ -708,11 +773,11 @@ def generate_html_table_vmclusters():
                     <th>Status</th>
                     <th>DB<br>servers</th>
                     <th>OCPUs</th>
-                    <th>Memory<br>(GB)</th>
-                    <th>Local<br>Storage<br>(GB)</th>
-                    <th>Exadata<br>Storage<br>(TB)</th>
-                    <th>GI Version<br>Current / Latest</th>
-                    <th>OS Version<br>Current / Latest</th>'''
+                    <th>Memory</th>
+                    <th>Local<br>Storage</th>
+                    <th>Exadata<br>Storage</th>
+                    <th>GI Version<br><br>Current<hr>Latest</th>
+                    <th>OS Version<br><br>Current<hr>Latest</th>'''
     if display_license:
         html_content += '''
                     <th class="license">License model</th>'''        
@@ -733,22 +798,22 @@ def generate_html_table_vmclusters():
 
                 html_content += f'''
                 <tr>
-                    <td>&nbsp;{vmcluster.region}&nbsp;</td>
-                    <td>&nbsp;<a href="{url1}">{exadatainfrastructure.display_name}</a>&nbsp;</td>
-                    <td>&nbsp;<b><a href="{url2}">{vmcluster.display_name}</a></b> &nbsp;</td>
-                    <td>&nbsp;{cpt_name}&nbsp;</td>
-                    <td>&nbsp;<span{html_style}>{vmcluster.lifecycle_state}&nbsp;</span></td>
+                    <td>{vmcluster.region}</td>
+                    <td><a href="{url1}">{exadatainfrastructure.display_name}</a></td>
+                    <td><b><a href="{url2}">{vmcluster.display_name}</a></b> </td>
+                    <td>{cpt_name}</td>
+                    <td><span{html_style}>{vmcluster.lifecycle_state}</span></td>
                     <td>{display_db_servers(vmcluster,exadatainfrastructure)}</td>
-                    <td>&nbsp;{vmcluster.cpus_enabled}&nbsp;</td>
-                    <td>&nbsp;{vmcluster.memory_size_in_gbs}&nbsp;</td>
-                    <td>&nbsp;{vmcluster.db_node_storage_size_in_gbs}&nbsp;</td>
-                    <td>&nbsp;{vmcluster.data_storage_size_in_tbs}&nbsp;</td>
-                    <td>&nbsp;{vmcluster.gi_version}&nbsp;/<br>&nbsp;{vmcluster.gi_update_available}&nbsp;</td>
-                    <td>&nbsp;{vmcluster.system_version}&nbsp;/<br>&nbsp;{vmcluster.system_update_available}&nbsp;</td>'''
+                    <td>{vmcluster.cpus_enabled}</td>
+                    <td>{vmcluster.memory_size_in_gbs} GB</td>
+                    <td>{vmcluster.db_node_storage_size_in_gbs} GB</td>
+                    <td>{vmcluster.data_storage_size_in_tbs} TB</td>
+                    <td>{vmcluster.gi_version}<hr>{vmcluster.gi_update_available}</td>
+                    <td>{vmcluster.system_version}<hr>{vmcluster.system_update_available}</td>'''
 
                 if display_license:
                     html_content += f'''
-                    <td class="license">&nbsp;{vmcluster.license_model}&nbsp;</td>'''  
+                    <td class="license">{vmcluster.license_model}</td>'''  
 
                 if display_dbs:
                     html_content += '''
@@ -757,10 +822,10 @@ def generate_html_table_vmclusters():
                         if db_home.vm_cluster_id == vmcluster.id:
                             url = get_url_link_for_db_home(db_home)
                             html_content += f'''
-                        &nbsp;<a href="{url}">{db_home.display_name}</a> : '''
+                        <a href="{url}">{db_home.display_name}</a> : '''
                             for database in db_home.databases:
                                 html_content += f'''
-                            &nbsp;<i>{database.db_name}</i>'''
+                            <i>{database.db_name}</i>'''
                             html_content += f'''
                             <br>'''
                     html_content += '''
@@ -821,18 +886,18 @@ def generate_html_table_db_homes():
 
                         html_content += f'''
                 <tr>
-                    <td>&nbsp;{db_home.region}&nbsp;</td>
-                    <td>&nbsp;<a href="{url1}">{exadatainfrastructure.display_name}</a> &nbsp;</td>
-                    <td>&nbsp;<a href="{url2}">{vmcluster.display_name}</a> &nbsp;</td>
-                    <td>&nbsp;<b><a href="{url3}">{db_home.display_name}</a></b> &nbsp;</td>
-                    <td>&nbsp;<span{html_style}>{db_home.lifecycle_state}&nbsp;</span></td>
-                    <td>&nbsp;{db_home.db_version}&nbsp;/&nbsp;{db_home.db_update_latest}&nbsp;</td>
+                    <td>{db_home.region}</td>
+                    <td><a href="{url1}">{exadatainfrastructure.display_name}</a> </td>
+                    <td><a href="{url2}">{vmcluster.display_name}</a> </td>
+                    <td><b><a href="{url3}">{db_home.display_name}</a></b> </td>
+                    <td><span{html_style}>{db_home.lifecycle_state}</span></td>
+                    <td>{db_home.db_version}/{db_home.db_update_latest}</td>
                     <td style="text-align: left">'''
 
                         for database in db_home.databases:
                             url4          = get_url_link_for_database(database, db_home.region)
                             html_content += f'''
-                        &nbsp;<a href="{url4}">{database.db_name}</a> : '''
+                        <a href="{url4}">{database.db_name}</a> : '''
                             # OCI pluggable database management is supported only for Oracle Database 19.0 or higher
                             try:
                                 if database.is_cdb:
@@ -844,7 +909,7 @@ def generate_html_table_db_homes():
                                         elif pdb.open_mode == "READ_ONLY":
                                             pdb_link_class = "pdb_link_read_only"
                                         html_content += f'''
-                        <a href="{url5}" class="pdb {pdb_link_class}">{pdb.pdb_name}</a> &nbsp; '''
+                        <a href="{url5}" class="pdb {pdb_link_class}">{pdb.pdb_name}</a>  '''
                             except:
                                 pass
 
@@ -887,12 +952,11 @@ def generate_html_table_autonomousvmclusters():
                     <th>Compartment</th>
                     <th class="exacc_maintenance">Maintenance runs</th>
                     <th>Status</th>
-                    <th>OCPUs<br>Total</th>
-                    <th>OCPUs<br>Available</th>
-                    <th>Memory<br>(GB)</th>
-                    <th>Local<br>Storage<br>(GB)</th>
-                    <th>Exadata<br>Storage<br>(TB)</th>
-                    <th>Autonomous<br>DB Storage<br>Available (TB)</th>'''
+                    <th>OCPUs<br><br>Available<hr>Total</th>
+                    <th>Memory</th>
+                    <th>Local<br>Storage</th>
+                    <th>Exadata<br>Storage</th>
+                    <th>Autonomous DB Storage<br><br>Available<hr>Total</th>'''
 
     if display_license:
         html_content += '''
@@ -914,55 +978,56 @@ def generate_html_table_autonomousvmclusters():
 
                 html_content += f'''
                 <tr>
-                    <td>&nbsp;{autonomousvmcluster.region}&nbsp;</td>
-                    <td>&nbsp;<a href="{url1}">{exadatainfrastructure.display_name}</a>&nbsp;</td>
-                    <td>&nbsp;<b><a href="{url2}">{autonomousvmcluster.display_name}</a></b> &nbsp;</td>
-                    <td>&nbsp;{cpt_name}&nbsp;</td>
-                    <td class="exacc_maintenance" style="text-align: left">&nbsp;Last maintenance: <br>'''
+                    <td>{autonomousvmcluster.region}</td>
+                    <td><a href="{url1}">{exadatainfrastructure.display_name}</a></td>
+                    <td><b><a href="{url2}">{autonomousvmcluster.display_name}</a></b> </td>
+                    <td>{cpt_name}</td>
+                    <td class="exacc_maintenance" style="text-align: left">Last maintenance: <br>'''
 
                 try:
                     html_content += f'''
-                        &nbsp; - {autonomousvmcluster.last_maintenance_start.strftime(format)} (start)&nbsp;<br>'''
+                         - {autonomousvmcluster.last_maintenance_start.strftime(format)} (start)<br>'''
                 except:
                     html_content += f'''
-                        &nbsp; - no date/time (start)&nbsp;<br>'''
+                         - no date/time (start)<br>'''
 
                 try:
                     html_content += f'''
-                        &nbsp; - {autonomousvmcluster.last_maintenance_end.strftime(format)} (end)&nbsp;<br><br>'''
+                         - {autonomousvmcluster.last_maintenance_end.strftime(format)} (end)<br><br>'''
                 except:
                     html_content += f'''
-                        &nbsp; - no date/time (end)&nbsp;<br><br>'''
+                         - no date/time (end)<br><br>'''
                 
                 html_content += f'''
-                        &nbsp;Next maintenance: <br>'''
+                        Next maintenance: <br>'''
 
                 if autonomousvmcluster.next_maintenance == "":
                     html_content += f'''
-                        &nbsp; - Not yet scheduled &nbsp;</td>'''
+                         - Not yet scheduled </td>'''
                 else:
                     # if the next maintenance date is soon, highlight it using a different color
                     if (autonomousvmcluster.next_maintenance - now < timedelta(days=days_notification)):
                         html_content += f'''
-                        &nbsp; - <span style="color: {color_date_soon}">{autonomousvmcluster.next_maintenance.strftime(format)}</span>&nbsp;</td>'''
+                         - <span style="color: {color_date_soon}">{autonomousvmcluster.next_maintenance.strftime(format)}</span></td>'''
                     else:
                         html_content += f'''
-                        &nbsp; - {autonomousvmcluster.next_maintenance.strftime(format)}&nbsp;</td>'''
+                         - {autonomousvmcluster.next_maintenance.strftime(format)}</td>'''
+
+                print (f"DEBUG11: autonomousvmcluster = {autonomousvmcluster}",file=sys.stderr)
 
                 html_style1 = f' style="color: {color_not_available}"' if (autonomousvmcluster.lifecycle_state != "AVAILABLE") else ''
                 html_style2 = f' style="color: {color_resources_warning}"' if autovmcl_storage_threshold_reached(autonomousvmcluster) else ''
                 html_content += f'''
-                    <td>&nbsp;<span{html_style1}>{autonomousvmcluster.lifecycle_state}&nbsp;</span></td>
-                    <td>&nbsp;{autonomousvmcluster.cpus_enabled}&nbsp;</td>
-                    <td>&nbsp;{autonomousvmcluster.available_cpus}&nbsp;</td>
-                    <td>&nbsp;{autonomousvmcluster.memory_size_in_gbs}&nbsp;</td>
-                    <td>&nbsp;{autonomousvmcluster.db_node_storage_size_in_gbs}&nbsp;</td>
-                    <td>&nbsp;{autonomousvmcluster.data_storage_size_in_tbs}&nbsp;</td>
-                    <td>&nbsp;<span{html_style2}>{autonomousvmcluster.available_autonomous_data_storage_size_in_tbs}&nbsp;</span></td>'''
+                    <td><span{html_style1}>{autonomousvmcluster.lifecycle_state}</span></td>
+                    <td>{autonomousvmcluster.available_cpus}<hr>{autonomousvmcluster.cpus_enabled}</td>
+                    <td>{autonomousvmcluster.memory_size_in_gbs} GB</td>
+                    <td>{autonomousvmcluster.db_node_storage_size_in_gbs} GB</td>
+                    <td>{autonomousvmcluster.data_storage_size_in_tbs} TB</td>
+                    <td><span{html_style2}>{autonomousvmcluster.available_autonomous_data_storage_size_in_tbs} TB</span><hr>{autonomousvmcluster.autonomous_data_storage_size_in_tbs} TB</td>'''
 
                 if display_license:
                     html_content += f'''
-                    <td class="license">&nbsp;{autonomousvmcluster.license_model}&nbsp;</td>'''   
+                    <td class="license">{autonomousvmcluster.license_model}</td>'''   
 
                 if display_dbs:
                     acdbs = []
@@ -970,9 +1035,9 @@ def generate_html_table_autonomousvmclusters():
                         if auto_cdb.autonomous_vm_cluster_id == autonomousvmcluster.id:
                             url = get_url_link_for_auto_cdb(auto_cdb)
                             acdbs.append(f'<a href="{url}">{auto_cdb.display_name}</a>')
-                    separator = '&nbsp;<br>&nbsp;'
+                    separator = '<br>'
                     html_content += f'''
-                    <td class="exacc_databases">&nbsp;{separator.join(acdbs)}&nbsp;</td>'''
+                    <td class="exacc_databases">{separator.join(acdbs)}</td>'''
 
                 html_content += '''
                 </tr>'''
@@ -990,12 +1055,6 @@ def autovmcl_storage_threshold_reached(autonomousvmcluster):
     used     = total - avail
     pct_used = used / total
     return pct_used > threshold_storage
-
-def exainfra_ocpus_threshold_reached(exadatainfrastructure):
-    used     = exadatainfrastructure.cpus_enabled
-    total    = exadatainfrastructure.max_cpu_count
-    pct_used = used / total
-    return pct_used > threshold_ocpus
 
 def generate_html_table_autonomous_cdbs():
     format   = "%b %d %Y %H:%M %Z"
@@ -1040,24 +1099,24 @@ def generate_html_table_autonomous_cdbs():
 
                         html_content += f'''
                 <tr>
-                    <td>&nbsp;{auto_cdb.region}&nbsp;</td>
-                    <td>&nbsp;<a href="{url1}">{exadatainfrastructure.display_name}</a>&nbsp;</td>
-                    <td>&nbsp;<a href="{url2}">{autonomousvmcluster.display_name}</a> &nbsp;</td>
-                    <td>&nbsp;<b><a href="{url3}">{auto_cdb.display_name}</a></b> &nbsp;</td>
-                    <td>&nbsp;{auto_cdb.db_version}&nbsp;</td>
-                    <td>&nbsp;{auto_cdb.lifecycle_state}&nbsp;</td>
-                    <td>&nbsp;{auto_cdb.available_cpus}&nbsp;</td>
-                    <td>&nbsp;{auto_cdb.total_cpus}&nbsp;</td>
-                    <td>&nbsp;{dataguard}&nbsp;</td>'''
+                    <td>{auto_cdb.region}</td>
+                    <td><a href="{url1}">{exadatainfrastructure.display_name}</a></td>
+                    <td><a href="{url2}">{autonomousvmcluster.display_name}</a> </td>
+                    <td><b><a href="{url3}">{auto_cdb.display_name}</a></b> </td>
+                    <td>{auto_cdb.db_version}</td>
+                    <td>{auto_cdb.lifecycle_state}</td>
+                    <td>{auto_cdb.available_cpus}</td>
+                    <td>{auto_cdb.total_cpus}</td>
+                    <td>{dataguard}</td>'''
 
                         adbs = []
                         for auto_db in auto_dbs:
                             if auto_db.autonomous_container_database_id == auto_cdb.id:
                                 url4 = get_url_link_for_auto_db(auto_db)
                                 adbs.append(f'<a href="{url4}">{auto_db.display_name}</a>')
-                        separator = '&nbsp;<br>&nbsp;'
+                        separator = '<br>'
                         html_content += f'''
-                    <td>&nbsp;{separator.join(adbs)}&nbsp;</td>'''
+                    <td>{separator.join(adbs)}</td>'''
                 
                         html_content += '''
                 </tr>'''
@@ -1114,16 +1173,16 @@ def generate_html_table_autonomous_dbs():
                                 html_style = f' style="color: {color_not_available}"' if (auto_db.lifecycle_state != "AVAILABLE") else ''
                                 html_content += f'''
                 <tr>
-                    <td>&nbsp;{auto_db.region}&nbsp;</td>
-                    <td>&nbsp;<a href="{url1}">{exadatainfrastructure.display_name}</a>&nbsp;</td>
-                    <td>&nbsp;<a href="{url2}">{autonomousvmcluster.display_name}</a> &nbsp;</td>
-                    <td>&nbsp;<a href="{url3}">{auto_cdb.display_name}</a> &nbsp;</td>
-                    <td>&nbsp;<b><a href="{url4}">{auto_db.display_name}</a></b> &nbsp;</td>
-                    <td>&nbsp;<span{html_style}>{auto_db.lifecycle_state}&nbsp;</span></td>
-                    <td>&nbsp;{auto_db.db_name}&nbsp;</td>
-                    <td>&nbsp;{auto_db.ocpu_count}&nbsp;</td>
-                    <td>&nbsp;{auto_db.data_storage_size_in_gbs} GB &nbsp;</td>
-                    <td>&nbsp;{auto_db.db_workload}&nbsp;</td>
+                    <td>{auto_db.region}</td>
+                    <td><a href="{url1}">{exadatainfrastructure.display_name}</a></td>
+                    <td><a href="{url2}">{autonomousvmcluster.display_name}</a> </td>
+                    <td><a href="{url3}">{auto_cdb.display_name}</a> </td>
+                    <td><b><a href="{url4}">{auto_db.display_name}</a></b> </td>
+                    <td><span{html_style}>{auto_db.lifecycle_state}</span></td>
+                    <td>{auto_db.db_name}</td>
+                    <td>{auto_db.ocpu_count}</td>
+                    <td>{auto_db.data_storage_size_in_gbs} GB </td>
+                    <td>{auto_db.db_workload}</td>
                 </tr>'''
 
     html_content += '''
