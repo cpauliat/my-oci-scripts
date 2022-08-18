@@ -55,6 +55,9 @@
 #    2022-08-11: Display version (DB Server and Storage Server) for each Exadata Infrastructure
 #    2022-08-12: Add installed and available resources (memory, local storage and Exadata storage) for Exadata Infrastructures
 #    2022-08-12: Add Autonomous DB storage (available and Total) for Autonomous VM clusters
+#    2022-08-18: Highlight version information if a newer version is available for VM clusters and DB homes
+#    2022-08-18: For Exadata Infrastructures, display patching mode and replace shape by human readable model name
+#    2022-08-18: For Autonomous Container Databases, display compartment name
 # --------------------------------------------------------------------------------------------------------------
 
 # -------- import
@@ -75,6 +78,7 @@ days_notification       = 15                 # Number of days before scheduled m
 color_date_soon         = "#FF0000"          # Color for maintenance scheduled soon (less than days_notification days)
 color_not_available     = "#FF0000"          # Color for lifecycles different than AVAILABLE and ACTIVE
 color_resources_warning = "#FF0000"          # Color to highlight low availability of resources
+color_new_version_avail = "#FF0000"          # Color to highlight the fact there is a newer version
 color_pdb_read_write    = "#009900"
 color_pdb_read_only     = "#FF9900"
 color_pdb_others        = "#FF0000"
@@ -85,14 +89,31 @@ autonomousvmclusters    = []
 db_homes                = []
 auto_cdbs               = []
 auto_dbs                = []
-threshold_ocpus         = 0.60               # if more than 80% of OCPUs are used, used a specific/warning color for available OCPUs
+threshold_ocpus         = 0.80               # if more than 80% of OCPUs are used, used a specific/warning color for available OCPUs
 threshold_memory        = 0.80               # if more than 80% of Memory is used, used a specific/warning color for available Memory
-threshold_storage       = 0.60               # if more than 80% of storage is used, used a specific/warning color for available storage
+threshold_storage       = 0.80               # if more than 80% of storage is used, used a specific/warning color for available storage
+shapes_models           = [                  # Conversion from shape to human readable model name
+                            { "shape": "ExadataCC.QuarterX9M.124", "model": "Quarter Rack X9M" },
+                            { "shape": "ExadataCC.HalfX9M.248",    "model": "Half Rack X9M" },
+                            { "shape": "ExadataCC.FullX9M.496",    "model": "Full Rack X9M" },
+                            { "shape": "ExadataCC.QuarterX8M.100", "model": "Quarter Rack X8M" },
+                            { "shape": "ExadataCC.HalfX8M.200",    "model": "Half Rack X8M" },
+                            { "shape": "ExadataCC.FullX9M.400",    "model": "Full Rack X8M" },
+                            { "shape": "ExadataCC.Quarter3.100",   "model": "Quarter Rack X8" },
+                            { "shape": "ExadataCC.Half3.200",      "model": "Half Rack X8" },
+                            { "shape": "ExadataCC.Full3.400",      "model": "Full Rack X8" },
+                            { "shape": "ExadataCC.Quarter2.92",    "model": "Quarter Rack X7" },
+                            { "shape": "ExadataCC.Half2.184",      "model": "Half Rack X7" },
+                            { "shape": "ExadataCC.Full2.368",      "model": "Full Rack X7" },
+                            { "shape": "ExadataCC.Quarter1.84",    "model": "Quarter Rack X6" },
+                            { "shape": "ExadataCC.Half1.168",      "model": "Half Rack X6" },
+                            { "shape": "ExadataCC.Full1.336",      "model": "Full Rack X6" },
+    ] 
 
 # -------- functions
 
 # ---- Get the complete name of a compartment from its id, including parent and grand-parent..
-def get_cpt_name_from_id(cpt_id):
+def get_cpt_name_from_id_single_line(cpt_id):
 
     if cpt_id == RootCompartmentID:
         return "root"
@@ -107,8 +128,13 @@ def get_cpt_name_from_id(cpt_id):
                 return name
             # otherwise, find name of parent and add it as a prefix to name
             else:
-                name = get_cpt_name_from_id(c.compartment_id)+":"+name
+                name = get_cpt_name_from_id_single_line(c.compartment_id)+":"+name
                 return name
+
+def get_cpt_name_from_id(cpt_id):
+    cpt_name = get_cpt_name_from_id_single_line(cpt_id)
+    cpt_name_ml = cpt_name.replace(":","<br>&nbsp;:")
+    return cpt_name_ml
 
 # ---- Get url link to a specific Exadata infrastructure in OCI Console
 def get_url_link_for_exadatainfrastructure(exadatainfrastructure):
@@ -186,8 +212,6 @@ def exadatainfrastructure_get_details (exadatainfrastructure_id):
         exainfra.region = signer.region
     exainfra.last_maintenance_start, exainfra.last_maintenance_end = get_last_maintenance_dates(DatabaseClient, exainfra.last_maintenance_run_id)
     exainfra.next_maintenance = get_next_maintenance_date(DatabaseClient, exainfra.next_maintenance_run_id)
-    exainfra.used_local_storage_in_gbs   = 0        # data added later in vmcluster_get_details() and autonomousvmcluster_get_details()
-    exainfra.used_exadata_storage_in_tbs = 0        # data added later in vmcluster_get_details() and autonomousvmcluster_get_details()
 
     # get the list of DB servers for this Exadata Infrastructure
     response = DatabaseClient.list_db_servers (
@@ -234,11 +258,6 @@ def vmcluster_get_details (vmcluster_id):
         if parse_version(sys_updates.version) > parse_version(vmclust.system_update_available):
             vmclust.system_update_available = sys_updates.version
 
-    # Add the storage resources used by the VM cluster to its parent Exadata Infrastructure
-    exainfra = get_exadatainfrastructure_from_id(vmclust.exadata_infrastructure_id)
-    exainfra.used_local_storage_in_gbs   += vmclust.db_node_storage_size_in_gbs
-    exainfra.used_exadata_storage_in_tbs += vmclust.data_storage_size_in_tbs
-
     # save details to list
     vmclusters.append (vmclust)
 
@@ -274,11 +293,6 @@ def autonomousvmcluster_get_details (autonomousvmcluster_id):
     # End of workaround. Once fixed, replace by this call:
     # autovmclust.last_maintenance_start, autovmclust.last_maintenance_end = get_last_maintenance_dates(DatabaseClient, autovmclust.last_maintenance_run_id)
     autovmclust.next_maintenance = get_next_maintenance_date(DatabaseClient, autovmclust.next_maintenance_run_id)
-
-    # Add the storage resources used by the autonomous VM cluster to its parent Exadata Infrastructure
-    exainfra = get_exadatainfrastructure_from_id(autovmclust.exadata_infrastructure_id)
-    exainfra.used_local_storage_in_gbs   += autovmclust.db_node_storage_size_in_gbs
-    exainfra.used_exadata_storage_in_tbs += autovmclust.data_storage_size_in_tbs
 
     # save details to list
     autonomousvmclusters.append (autovmclust)
@@ -338,26 +352,6 @@ def auto_cdb_get_details (auto_cdb_id):
     else:
         auto_cdb.region = signer.region
 
-    # # Get the latest patch available (DB version) for the DB HOME
-    # response = DatabaseClient.list_db_home_patches (db_home_id = db_home_id, retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
-    # db_home_updates = response.data
-    # db_home.db_update_latest = db_home.db_version
-    # for update in db_home_updates:
-    #     if parse_version(update.version) > parse_version(db_home.db_update_latest):
-    #         db_home.db_update_latest = update.version
-
-    # # get the list of databases (and pluggable databases) using this DB home
-    # response = DatabaseClient.list_databases (compartment_id = db_home.compartment_id, db_home_id = db_home_id, retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
-    # db_home.databases = response.data
-    # for database in db_home.databases:
-    #     # OCI pluggable database management is supported only for Oracle Database 19.0 or higher
-    #     try:
-    #         if database.is_cdb:
-    #             response = DatabaseClient.list_pluggable_databases (database_id = database.id, retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
-    #             database.pdbs = response.data
-    #     except:
-    #         pass
-
     # save details to list
     auto_cdbs.append (auto_cdb)
 
@@ -376,27 +370,6 @@ def auto_db_get_details (auto_db_id):
         auto_db.region = config["region"]
     else:
         auto_db.region = signer.region
-
-    # # Get the latest patch available (DB version) for the DB HOME
-    # response = DatabaseClient.list_db_home_patches (db_home_id = db_home_id, retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
-    # db_home_updates = response.data
-    # db_home.db_update_latest = db_home.db_version
-    # for update in db_home_updates:
-    #     if parse_version(update.version) > parse_version(db_home.db_update_latest):
-    #         db_home.db_update_latest = update.version
-
-    # # get the list of databases (and pluggable databases) using this DB home
-    # response = DatabaseClient.list_databases (compartment_id = db_home.compartment_id, db_home_id = db_home_id, retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
-    # db_home.databases = response.data
-    # for database in db_home.databases:
-    #     # print (f"DEBUG: database id = {database.id}",file=sys.stderr)
-    #     # OCI pluggable database management is supported only for Oracle Database 19.0 or higher
-    #     try:
-    #         if database.is_cdb:
-    #             response = DatabaseClient.list_pluggable_databases (database_id = database.id, retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
-    #             database.pdbs = response.data
-    #     except:
-    #         pass
 
     # save details to list
     auto_dbs.append (auto_db)
@@ -470,8 +443,7 @@ def search_auto_cdbs():
         retry_strategy = oci.retry.DEFAULT_RETRY_STRATEGY)
     sorted_items = sorted(response.data.items, key=operator.attrgetter('display_name'))
     for item in sorted_items:
-        if item.lifecycle_state == "AVAILABLE":
-            auto_cdb_get_details (item.identifier)
+        auto_cdb_get_details (item.identifier)
 
 # ---- Get the list of Autonomous Databases (for autonomous VM clusters)
 def search_auto_dbs():
@@ -602,16 +574,23 @@ def exainfra_memory_threshold_reached(exadatainfrastructure):
     return pct_used > threshold_memory
 
 def exainfra_local_storage_threshold_reached(exadatainfrastructure):
-    used     = exadatainfrastructure.used_local_storage_in_gbs 
+    used     = exadatainfrastructure.db_node_storage_size_in_gbs
     total    = exadatainfrastructure.max_db_node_storage_in_g_bs
     pct_used = used / total
     return pct_used > threshold_storage
 
 def exainfra_exadata_storage_threshold_reached(exadatainfrastructure):
-    used     = exadatainfrastructure.used_exadata_storage_in_tbs
+    used     = exadatainfrastructure.data_storage_size_in_tbs
     total    = exadatainfrastructure.max_data_storage_in_t_bs
     pct_used = used / total
     return pct_used > threshold_storage
+
+def get_exacc_model_from_shape(shape):
+    model = shape.replace("ExadataCC.","")
+    for sm in shapes_models:
+        if sm['shape'] == shape:
+            model = sm['model'] 
+    return model
 
 def generate_html_table_exadatainfrastructures():
     html_content  = '''
@@ -634,7 +613,7 @@ def generate_html_table_exadatainfrastructures():
                     <th>EXADATA<br>INFRASTRUCTURE</th>
                     <th>Compartment</th>
                     <th class="exacc_maintenance">Quarterly<br>maintenances</th>
-                    <th>Shape</th>
+                    <th>Model</th>
                     <th>Servers<br><br>Compute<hr>Storage</th>
                     <th>Status</th>
                     <th>OCPUs<br><br>Available<hr>Total</th>
@@ -660,7 +639,7 @@ def generate_html_table_exadatainfrastructures():
                 <tr>
                     <td>{exadatainfrastructure.region}</td>
                     <td><b><a href="{url}">{exadatainfrastructure.display_name}</a></b> </td>
-                    <td>{cpt_name}</td>
+                    <td style="text-align: left">{cpt_name}</td>
                     <td class="exacc_maintenance" style="text-align: left">Last maintenance: <br>'''
 
         try:
@@ -682,7 +661,7 @@ def generate_html_table_exadatainfrastructures():
 
         if exadatainfrastructure.next_maintenance == "":
             html_content += f'''
-                         - Not yet scheduled </td>'''
+                         - Not yet scheduled<br><br>'''
         else:
             # if the next maintenance date is soon, highlight it using a different color
             if (exadatainfrastructure.next_maintenance - now < timedelta(days=days_notification)):
@@ -690,16 +669,18 @@ def generate_html_table_exadatainfrastructures():
                          - <span style="color: {color_date_soon}">{exadatainfrastructure.next_maintenance.strftime(format)}</span></td>'''
             else:
                 html_content += f'''
-                         - {exadatainfrastructure.next_maintenance.strftime(format)}</td>'''
+                         - {exadatainfrastructure.next_maintenance.strftime(format)}<br><br>'''
+
+        html_content += f'''
+                        Patching mode: {exadatainfrastructure.maintenance_window.patching_mode}</td>'''
 
         ocpus_available           = exadatainfrastructure.max_cpu_count               - exadatainfrastructure.cpus_enabled
         memory_available          = exadatainfrastructure.max_memory_in_gbs           - exadatainfrastructure.memory_size_in_gbs
-        local_storage_available   = exadatainfrastructure.max_db_node_storage_in_g_bs - exadatainfrastructure.used_local_storage_in_gbs
-        exadata_storage_available = exadatainfrastructure.max_data_storage_in_t_bs    - exadatainfrastructure.used_exadata_storage_in_tbs
-        # print (f"DEBUG: exadatainfrastructure = {exadatainfrastructure}",file=sys.stderr)
+        local_storage_available   = exadatainfrastructure.max_db_node_storage_in_g_bs - exadatainfrastructure.db_node_storage_size_in_gbs
+        exadata_storage_available = exadatainfrastructure.max_data_storage_in_t_bs    - exadatainfrastructure.data_storage_size_in_tbs
 
         html_content += f'''
-                    <td>{exadatainfrastructure.shape.replace("ExadataCC.","")}</td>
+                    <td>{get_exacc_model_from_shape(exadatainfrastructure.shape)}</td>
                     <td>{exadatainfrastructure.compute_count}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <hr> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{exadatainfrastructure.storage_count}</td>
                     <td><span{html_style1}>{exadatainfrastructure.lifecycle_state}</span></td>
                     <td><span{html_style2}>{ocpus_available}</span> <hr> {exadatainfrastructure.max_cpu_count}</td>
@@ -791,25 +772,27 @@ def generate_html_table_vmclusters():
     for exadatainfrastructure in exadatainfrastructures:
         for vmcluster in vmclusters:
             if vmcluster.exadata_infrastructure_id == exadatainfrastructure.id:
-                url1       = get_url_link_for_exadatainfrastructure(exadatainfrastructure)      
-                url2       = get_url_link_for_vmcluster(vmcluster)
-                cpt_name   = get_cpt_name_from_id(vmcluster.compartment_id)
-                html_style = f' style="color: {color_not_available}"' if (vmcluster.lifecycle_state != "AVAILABLE") else ''
+                url1        = get_url_link_for_exadatainfrastructure(exadatainfrastructure)      
+                url2        = get_url_link_for_vmcluster(vmcluster)
+                cpt_name    = get_cpt_name_from_id(vmcluster.compartment_id)
+                html_style1 = f' style="color: {color_not_available}"' if (vmcluster.lifecycle_state != "AVAILABLE") else ''
+                html_style2 = f' style="color: {color_new_version_avail}"' if (vmcluster.gi_version != vmcluster.gi_update_available) else ''
+                html_style3 = f' style="color: {color_new_version_avail}"' if (vmcluster.system_version != vmcluster.system_update_available) else ''
 
                 html_content += f'''
                 <tr>
                     <td>{vmcluster.region}</td>
                     <td><a href="{url1}">{exadatainfrastructure.display_name}</a></td>
                     <td><b><a href="{url2}">{vmcluster.display_name}</a></b> </td>
-                    <td>{cpt_name}</td>
-                    <td><span{html_style}>{vmcluster.lifecycle_state}</span></td>
+                    <td style="text-align: left">{cpt_name}</td>
+                    <td><span{html_style1}>{vmcluster.lifecycle_state}</span></td>
                     <td>{display_db_servers(vmcluster,exadatainfrastructure)}</td>
                     <td>{vmcluster.cpus_enabled}</td>
                     <td>{vmcluster.memory_size_in_gbs} GB</td>
                     <td>{vmcluster.db_node_storage_size_in_gbs} GB</td>
                     <td>{vmcluster.data_storage_size_in_tbs} TB</td>
-                    <td>{vmcluster.gi_version}<hr>{vmcluster.gi_update_available}</td>
-                    <td>{vmcluster.system_version}<hr>{vmcluster.system_update_available}</td>'''
+                    <td><span{html_style2}>{vmcluster.gi_version}</span><hr>{vmcluster.gi_update_available}</td>
+                    <td><span{html_style3}>{vmcluster.system_version}</span><hr>{vmcluster.system_update_available}</td>'''
 
                 if display_license:
                     html_content += f'''
@@ -870,7 +853,7 @@ def generate_html_table_db_homes():
                     <th>VM cluster</th>
                     <th>DB HOME</th>
                     <th>Status</th>
-                    <th>DB version<br>Current / Latest</th>
+                    <th>DB version<br><br>Current<hr>Latest</th>
                     <th>Databases : PDBs</th>
                 </tr>'''
 
@@ -879,10 +862,11 @@ def generate_html_table_db_homes():
             if vmcluster.exadata_infrastructure_id == exadatainfrastructure.id:
                 for db_home in db_homes:
                     if db_home.vm_cluster_id == vmcluster.id:
-                        url1       = get_url_link_for_exadatainfrastructure(exadatainfrastructure)
-                        url2       = get_url_link_for_vmcluster(vmcluster)
-                        url3       = get_url_link_for_db_home(db_home)
-                        html_style = f' style="color: {color_not_available}"' if (db_home.lifecycle_state != "AVAILABLE") else ''
+                        url1        = get_url_link_for_exadatainfrastructure(exadatainfrastructure)
+                        url2        = get_url_link_for_vmcluster(vmcluster)
+                        url3        = get_url_link_for_db_home(db_home)
+                        html_style1 = f' style="color: {color_not_available}"' if (db_home.lifecycle_state != "AVAILABLE") else ''
+                        html_style2 = f' style="color: {color_new_version_avail}"' if (db_home.db_version != db_home.db_update_latest) else ''
 
                         html_content += f'''
                 <tr>
@@ -890,8 +874,8 @@ def generate_html_table_db_homes():
                     <td><a href="{url1}">{exadatainfrastructure.display_name}</a> </td>
                     <td><a href="{url2}">{vmcluster.display_name}</a> </td>
                     <td><b><a href="{url3}">{db_home.display_name}</a></b> </td>
-                    <td><span{html_style}>{db_home.lifecycle_state}</span></td>
-                    <td>{db_home.db_version}/{db_home.db_update_latest}</td>
+                    <td><span{html_style1}>{db_home.lifecycle_state}</span></td>
+                    <td><span{html_style2}>{db_home.db_version}</span><hr>{db_home.db_update_latest}</td>
                     <td style="text-align: left">'''
 
                         for database in db_home.databases:
@@ -981,7 +965,7 @@ def generate_html_table_autonomousvmclusters():
                     <td>{autonomousvmcluster.region}</td>
                     <td><a href="{url1}">{exadatainfrastructure.display_name}</a></td>
                     <td><b><a href="{url2}">{autonomousvmcluster.display_name}</a></b> </td>
-                    <td>{cpt_name}</td>
+                    <td style="text-align: left">{cpt_name}</td>
                     <td class="exacc_maintenance" style="text-align: left">Last maintenance: <br>'''
 
                 try:
@@ -1012,8 +996,6 @@ def generate_html_table_autonomousvmclusters():
                     else:
                         html_content += f'''
                          - {autonomousvmcluster.next_maintenance.strftime(format)}</td>'''
-
-                print (f"DEBUG11: autonomousvmcluster = {autonomousvmcluster}",file=sys.stderr)
 
                 html_style1 = f' style="color: {color_not_available}"' if (autonomousvmcluster.lifecycle_state != "AVAILABLE") else ''
                 html_style2 = f' style="color: {color_resources_warning}"' if autovmcl_storage_threshold_reached(autonomousvmcluster) else ''
@@ -1079,10 +1061,10 @@ def generate_html_table_autonomous_cdbs():
                     <th>Exadata<br>infrastructure</th>
                     <th>Autonomous<br>VM Cluster</th>
                     <th>AUTONOMOUS<br>CONTAINER<br>DATABASE</th>
+                    <th>Compartment</th>
                     <th>Version</th>
                     <th>Status</th>
-                    <th>Available<br>OCPUs</th>
-                    <th>Total<br>OCPUs</th>
+                    <th>OCPUs<br><br>Available<hr>Total</th>
                     <th>Autonomous<br>Data Guard</th>
                     <th>Autonomous<br>Database(s)</th>
                 </tr>'''
@@ -1092,6 +1074,7 @@ def generate_html_table_autonomous_cdbs():
             if autonomousvmcluster.exadata_infrastructure_id == exadatainfrastructure.id:
                 for auto_cdb in auto_cdbs:
                     if auto_cdb.autonomous_vm_cluster_id == autonomousvmcluster.id:
+                        cpt_name  = get_cpt_name_from_id(auto_cdb.compartment_id)
                         url1      = get_url_link_for_exadatainfrastructure(exadatainfrastructure)      
                         url2      = get_url_link_for_autonomousvmcluster(autonomousvmcluster)
                         url3      = get_url_link_for_auto_cdb(auto_cdb)
@@ -1103,10 +1086,10 @@ def generate_html_table_autonomous_cdbs():
                     <td><a href="{url1}">{exadatainfrastructure.display_name}</a></td>
                     <td><a href="{url2}">{autonomousvmcluster.display_name}</a> </td>
                     <td><b><a href="{url3}">{auto_cdb.display_name}</a></b> </td>
+                    <td style="text-align: left">{cpt_name}</td>
                     <td>{auto_cdb.db_version}</td>
                     <td>{auto_cdb.lifecycle_state}</td>
-                    <td>{auto_cdb.available_cpus}</td>
-                    <td>{auto_cdb.total_cpus}</td>
+                    <td>{auto_cdb.available_cpus}<hr>{auto_cdb.total_cpus}</td>
                     <td>{dataguard}</td>'''
 
                         adbs = []
