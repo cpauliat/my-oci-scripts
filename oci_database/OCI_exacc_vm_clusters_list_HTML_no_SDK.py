@@ -29,6 +29,7 @@
 #    2022-08-18: Highlight version information if a newer version is available for VM clusters and DB homes
 #    2022-08-18: For Exadata Infrastructures, display patching mode and replace shape by human readable model name
 #    2022-08-18: For Autonomous Container Databases, display compartment name
+#    2022-08-29: For Exadata Infrastructures, display rack serial number if available
 #
 # IMPORTANT: it is recommended to use the Python SDK version of this script instead of this version
 # --------------------------------------------------------------------------------------------------------------
@@ -745,11 +746,17 @@ def generate_html_table_exadatainfrastructures():
         html_style3 = f' style="color: {color_resources_warning}"' if exainfra_memory_threshold_reached(exadatainfrastructure) else ''
         html_style4 = f' style="color: {color_resources_warning}"' if exainfra_local_storage_threshold_reached(exadatainfrastructure) else ''
         html_style5 = f' style="color: {color_resources_warning}"' if exainfra_exadata_storage_threshold_reached(exadatainfrastructure) else ''
+        try:
+            serial_number = exadatainfrastructure['rackSerialNumber']
+            if not(serial_number.startswith("AK")):
+                serial_number = "not available"
+        except:
+            serial_number = "not available"
 
         html_content += f'''
                 <tr>
                     <td>{exadatainfrastructure['region']}</td>
-                    <td><b><a href="{url}">{exadatainfrastructure['displayName']}</a></b> </td>
+                    <td><b><a href="{url}">{exadatainfrastructure['displayName']}</a></b><br><br>S/N: {serial_number}</td>
                     <td style="text-align: left">{cpt_name}</td>
                     <td class="exacc_maintenance" style="text-align: left">Last maintenance: <br>'''
 
