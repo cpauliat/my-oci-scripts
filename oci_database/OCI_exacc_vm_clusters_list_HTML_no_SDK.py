@@ -748,8 +748,6 @@ def generate_html_table_exadatainfrastructures():
         html_style5 = f' style="color: {color_resources_warning}"' if exainfra_exadata_storage_threshold_reached(exadatainfrastructure) else ''
         try:
             serial_number = exadatainfrastructure['rackSerialNumber']
-            if not(serial_number.startswith("AK")):
-                serial_number = "not available"
         except:
             serial_number = "not available"
 
