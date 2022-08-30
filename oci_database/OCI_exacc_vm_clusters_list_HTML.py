@@ -59,6 +59,7 @@
 #    2022-08-18: For Exadata Infrastructures, display patching mode and replace shape by human readable model name
 #    2022-08-18: For Autonomous Container Databases, display compartment name
 #    2022-08-29: For Exadata Infrastructures, display rack serial number if available
+#    2022-08-30: Fix minor bug in patching mode display
 # --------------------------------------------------------------------------------------------------------------
 
 # -------- import
@@ -635,6 +636,7 @@ def generate_html_table_exadatainfrastructures():
         html_style3 = f' style="color: {color_resources_warning}"' if exainfra_memory_threshold_reached(exadatainfrastructure) else ''
         html_style4 = f' style="color: {color_resources_warning}"' if exainfra_local_storage_threshold_reached(exadatainfrastructure) else ''
         html_style5 = f' style="color: {color_resources_warning}"' if exainfra_exadata_storage_threshold_reached(exadatainfrastructure) else ''
+
         try:
             serial_number = exadatainfrastructure.rack_serial_number
         except:
@@ -667,14 +669,10 @@ def generate_html_table_exadatainfrastructures():
         if exadatainfrastructure.next_maintenance == "":
             html_content += f'''
                          - Not yet scheduled<br><br>'''
-        else:
-            # if the next maintenance date is soon, highlight it using a different color
-            if (exadatainfrastructure.next_maintenance - now < timedelta(days=days_notification)):
-                html_content += f'''
-                         - <span style="color: {color_date_soon}">{exadatainfrastructure.next_maintenance.strftime(format)}</span></td>'''
-            else:
-                html_content += f'''
-                         - {exadatainfrastructure.next_maintenance.strftime(format)}<br><br>'''
+        else: 
+            html_style6 = f' style="color: {color_date_soon}"' if (exadatainfrastructure.next_maintenance - now < timedelta(days=days_notification)) else ''       
+            html_content += f'''
+                         - <span{html_style6}>{exadatainfrastructure.next_maintenance.strftime(format)}</span><br><br>'''
 
         html_content += f'''
                         Patching mode: {exadatainfrastructure.maintenance_window.patching_mode}</td>'''
